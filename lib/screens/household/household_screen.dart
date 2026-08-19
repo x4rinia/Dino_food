@@ -550,7 +550,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
       '#E76F51', // Red
       '#F4A261', // Orange
       '#9C27B0', // Purple
-      '#009688', // Teal
+      '#455A64', // Dark Grey
     ];
 
     showDialog(
