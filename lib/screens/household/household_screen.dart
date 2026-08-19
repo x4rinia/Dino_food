@@ -54,6 +54,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
         
         if (mounted) {
           if (success) {
+            householdProvider.loadMembers(); // Refresh members list to show new avatar
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Profilbild erfolgreich hochgeladen!'), backgroundColor: AppTheme.primaryGreen),
             );
@@ -140,10 +141,10 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                                           constraints: const BoxConstraints(),
                                           padding: const EdgeInsets.all(4),
                                           onPressed: () {
-                                            _showRenameHouseholdDialog(
+                                            _showEditHouseholdDialog(
                                               context,
                                               householdProvider,
-                                              currentHousehold.name,
+                                              currentHousehold,
                                             );
                                           },
                                         ),
@@ -535,67 +536,122 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
     );
   }
 
-  void _showRenameHouseholdDialog(
+  void _showEditHouseholdDialog(
     BuildContext context,
     HouseholdProvider householdProvider,
-    String currentName,
+    Household currentHousehold,
   ) {
-    final controller = TextEditingController(text: currentName);
+    final controller = TextEditingController(text: currentHousehold.name);
+    String selectedColor = currentHousehold.color;
+
+    final List<String> householdColors = [
+      '#2A9D8F', // Green
+      '#2196F3', // Blue
+      '#E76F51', // Red
+      '#F4A261', // Orange
+      '#9C27B0', // Purple
+      '#009688', // Teal
+    ];
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppTheme.primarySoft,
-                borderRadius: BorderRadius.circular(10),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primarySoft,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text('✏️', style: TextStyle(fontSize: 20)),
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  'Haushalt bearbeiten',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Haushaltsname',
+                    hintText: 'z. B. Dino WG',
+                    prefixIcon: Icon(Icons.home_outlined, color: AppTheme.textMuted),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Farbe des Haushalts',
+                  style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: householdColors.map((colorHex) {
+                    final color = Color(int.parse(colorHex.replaceFirst('#', '0xFF')));
+                    final isSelected = selectedColor == colorHex;
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          selectedColor = colorHex;
+                        });
+                      },
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                          border: isSelected ? Border.all(color: AppTheme.textDark, width: 3) : null,
+                          boxShadow: [
+                            if (isSelected)
+                              BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 2))
+                          ],
+                        ),
+                        child: isSelected ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Abbrechen', style: TextStyle(color: AppTheme.textMuted)),
               ),
-              child: const Text('✏️', style: TextStyle(fontSize: 20)),
-            ),
-            const SizedBox(width: 10),
-            const Text(
-              'Haushalt umbenennen',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            ),
-          ],
-        ),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Haushaltsname',
-            hintText: 'z. B. Dino WG',
-            prefixIcon: Icon(Icons.home_outlined, color: AppTheme.textMuted),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Abbrechen', style: TextStyle(color: AppTheme.textMuted)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final newName = controller.text.trim();
-              if (newName.isNotEmpty) {
-                Navigator.pop(ctx);
-                final success = await householdProvider.renameHousehold(newName);
-                if (success && context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Haushalt erfolgreich in "$newName" umbenannt!'),
-                      backgroundColor: AppTheme.primaryGreen,
-                    ),
-                  );
-                }
-              }
-            },
-            child: const Text('Speichern'),
-          ),
-        ],
+              ElevatedButton(
+                onPressed: () async {
+                  final newName = controller.text.trim();
+                  if (newName.isNotEmpty) {
+                    Navigator.pop(ctx);
+                    final success = await householdProvider.updateHouseholdDetails(newName, selectedColor);
+                    if (success && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Haushalt erfolgreich aktualisiert!'),
+                          backgroundColor: AppTheme.primaryGreen,
+                        ),
+                      );
+                    }
+                  }
+                },
+                child: const Text('Speichern'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

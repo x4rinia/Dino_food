@@ -190,7 +190,7 @@ class HouseholdProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> renameHousehold(String newName) async {
+  Future<bool> updateHouseholdDetails(String newName, String newColor) async {
     if (_currentHousehold == null) return false;
     final trimmed = newName.trim();
     if (trimmed.isEmpty) return false;
@@ -198,7 +198,7 @@ class HouseholdProvider extends ChangeNotifier {
     final updated = Household(
       id: _currentHousehold!.id,
       name: trimmed,
-      color: _currentHousehold!.color,
+      color: newColor,
       inviteCode: _currentHousehold!.inviteCode,
       createdBy: _currentHousehold!.createdBy,
       createdAt: _currentHousehold!.createdAt,
@@ -215,35 +215,11 @@ class HouseholdProvider extends ChangeNotifier {
       try {
         await _householdService.updateHousehold(updated);
       } catch (e) {
-        debugPrint('Error renaming household: $e');
+        debugPrint('Error updating household details: $e');
         return false;
       }
     }
     return true;
-  }
-
-  Future<void> updateColor(String color) async {
-    if (_currentHousehold == null) return;
-
-    final updated = Household(
-      id: _currentHousehold!.id,
-      name: _currentHousehold!.name,
-      color: color,
-      inviteCode: _currentHousehold!.inviteCode,
-      createdBy: _currentHousehold!.createdBy,
-      createdAt: _currentHousehold!.createdAt,
-    );
-
-    final index = _households.indexWhere((h) => h.id == _currentHousehold!.id);
-    if (index != -1) {
-      _households[index] = updated;
-    }
-    _currentHousehold = updated;
-    notifyListeners();
-
-    if (SupabaseConfig.isConfigured) {
-      await _householdService.updateHousehold(updated);
-    }
   }
 
 
