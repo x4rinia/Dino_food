@@ -45,7 +45,7 @@ class SupabaseConfig {
       try {
         await Supabase.initialize(
           url: supabaseUrl,
-          anonKey: supabasePublishableKey,
+          publishableKey: supabasePublishableKey,
           realtimeClientOptions: const RealtimeClientOptions(
             eventsPerSecond: 10,
           ),
