@@ -39,6 +39,41 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
     super.dispose();
   }
 
+  bool _isUploadingUserAvatar = false;
+
+  Future<void> _pickAndUploadUserImage() async {
+    if (_isUploadingUserAvatar) return;
+    
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    
+    if (pickedFile != null) {
+      setState(() => _isUploadingUserAvatar = true);
+      try {
+        final bytes = await pickedFile.readAsBytes();
+        final ext = pickedFile.name.split('.').last;
+        
+        if (!mounted) return;
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        final success = await authProvider.uploadAvatar(bytes, ext);
+        
+        if (mounted) {
+          if (success) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Profilbild erfolgreich hochgeladen!'), backgroundColor: AppTheme.primaryGreen),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(authProvider.errorMessage ?? 'Fehler beim Upload'), backgroundColor: AppTheme.errorRed),
+            );
+          }
+        }
+      } finally {
+        if (mounted) setState(() => _isUploadingUserAvatar = false);
+      }
+    }
+  }
+
   Future<void> _pickAndUploadImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
@@ -395,23 +430,31 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                       children: householdProvider.members.map((member) {
                         final isOwner = member.role == 'owner';
                         final name = member.profile?.displayName ?? 'Mitglied';
+                        final avatarUrl = member.profile?.avatarUrl;
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 8.0),
                           child: DinoCard(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                             child: Row(
                               children: [
-                                CircleAvatar(
-                                  radius: 18,
-                                  backgroundColor: AppTheme.primarySoft,
-                                  child: Text(
-                                    name.isNotEmpty ? name[0].toUpperCase() : 'U',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.primaryGreen,
+                                if (avatarUrl != null)
+                                  CircleAvatar(
+                                    radius: 18,
+                                    backgroundImage: NetworkImage(avatarUrl),
+                                    backgroundColor: AppTheme.primarySoft,
+                                  )
+                                else
+                                  CircleAvatar(
+                                    radius: 18,
+                                    backgroundColor: AppTheme.primarySoft,
+                                    child: Text(
+                                      name.isNotEmpty ? name[0].toUpperCase() : 'U',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.primaryGreen,
+                                      ),
                                     ),
                                   ),
-                                ),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
@@ -460,12 +503,45 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                       children: [
                         Row(
                           children: [
-                            CircleAvatar(
-                              radius: 24,
-                              backgroundColor: AppTheme.primaryGreen,
-                              child: const Text(
-                                '🦕',
-                                style: TextStyle(fontSize: 24),
+                            GestureDetector(
+                              onTap: _pickAndUploadUserImage,
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  if (authProvider.profile?.avatarUrl != null)
+                                    CircleAvatar(
+                                      radius: 24,
+                                      backgroundImage: NetworkImage(authProvider.profile!.avatarUrl!),
+                                      backgroundColor: AppTheme.primaryGreen,
+                                    )
+                                  else
+                                    CircleAvatar(
+                                      radius: 24,
+                                      backgroundColor: AppTheme.primaryGreen,
+                                      child: const Text(
+                                        '🦕',
+                                        style: TextStyle(fontSize: 24),
+                                      ),
+                                    ),
+                                  Positioned(
+                                    right: -2,
+                                    bottom: -2,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: const BoxDecoration(
+                                        color: Colors.white,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: _isUploadingUserAvatar
+                                          ? const SizedBox(
+                                              width: 12,
+                                              height: 12,
+                                              child: CircularProgressIndicator(strokeWidth: 2),
+                                            )
+                                          : const Icon(Icons.camera_alt, size: 12, color: AppTheme.primaryGreen),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             const SizedBox(width: 14),

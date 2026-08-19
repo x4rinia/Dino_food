@@ -92,4 +92,25 @@ class AuthService {
 
     await _client.from('profiles').upsert(updates);
   }
+
+  Future<String> uploadAvatar(Uint8List imageBytes, String fileExtension) async {
+    if (!SupabaseConfig.isConfigured || currentUser == null) throw Exception('Nicht angemeldet');
+
+    final userId = currentUser!.id;
+    final imagePath = '$userId/avatar.$fileExtension';
+
+    await _client.storage.from('avatars').uploadBinary(
+      imagePath,
+      imageBytes,
+      fileOptions: FileOptions(upsert: true, contentType: 'image/$fileExtension'),
+    );
+
+    // Cache-Busting Parameter hinzufügen
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final imageUrl = '${_client.storage.from('avatars').getPublicUrl(imagePath)}?t=$timestamp';
+
+    await updateProfile(avatarUrl: imageUrl);
+    
+    return imageUrl;
+  }
 }

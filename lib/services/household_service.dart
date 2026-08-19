@@ -179,7 +179,7 @@ class HouseholdService {
         try {
           final profilesData = await _client
               .from('profiles')
-              .select('id, email, display_name, avatar_url, updated_at')
+              .select('id, display_name, avatar_url, created_at')
               .filter('id', 'in', userIds);
 
           for (final p in profilesData as List) {

@@ -61,6 +61,26 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<bool> uploadAvatar(Uint8List imageBytes, String fileExtension) async {
+    try {
+      final imageUrl = await _authService.uploadAvatar(imageBytes, fileExtension);
+      if (_profile != null) {
+        _profile = Profile(
+          id: _profile!.id,
+          displayName: _profile!.displayName,
+          avatarUrl: imageUrl,
+          createdAt: _profile!.createdAt,
+        );
+        notifyListeners();
+      }
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<bool> signIn(String email, String password) async {
     _setLoading();
     try {
