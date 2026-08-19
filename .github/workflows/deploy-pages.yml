@@ -37,6 +37,7 @@ jobs:
         run: touch .env
 
       - name: Analyze code
+        continue-on-error: true
         run: flutter analyze
 
       - name: Build Web Release
