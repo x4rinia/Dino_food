@@ -254,12 +254,19 @@ class AuthProvider extends ChangeNotifier {
       return 'Das Passwort ist zu schwach (mindestens 6 Zeichen erforderlich).';
     }
 
+    if (errorStr.contains('rate limit') ||
+        errorStr.contains('over_email_send_rate_limit') ||
+        errorStr.contains('email rate limit')) {
+      return 'Supabase versucht eine E-Mail zu senden: Bitte deaktiviere "Confirm email" im Supabase-Dashboard (Authentication -> Providers -> Email).';
+    }
+
     if (errorStr.contains('confirm email') || errorStr.contains('supabase-dashboard')) {
       return e.toString().replaceFirst('Exception: ', '');
     }
 
     if (isSignup) {
-      return 'Der Account konnte nicht erstellt werden.';
+      final cleanMsg = e.toString().replaceFirst('Exception: ', '').replaceFirst('AuthException: ', '');
+      return cleanMsg.isNotEmpty ? cleanMsg : 'Der Account konnte nicht erstellt werden.';
     }
 
     return e.toString().replaceFirst('Exception: ', '').replaceFirst('AuthException: ', '');
