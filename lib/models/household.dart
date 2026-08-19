@@ -3,6 +3,7 @@ class Household {
   final String name;
   final String postalCode;
   final String inviteCode;
+  final String? imageUrl;
   final String? createdBy;
   final DateTime createdAt;
 
@@ -11,6 +12,7 @@ class Household {
     required this.name,
     this.postalCode = '',
     required this.inviteCode,
+    this.imageUrl,
     this.createdBy,
     required this.createdAt,
   });
@@ -21,6 +23,7 @@ class Household {
       name: json['name'] as String? ?? 'Haushalt',
       postalCode: json['postal_code'] as String? ?? '',
       inviteCode: json['invite_code'] as String? ?? '',
+      imageUrl: json['image_url'] as String?,
       createdBy: json['created_by'] as String?,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
@@ -34,6 +37,7 @@ class Household {
       'name': name,
       'postal_code': postalCode,
       'invite_code': inviteCode,
+      if (imageUrl != null) 'image_url': imageUrl,
       if (createdBy != null) 'created_by': createdBy,
       'created_at': createdAt.toIso8601String(),
     };

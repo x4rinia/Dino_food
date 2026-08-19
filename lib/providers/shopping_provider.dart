@@ -199,6 +199,7 @@ class ShoppingProvider extends ChangeNotifier {
     if (SupabaseConfig.isConfigured) {
       try {
         await _shoppingService.deleteItem(itemId);
+        _forceRefresh();
       } catch (e) {
         debugPrint('Error deleting item: $e');
       }
@@ -214,10 +215,25 @@ class ShoppingProvider extends ChangeNotifier {
     if (SupabaseConfig.isConfigured) {
       try {
         await _shoppingService.clearCheckedItems(_currentHouseholdId!);
+        _forceRefresh();
       } catch (e) {
         debugPrint('Error clearing checked items: $e');
       }
     }
+  }
+
+  void _forceRefresh() {
+    if (_currentHouseholdId == null || !SupabaseConfig.isConfigured) return;
+    
+    // Workaround for missing REPLICA IDENTITY FULL in Supabase:
+    // Force a fresh fetch from DB so the local stream cache is reset
+    // without the deleted items, preventing them from reappearing on next update.
+    final currentId = _currentHouseholdId;
+    _currentHouseholdId = null;
+    _streamSubscription?.cancel();
+    _streamSubscription = null;
+    
+    Future.microtask(() => bindToHousehold(currentId));
   }
 
   @override

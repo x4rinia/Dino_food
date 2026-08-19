@@ -246,6 +246,46 @@ class HouseholdProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> uploadHouseholdImage(Uint8List imageBytes, String fileExtension) async {
+    if (_currentHousehold == null) return false;
+
+    _state = HouseholdState.loading;
+    notifyListeners();
+
+    try {
+      final imageUrl = await _householdService.uploadHouseholdImage(
+        _currentHousehold!.id,
+        imageBytes,
+        fileExtension,
+      );
+
+      final updated = Household(
+        id: _currentHousehold!.id,
+        name: _currentHousehold!.name,
+        postalCode: _currentHousehold!.postalCode,
+        inviteCode: _currentHousehold!.inviteCode,
+        imageUrl: imageUrl,
+        createdBy: _currentHousehold!.createdBy,
+        createdAt: _currentHousehold!.createdAt,
+      );
+
+      final index = _households.indexWhere((h) => h.id == _currentHousehold!.id);
+      if (index != -1) {
+        _households[index] = updated;
+      }
+      _currentHousehold = updated;
+      _state = HouseholdState.loaded;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('Error uploading image: $e');
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      _state = HouseholdState.loaded;
+      notifyListeners();
+      return false;
+    }
+  }
+
   /// Reset is ONLY called on explicit user logout / account switch
   void reset() {
     _state = HouseholdState.initial;

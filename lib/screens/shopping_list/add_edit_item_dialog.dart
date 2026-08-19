@@ -5,6 +5,7 @@ import '../../models/food.dart';
 import '../../models/shopping_item.dart';
 import '../../providers/food_provider.dart';
 import '../../providers/shopping_provider.dart';
+import '../../utils/string_extensions.dart';
 
 class AddEditItemDialog extends StatefulWidget {
   final ShoppingItem? itemToEdit;
@@ -54,8 +55,8 @@ class _AddEditItemDialogState extends State<AddEditItemDialog> {
     if (!_formKey.currentState!.validate()) return;
 
     final shoppingProvider = Provider.of<ShoppingProvider>(context, listen: false);
-    final name = _nameController.text.trim();
-    final note = _noteController.text.trim();
+    final name = _nameController.text.toCapitalized();
+    final note = _noteController.text.toCapitalized();
 
     final rawQty = _quantityController.text.trim().replaceAll(',', '.');
     final quantity = double.tryParse(rawQty) ?? 1.0;

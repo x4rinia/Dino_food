@@ -126,7 +126,27 @@ class HouseholdService {
     await _client.from('households').update({
       'name': household.name,
       'postal_code': household.postalCode,
+      if (household.imageUrl != null) 'image_url': household.imageUrl,
     }).eq('id', household.id);
+  }
+
+  Future<String> uploadHouseholdImage(String householdId, Uint8List imageBytes, String fileExtension) async {
+    if (!SupabaseConfig.isConfigured) throw Exception('Supabase nicht konfiguriert');
+
+    final fileName = '${householdId}_${DateTime.now().millisecondsSinceEpoch}.$fileExtension';
+    final imagePath = 'households/$fileName';
+
+    await _client.storage.from('household_images').uploadBinary(
+      imagePath,
+      imageBytes,
+      fileOptions: FileOptions(upsert: true, contentType: 'image/$fileExtension'),
+    );
+
+    final imageUrl = _client.storage.from('household_images').getPublicUrl(imagePath);
+
+    await _client.from('households').update({'image_url': imageUrl}).eq('id', householdId);
+    
+    return imageUrl;
   }
 
   /// Robust 2-step member and profile fetcher

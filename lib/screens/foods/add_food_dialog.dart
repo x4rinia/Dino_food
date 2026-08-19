@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/app_theme.dart';
 import '../../providers/food_provider.dart';
+import '../../utils/string_extensions.dart';
 
 class AddFoodDialog extends StatefulWidget {
   const AddFoodDialog({super.key});
@@ -50,7 +51,7 @@ class _AddFoodDialogState extends State<AddFoodDialog> {
 
     final foodProvider = Provider.of<FoodProvider>(context, listen: false);
     await foodProvider.addCustomFood(
-      name: _nameController.text.trim(),
+      name: _nameController.text.toCapitalized(),
       category: _selectedCategory,
       defaultUnit: '',
     );
@@ -58,7 +59,7 @@ class _AddFoodDialogState extends State<AddFoodDialog> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${_nameController.text.trim()} zum Katalog hinzugefügt!'),
+          content: Text('${_nameController.text.toCapitalized()} zum Katalog hinzugefügt!'),
           backgroundColor: AppTheme.primaryGreen,
         ),
       );
