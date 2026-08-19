@@ -237,65 +237,6 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                         const Divider(height: 1),
                         const SizedBox(height: 14),
 
-                        // Postal Code Section
-                        Row(
-                          children: [
-                            const Icon(Icons.location_on_outlined, size: 20, color: AppTheme.textMuted),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Postleitzahl:',
-                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                            ),
-                            const SizedBox(width: 10),
-                            if (!_isEditingPlz) ...[
-                              Text(
-                                (currentHousehold?.postalCode.isNotEmpty == true)
-                                    ? currentHousehold!.postalCode
-                                    : 'Nicht festgelegt',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: currentHousehold?.postalCode.isNotEmpty == true
-                                      ? AppTheme.textDark
-                                      : AppTheme.textMuted,
-                                ),
-                              ),
-                              const Spacer(),
-                              IconButton(
-                                icon: const Icon(Icons.edit, size: 18, color: AppTheme.primaryGreen),
-                                onPressed: () {
-                                  setState(() {
-                                    _isEditingPlz = true;
-                                    _plzController.text = currentHousehold?.postalCode ?? '';
-                                  });
-                                },
-                              ),
-                            ] else ...[
-                              Expanded(
-                                child: SizedBox(
-                                  height: 36,
-                                  child: TextField(
-                                    controller: _plzController,
-                                    keyboardType: TextInputType.number,
-                                    decoration: const InputDecoration(
-                                      isDense: true,
-                                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                      hintText: 'PLZ z.B. 10115',
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.check, size: 20, color: AppTheme.primaryGreen),
-                                onPressed: () {
-                                  householdProvider.updatePostalCode(_plzController.text);
-                                  setState(() => _isEditingPlz = false);
-                                },
-                              ),
-                            ],
-                          ],
-                        ),
-
                         // Invite Code Section
                         if (currentHousehold != null &&
                             currentHousehold.inviteCode.isNotEmpty) ...[
@@ -569,8 +510,8 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                           width: double.infinity,
                           child: OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.errorRed,
-                              side: const BorderSide(color: AppTheme.errorRed),
+                              foregroundColor: AppTheme.textDark,
+                              side: BorderSide(color: AppTheme.textMuted.withValues(alpha: 0.3)),
                             ),
                             onPressed: () {
                               shoppingProvider.bindToHousehold(null);
@@ -579,6 +520,48 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                             },
                             icon: const Icon(Icons.logout, size: 18),
                             label: const Text('Abmelden'),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextButton(
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                title: const Row(
+                                  children: [
+                                    Icon(Icons.warning_amber_rounded, color: AppTheme.errorRed),
+                                    SizedBox(width: 10),
+                                    Text('Account löschen', style: TextStyle(color: AppTheme.errorRed, fontSize: 18)),
+                                  ],
+                                ),
+                                content: const Text('Möchtest du deinen Account wirklich unwiderruflich löschen?'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx),
+                                    child: const Text('Abbrechen', style: TextStyle(color: AppTheme.textMuted)),
+                                  ),
+                                  ElevatedButton(
+                                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorRed, foregroundColor: Colors.white),
+                                    onPressed: () {
+                                      Navigator.pop(ctx);
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Account-Löschung ist aktuell noch nicht in der App implementiert.'),
+                                          backgroundColor: AppTheme.errorRed,
+                                        ),
+                                      );
+                                    },
+                                    child: const Text('Löschen'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                          child: const Text(
+                            'Account unwiderruflich löschen',
+                            style: TextStyle(color: AppTheme.errorRed, fontSize: 12),
                           ),
                         ),
                       ],
