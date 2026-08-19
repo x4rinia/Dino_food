@@ -1,11 +1,11 @@
 {
-    "name": "dino_food",
-    "short_name": "dino_food",
-    "start_url": ".",
+    "name": "Dino_food 🦕",
+    "short_name": "Dino_food",
+    "start_url": "./",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#F6FBF7",
+    "theme_color": "#3E9B4F",
+    "description": "Dino_food – Smarte, geteilte Echtzeit-Einkaufsliste mit Vorratsverwaltung für Haushalte.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
