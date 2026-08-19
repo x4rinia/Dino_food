@@ -1,0 +1,95 @@
+import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../config/supabase_config.dart';
+import '../models/profile.dart';
+
+class AuthService {
+  SupabaseClient get _client => SupabaseConfig.client;
+
+  Stream<AuthState> get authStateChanges =>
+      SupabaseConfig.isConfigured ? _client.auth.onAuthStateChange : const Stream.empty();
+
+  User? get currentUser => SupabaseConfig.currentUser;
+
+  Future<AuthResponse?> signUp({
+    required String email,
+    required String password,
+    required String displayName,
+  }) async {
+    if (!SupabaseConfig.isConfigured) {
+      throw Exception('Supabase ist nicht konfiguriert. Bitte trage deine URL und Anon Key in die .env Datei ein.');
+    }
+
+    final response = await _client.auth.signUp(
+      email: email,
+      password: password,
+      data: {'display_name': displayName},
+    );
+
+    return response;
+  }
+
+  Future<AuthResponse?> signIn({
+    required String email,
+    required String password,
+  }) async {
+    if (!SupabaseConfig.isConfigured) {
+      throw Exception('Supabase ist nicht konfiguriert. Bitte trage deine URL und Anon Key in die .env Datei ein.');
+    }
+
+    final response = await _client.auth.signInWithPassword(
+      email: email,
+      password: password,
+    );
+
+    return response;
+  }
+
+  Future<void> signOut() async {
+    if (SupabaseConfig.isConfigured) {
+      await _client.auth.signOut();
+    }
+  }
+
+  Future<Profile?> getCurrentProfile() async {
+    if (!SupabaseConfig.isConfigured || currentUser == null) return null;
+
+    try {
+      final data = await _client
+          .from('profiles')
+          .select()
+          .eq('id', currentUser!.id)
+          .maybeSingle();
+
+      if (data != null) {
+        return Profile.fromJson(data);
+      } else {
+        // Create profile if missing
+        final newProfile = Profile(
+          id: currentUser!.id,
+          displayName: currentUser!.userMetadata?['display_name'] ??
+              currentUser!.email?.split('@').first ??
+              'Dino-Freund',
+          createdAt: DateTime.now(),
+        );
+        await _client.from('profiles').upsert(newProfile.toJson());
+        return newProfile;
+      }
+    } catch (e) {
+      debugPrint('Error fetching profile: $e');
+      return null;
+    }
+  }
+
+  Future<void> updateProfile({String? displayName, String? avatarUrl}) async {
+    if (!SupabaseConfig.isConfigured || currentUser == null) return;
+
+    final updates = <String, dynamic>{
+      'id': currentUser!.id,
+    };
+    if (displayName != null) updates['display_name'] = displayName;
+    if (avatarUrl != null) updates['avatar_url'] = avatarUrl;
+
+    await _client.from('profiles').upsert(updates);
+  }
+}
