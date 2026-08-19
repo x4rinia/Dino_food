@@ -47,8 +47,7 @@ class WelcomeHouseholdScreen extends StatelessWidget {
                     width: 100,
                     height: 100,
                     decoration: BoxDecoration(
-                      color: AppTheme.primarySoft,
-                      shape: BoxShape.circle,
+                      borderRadius: BorderRadius.circular(26),
                       boxShadow: [
                         BoxShadow(
                           color: AppTheme.primaryLight.withValues(alpha: 0.2),
@@ -57,8 +56,13 @@ class WelcomeHouseholdScreen extends StatelessWidget {
                         ),
                       ],
                     ),
-                    alignment: Alignment.center,
-                    child: const Text('🦕', style: TextStyle(fontSize: 52)),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(26),
+                      child: Image.asset(
+                        'assets/images/app_icon.jpg',
+                        fit: BoxFit.cover,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),

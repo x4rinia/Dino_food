@@ -61,14 +61,22 @@ class _AuthGateState extends State<AuthGate> {
 
     // 1. Initializing Auth -> Splash / Loading screen
     if (authProvider.isInitializing) {
-      return const Scaffold(
+      return Scaffold(
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('🦕', style: TextStyle(fontSize: 64)),
-              SizedBox(height: 16),
-              CircularProgressIndicator(),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: Image.asset(
+                  'assets/images/app_icon.jpg',
+                  width: 100,
+                  height: 100,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              const SizedBox(height: 24),
+              const CircularProgressIndicator(),
             ],
           ),
         ),
@@ -98,16 +106,24 @@ class _AuthGateState extends State<AuthGate> {
         });
       });
 
-      return const Scaffold(
+      return Scaffold(
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('🦕', style: TextStyle(fontSize: 54)),
-              SizedBox(height: 16),
-              CircularProgressIndicator(),
-              SizedBox(height: 12),
-              Text(
+              ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: Image.asset(
+                  'assets/images/app_icon.jpg',
+                  width: 90,
+                  height: 90,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              const SizedBox(height: 20),
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              const Text(
                 'Lade Haushalt...',
                 style: TextStyle(color: AppTheme.textMuted, fontSize: 14),
               ),
@@ -118,16 +134,24 @@ class _AuthGateState extends State<AuthGate> {
     }
 
     if (householdProvider.state == HouseholdState.loading) {
-      return const Scaffold(
+      return Scaffold(
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('🦕', style: TextStyle(fontSize: 54)),
-              SizedBox(height: 16),
-              CircularProgressIndicator(),
-              SizedBox(height: 12),
-              Text(
+              ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: Image.asset(
+                  'assets/images/app_icon.jpg',
+                  width: 90,
+                  height: 90,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              const SizedBox(height: 20),
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              const Text(
                 'Lade Haushalt...',
                 style: TextStyle(color: AppTheme.textMuted, fontSize: 14),
               ),

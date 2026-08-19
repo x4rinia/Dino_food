@@ -66,8 +66,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       width: 90,
                       height: 90,
                       decoration: BoxDecoration(
-                        color: AppTheme.primarySoft,
-                        shape: BoxShape.circle,
+                        borderRadius: BorderRadius.circular(24),
                         boxShadow: [
                           BoxShadow(
                             color: AppTheme.primaryLight.withValues(alpha: 0.2),
@@ -76,10 +75,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ],
                       ),
-                      alignment: Alignment.center,
-                      child: const Text(
-                        '🦕',
-                        style: TextStyle(fontSize: 48),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(24),
+                        child: Image.asset(
+                          'assets/images/app_icon.jpg',
+                          fit: BoxFit.cover,
+                        ),
                       ),
                     ),
                   ),
