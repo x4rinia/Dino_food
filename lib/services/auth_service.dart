@@ -113,4 +113,12 @@ class AuthService {
     
     return imageUrl;
   }
+
+  Future<void> deleteAccount() async {
+    if (!SupabaseConfig.isConfigured || currentUser == null) {
+      throw Exception('Nicht angemeldet.');
+    }
+    await _client.rpc('delete_user_account');
+    await signOut();
+  }
 }

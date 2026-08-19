@@ -544,14 +544,20 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                                   ),
                                   ElevatedButton(
                                     style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorRed, foregroundColor: Colors.white),
-                                    onPressed: () {
+                                    onPressed: () async {
                                       Navigator.pop(ctx);
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Account-Löschung ist aktuell noch nicht in der App implementiert.'),
-                                          backgroundColor: AppTheme.errorRed,
-                                        ),
-                                      );
+                                      final success = await authProvider.deleteAccount();
+                                      if (success) {
+                                        householdProvider.reset();
+                                        shoppingProvider.bindToHousehold(null);
+                                      } else if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text(authProvider.errorMessage ?? 'Account konnte nicht gelöscht werden.'),
+                                            backgroundColor: AppTheme.errorRed,
+                                          ),
+                                        );
+                                      }
                                     },
                                     child: const Text('Löschen'),
                                   ),

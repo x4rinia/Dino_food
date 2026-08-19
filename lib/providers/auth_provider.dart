@@ -146,6 +146,23 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<bool> deleteAccount() async {
+    _setLoading();
+    try {
+      await _authService.deleteAccount();
+      _errorMessage = null;
+      _status = AuthStatus.unauthenticated;
+      _profile = null;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      _status = AuthStatus.authenticated; // Go back to authenticated state on failure
+      notifyListeners();
+      return false;
+    }
+  }
+
   void _setLoading() {
     _status = AuthStatus.loading;
     _errorMessage = null;
