@@ -114,6 +114,13 @@ class AuthService {
     return imageUrl;
   }
 
+  Future<void> updatePassword(String newPassword) async {
+    if (!SupabaseConfig.isConfigured || currentUser == null) {
+      throw Exception('Nicht angemeldet.');
+    }
+    await _client.auth.updateUser(UserAttributes(password: newPassword));
+  }
+
   Future<void> deleteAccount() async {
     if (!SupabaseConfig.isConfigured || currentUser == null) {
       throw Exception('Nicht angemeldet.');

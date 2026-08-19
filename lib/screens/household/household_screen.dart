@@ -514,6 +514,21 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                               side: BorderSide(color: AppTheme.textMuted.withValues(alpha: 0.3)),
                             ),
                             onPressed: () {
+                              _showChangePasswordDialog(context, authProvider);
+                            },
+                            icon: const Icon(Icons.lock_outline, size: 18),
+                            label: const Text('Passwort ändern'),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.textDark,
+                              side: BorderSide(color: AppTheme.textMuted.withValues(alpha: 0.3)),
+                            ),
+                            onPressed: () {
                               shoppingProvider.bindToHousehold(null);
                               householdProvider.reset();
                               authProvider.signOut();
@@ -636,6 +651,87 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                       backgroundColor: AppTheme.primaryGreen,
                     ),
                   );
+                }
+              }
+            },
+            child: const Text('Speichern'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showChangePasswordDialog(BuildContext context, AuthProvider authProvider) {
+    final controller = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.primarySoft,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Text('🔐', style: TextStyle(fontSize: 20)),
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'Passwort ändern',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: controller,
+            autofocus: true,
+            obscureText: true,
+            decoration: const InputDecoration(
+              labelText: 'Neues Passwort',
+              hintText: 'Mindestens 6 Zeichen',
+              prefixIcon: Icon(Icons.lock_outline, color: AppTheme.textMuted),
+            ),
+            validator: (value) {
+              if (value == null || value.length < 6) {
+                return 'Passwort muss mind. 6 Zeichen lang sein.';
+              }
+              return null;
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Abbrechen', style: TextStyle(color: AppTheme.textMuted)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (formKey.currentState!.validate()) {
+                final newPassword = controller.text;
+                Navigator.pop(ctx);
+                final success = await authProvider.changePassword(newPassword);
+                if (context.mounted) {
+                  if (success) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Passwort erfolgreich geändert!'),
+                        backgroundColor: AppTheme.primaryGreen,
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(authProvider.errorMessage ?? 'Fehler beim Ändern des Passworts.'),
+                        backgroundColor: AppTheme.errorRed,
+                      ),
+                    );
+                  }
                 }
               }
             },

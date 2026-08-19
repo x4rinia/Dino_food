@@ -146,6 +146,22 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<bool> changePassword(String newPassword) async {
+    _setLoading();
+    try {
+      await _authService.updatePassword(newPassword);
+      _errorMessage = null;
+      _status = AuthStatus.authenticated;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      _status = AuthStatus.authenticated;
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<bool> deleteAccount() async {
     _setLoading();
     try {
