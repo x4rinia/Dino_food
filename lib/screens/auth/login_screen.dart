@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../../config/app_theme.dart';
 import '../../config/supabase_config.dart';
 import '../../providers/auth_provider.dart';
-import 'forgot_password_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -15,13 +14,13 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -31,14 +30,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final success = await authProvider.signIn(
-      _emailController.text.trim(),
+      _usernameController.text.trim(),
       _passwordController.text,
     );
 
     if (!success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(authProvider.errorMessage ?? 'E-Mail-Adresse oder Passwort ist falsch.'),
+          content: Text(authProvider.errorMessage ?? 'Benutzername oder Passwort ist falsch.'),
           backgroundColor: AppTheme.errorRed,
         ),
       );
@@ -131,20 +130,16 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
 
-                  // Email
+                  // Username
                   TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
+                    controller: _usernameController,
                     decoration: const InputDecoration(
-                      labelText: 'E-Mail',
-                      prefixIcon: Icon(Icons.email_outlined, color: AppTheme.textMuted),
+                      labelText: 'Benutzername',
+                      prefixIcon: Icon(Icons.person_outline, color: AppTheme.textMuted),
                     ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'Bitte E-Mail eingeben';
-                      }
-                      if (!value.contains('@')) {
-                        return 'Ungültige E-Mail-Adresse';
+                        return 'Bitte Benutzername eingeben';
                       }
                       return null;
                     },
@@ -180,28 +175,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 8),
-
-                  // Forgot Password Link
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
-                        );
-                      },
-                      child: const Text(
-                        'Passwort vergessen?',
-                        style: TextStyle(
-                          color: AppTheme.primaryGreen,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 24),
 
                   // Submit Button
                   SizedBox(

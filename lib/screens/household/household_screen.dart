@@ -431,15 +431,13 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    authProvider.profile?.displayName ??
-                                        authProvider.currentUser?.email?.split('@').first ??
-                                        'Dino-Nutzer',
+                                    authProvider.profile?.displayName ?? 'Dino-Nutzer',
                                     style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
                                   ),
                                   const SizedBox(height: 2),
-                                  Text(
-                                    authProvider.currentUser?.email ?? 'lokaler Demo-Modus',
-                                    style: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
+                                  const Text(
+                                    'Dino_food Account',
+                                    style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
                                   ),
                                 ],
                               ),

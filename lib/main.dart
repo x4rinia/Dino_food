@@ -9,7 +9,6 @@ import 'providers/household_provider.dart';
 import 'providers/shopping_provider.dart';
 import 'providers/stock_provider.dart';
 import 'screens/auth/login_screen.dart';
-import 'screens/auth/set_new_password_screen.dart';
 import 'screens/home/main_navigation_screen.dart';
 import 'screens/household/welcome_household_screen.dart';
 
@@ -87,11 +86,6 @@ class _AuthGateState extends State<AuthGate> {
     // 2. Unconfigured Supabase -> Demo mode
     if (!SupabaseConfig.isConfigured) {
       return const MainNavigationScreen();
-    }
-
-    // 2.5 Password Recovery -> Set New Password Screen
-    if (authProvider.isRecoveringPassword) {
-      return const SetNewPasswordScreen();
     }
 
     // 3. Not Logged In -> Login Screen

@@ -12,12 +12,10 @@ class AuthProvider extends ChangeNotifier {
   AuthStatus _status = AuthStatus.uninitialized;
   Profile? _profile;
   String? _errorMessage;
-  bool _isRecoveringPassword = false;
 
   AuthStatus get status => _status;
   Profile? get profile => _profile;
   String? get errorMessage => _errorMessage;
-  bool get isRecoveringPassword => _isRecoveringPassword;
   bool get isAuthenticated => _status == AuthStatus.authenticated;
   bool get isInitializing => _status == AuthStatus.uninitialized;
   User? get currentUser => _authService.currentUser;
@@ -43,17 +41,12 @@ class AuthProvider extends ChangeNotifier {
 
     _authService.authStateChanges.listen((data) {
       final event = data.event;
-      if (event == AuthChangeEvent.passwordRecovery) {
-        _isRecoveringPassword = true;
-        _status = AuthStatus.authenticated;
-        notifyListeners();
-      } else if (event == AuthChangeEvent.signedIn || event == AuthChangeEvent.userUpdated) {
+      if (event == AuthChangeEvent.signedIn || event == AuthChangeEvent.userUpdated) {
         _status = AuthStatus.authenticated;
         _loadProfile();
       } else if (event == AuthChangeEvent.signedOut) {
         _status = AuthStatus.unauthenticated;
         _profile = null;
-        _isRecoveringPassword = false;
       }
       notifyListeners();
     });
@@ -69,7 +62,7 @@ class AuthProvider extends ChangeNotifier {
     try {
       final trimmedName = newDisplayName.trim();
       if (trimmedName.isEmpty) {
-        throw Exception('Anzeigename darf nicht leer sein.');
+        throw Exception('Benutzername darf nicht leer sein.');
       }
       await _authService.updateProfile(displayName: trimmedName);
       _profile = await _authService.getCurrentProfile();
@@ -107,10 +100,17 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> signIn(String email, String password) async {
+  Future<bool> signIn(String usernameOrEmail, String password) async {
     _setLoading();
     try {
-      final response = await _authService.signIn(email: email.trim(), password: password);
+      final trimmedIdentifier = usernameOrEmail.trim();
+      if (trimmedIdentifier.isEmpty) {
+        throw Exception('Bitte gib deinen Benutzernamen ein.');
+      }
+      final response = await _authService.signIn(
+        usernameOrEmail: trimmedIdentifier,
+        password: password,
+      );
       if (response?.user != null) {
         _errorMessage = null;
         _status = AuthStatus.authenticated;
@@ -118,7 +118,7 @@ class AuthProvider extends ChangeNotifier {
         notifyListeners();
         return true;
       } else {
-        throw Exception('E-Mail-Adresse oder Passwort ist falsch.');
+        throw Exception('Benutzername oder Passwort ist falsch.');
       }
     } catch (e) {
       if (e is AuthException) {
@@ -133,13 +133,17 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> signUp(String email, String password, String displayName) async {
+  Future<bool> signUp(String username, String password) async {
     _setLoading();
     try {
+      final trimmedUsername = username.trim();
+      if (trimmedUsername.isEmpty) {
+        throw Exception('Bitte gib einen Benutzernamen ein.');
+      }
+
       final response = await _authService.signUp(
-        email: email.trim(),
+        username: trimmedUsername,
         password: password,
-        displayName: displayName.trim(),
       );
 
       _errorMessage = null;
@@ -167,36 +171,10 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> sendPasswordResetEmail(String email) async {
-    _setLoading();
-    try {
-      final trimmedEmail = email.trim();
-      if (trimmedEmail.isEmpty || !trimmedEmail.contains('@')) {
-        throw Exception('Bitte gib eine gültige E-Mail-Adresse ein.');
-      }
-      await _authService.sendPasswordResetEmail(trimmedEmail);
-      _errorMessage = null;
-      _status = AuthStatus.unauthenticated;
-      notifyListeners();
-      return true;
-    } catch (e) {
-      if (e is AuthException) {
-        debugPrint('Password reset failed: code = ${e.code}, message = ${e.message}, statusCode = ${e.statusCode}');
-      } else {
-        debugPrint('Password reset failed: $e');
-      }
-      _errorMessage = _formatError(e);
-      _status = AuthStatus.unauthenticated;
-      notifyListeners();
-      return false;
-    }
-  }
-
   Future<void> signOut() async {
     await _authService.signOut();
     _status = AuthStatus.unauthenticated;
     _profile = null;
-    _isRecoveringPassword = false;
     notifyListeners();
   }
 
@@ -208,7 +186,6 @@ class AuthProvider extends ChangeNotifier {
       }
       await _authService.updatePassword(newPassword);
       _errorMessage = null;
-      _isRecoveringPassword = false;
       _status = AuthStatus.authenticated;
       notifyListeners();
       return true;
@@ -232,7 +209,6 @@ class AuthProvider extends ChangeNotifier {
       _errorMessage = null;
       _status = AuthStatus.unauthenticated;
       _profile = null;
-      _isRecoveringPassword = false;
       notifyListeners();
       return true;
     } catch (e) {
@@ -242,11 +218,6 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return false;
     }
-  }
-
-  void clearPasswordRecovery() {
-    _isRecoveringPassword = false;
-    notifyListeners();
   }
 
   void _setLoading() {
@@ -265,20 +236,15 @@ class AuthProvider extends ChangeNotifier {
 
     if (errorStr.contains('already exists') ||
         errorStr.contains('user_already_exists') ||
-        errorStr.contains('already registered')) {
-      return 'Für diese E-Mail-Adresse existiert bereits ein Account. Bitte melde dich an.';
+        errorStr.contains('already registered') ||
+        errorStr.contains('bereits verwendet')) {
+      return 'Dieser Benutzername ist bereits vergeben. Bitte wähle einen anderen oder melde dich an.';
     }
 
     if (errorStr.contains('invalid login credentials') ||
         errorStr.contains('invalid_credentials') ||
         (isLogin && errorStr.contains('invalid'))) {
-      return 'E-Mail-Adresse oder Passwort ist falsch.';
-    }
-
-    if (errorStr.contains('invalid email') ||
-        errorStr.contains('invalid_email') ||
-        errorStr.contains('ungültige e-mail')) {
-      return 'Bitte gib eine gültige E-Mail-Adresse ein.';
+      return 'Benutzername oder Passwort ist falsch.';
     }
 
     if (errorStr.contains('weak password') ||
@@ -286,12 +252,6 @@ class AuthProvider extends ChangeNotifier {
         errorStr.contains('password should be') ||
         errorStr.contains('mindestens 6 zeichen')) {
       return 'Das Passwort ist zu schwach (mindestens 6 Zeichen erforderlich).';
-    }
-
-    if (errorStr.contains('otp_expired') ||
-        errorStr.contains('token has expired') ||
-        errorStr.contains('expired')) {
-      return 'Dieser Reset-Link ist ungültig oder abgelaufen. Bitte fordere einen neuen an.';
     }
 
     if (errorStr.contains('confirm email') || errorStr.contains('supabase-dashboard')) {

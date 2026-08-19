@@ -12,16 +12,14 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _emailController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _obscurePassword = true;
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
+    _usernameController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -32,9 +30,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final success = await authProvider.signUp(
-      _emailController.text.trim(),
+      _usernameController.text.trim(),
       _passwordController.text,
-      _nameController.text.trim(),
     );
 
     if (success && mounted) {
@@ -53,8 +50,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final isLoading = authProvider.status == AuthStatus.loading;
-
-
 
     return Scaffold(
       appBar: AppBar(
@@ -88,36 +83,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(height: 28),
 
-                  // Display Name
+                  // Username
                   TextFormField(
-                    controller: _nameController,
+                    controller: _usernameController,
                     decoration: const InputDecoration(
-                      labelText: 'Dein Name / Spitzname',
+                      labelText: 'Benutzername',
+                      hintText: 'z.B. DinoChef oder Xarinia',
                       prefixIcon: Icon(Icons.person_outline, color: AppTheme.textMuted),
                     ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'Bitte Namen eingeben';
+                        return 'Bitte gib einen Benutzernamen ein';
                       }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Email
-                  TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      labelText: 'E-Mail-Adresse',
-                      prefixIcon: Icon(Icons.email_outlined, color: AppTheme.textMuted),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Bitte E-Mail eingeben';
-                      }
-                      if (!value.contains('@')) {
-                        return 'Ungültige E-Mail-Adresse';
+                      if (value.trim().length < 2) {
+                        return 'Mindestens 2 Zeichen erforderlich';
                       }
                       return null;
                     },

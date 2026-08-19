@@ -11,31 +11,43 @@ class AuthService {
 
   User? get currentUser => SupabaseConfig.currentUser;
 
+  static String usernameToEmail(String usernameOrEmail) {
+    final trimmed = usernameOrEmail.trim();
+    if (trimmed.contains('@')) {
+      return trimmed.toLowerCase();
+    }
+    final sanitized = trimmed.toLowerCase().replaceAll(RegExp(r'[^a-z0-9._-]'), '_');
+    return '$sanitized@dinofood.app';
+  }
+
   Future<AuthResponse?> signUp({
-    required String email,
+    required String username,
     required String password,
-    required String displayName,
   }) async {
     if (!SupabaseConfig.isConfigured) {
       throw Exception('Supabase ist nicht konfiguriert. Bitte trage deine URL und Anon Key in die .env Datei ein.');
     }
 
+    final email = usernameToEmail(username);
+
     final response = await _client.auth.signUp(
       email: email,
       password: password,
-      data: {'display_name': displayName},
+      data: {'display_name': username.trim()},
     );
 
     return response;
   }
 
   Future<AuthResponse?> signIn({
-    required String email,
+    required String usernameOrEmail,
     required String password,
   }) async {
     if (!SupabaseConfig.isConfigured) {
       throw Exception('Supabase ist nicht konfiguriert. Bitte trage deine URL und Anon Key in die .env Datei ein.');
     }
+
+    final email = usernameToEmail(usernameOrEmail);
 
     final response = await _client.auth.signInWithPassword(
       email: email,
@@ -119,13 +131,6 @@ class AuthService {
       throw Exception('Nicht angemeldet.');
     }
     await _client.auth.updateUser(UserAttributes(password: newPassword));
-  }
-
-  Future<void> sendPasswordResetEmail(String email) async {
-    if (!SupabaseConfig.isConfigured) {
-      throw Exception('Supabase ist nicht konfiguriert. Bitte trage deine URL und Anon Key in die .env Datei ein.');
-    }
-    await _client.auth.resetPasswordForEmail(email.trim());
   }
 
   Future<void> deleteAccount() async {
