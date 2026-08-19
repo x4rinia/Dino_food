@@ -17,7 +17,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _obscurePassword = true;
-  bool _registeredNeedsConfirmation = false;
 
   @override
   void dispose() {
@@ -39,13 +38,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
 
     if (success && mounted) {
-      if (authProvider.needsEmailConfirmation) {
-        setState(() {
-          _registeredNeedsConfirmation = true;
-        });
-      } else {
-        Navigator.of(context).pop();
-      }
+      Navigator.of(context).pop();
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -61,65 +54,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final authProvider = Provider.of<AuthProvider>(context);
     final isLoading = authProvider.status == AuthStatus.loading;
 
-    if (_registeredNeedsConfirmation) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Registrierung')),
-        body: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 90,
-                    height: 90,
-                    decoration: BoxDecoration(
-                      color: AppTheme.primarySoft,
-                      shape: BoxShape.circle,
-                    ),
-                    alignment: Alignment.center,
-                    child: const Text('📧', style: TextStyle(fontSize: 44)),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Fast geschafft! 🦕',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: AppTheme.primaryDark,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Wir haben einen Bestätigungslink an ${_emailController.text.trim()} gesendet.\n\nBitte bestätige deine E-Mail-Adresse. Danach kannst du dich bei Dino_food anmelden.',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.textDark,
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        authProvider.resetEmailConfirmationFlag();
-                        Navigator.of(context).pop();
-                      },
-                      child: const Text('Zum Login'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    }
+
 
     return Scaffold(
       appBar: AppBar(

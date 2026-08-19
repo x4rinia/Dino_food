@@ -12,12 +12,10 @@ class AuthProvider extends ChangeNotifier {
   AuthStatus _status = AuthStatus.uninitialized;
   Profile? _profile;
   String? _errorMessage;
-  bool _needsEmailConfirmation = false;
 
   AuthStatus get status => _status;
   Profile? get profile => _profile;
   String? get errorMessage => _errorMessage;
-  bool get needsEmailConfirmation => _needsEmailConfirmation;
   bool get isAuthenticated => _status == AuthStatus.authenticated;
   bool get isInitializing => _status == AuthStatus.uninitialized;
   User? get currentUser => _authService.currentUser;
@@ -45,12 +43,10 @@ class AuthProvider extends ChangeNotifier {
       final event = data.event;
       if (event == AuthChangeEvent.signedIn || event == AuthChangeEvent.userUpdated) {
         _status = AuthStatus.authenticated;
-        _needsEmailConfirmation = false;
         _loadProfile();
       } else if (event == AuthChangeEvent.signedOut) {
         _status = AuthStatus.unauthenticated;
         _profile = null;
-        _needsEmailConfirmation = false;
       }
       notifyListeners();
     });
@@ -87,7 +83,6 @@ class AuthProvider extends ChangeNotifier {
       final response = await _authService.signIn(email: email.trim(), password: password);
       if (response?.user != null) {
         _errorMessage = null;
-        _needsEmailConfirmation = false;
         _status = AuthStatus.authenticated;
         await _loadProfile();
         notifyListeners();
@@ -114,24 +109,29 @@ class AuthProvider extends ChangeNotifier {
 
       _errorMessage = null;
 
-      // Check if session was created immediately or requires email confirmation
-      if (response?.session == null && response?.user != null) {
-        // E-Mail confirmation required by Supabase project settings
-        _needsEmailConfirmation = true;
-        _status = AuthStatus.unauthenticated;
-        notifyListeners();
-        return true;
-      } else if (response?.session != null) {
-        _needsEmailConfirmation = false;
+      if (response?.session != null) {
         _status = AuthStatus.authenticated;
         await _loadProfile();
         notifyListeners();
         return true;
+      } else if (response?.user != null) {
+        throw Exception('Die direkte Anmeldung ist nicht möglich, da die E-Mail-Bestätigung in Supabase noch aktiv ist. Bitte deaktiviere "Confirm Email" im Supabase-Dashboard.');
       }
 
-      throw Exception('Registrierung konnte nicht abgeschlossen werden.');
+      throw Exception('Der Account konnte nicht erstellt werden.');
     } catch (e) {
-      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      final errorStr = e.toString().toLowerCase();
+      if (errorStr.contains('already exists') || errorStr.contains('user_already_exists') || errorStr.contains('bereits registriert')) {
+        _errorMessage = 'Diese E-Mail-Adresse wird bereits verwendet.';
+      } else if (errorStr.contains('invalid email') || errorStr.contains('invalid_email') || errorStr.contains('ungültige e-mail-adresse')) {
+        _errorMessage = 'Bitte gib eine gültige E-Mail-Adresse ein.';
+      } else if (errorStr.contains('weak password') || errorStr.contains('password should be') || errorStr.contains('weak_password')) {
+        _errorMessage = 'Das Passwort ist zu schwach (mindestens 6 Zeichen erforderlich).';
+      } else if (errorStr.contains('confirm email') || errorStr.contains('supabase-dashboard')) {
+        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      } else {
+        _errorMessage = 'Der Account konnte nicht erstellt werden.';
+      }
       _status = AuthStatus.unauthenticated;
       notifyListeners();
       return false;
@@ -142,7 +142,6 @@ class AuthProvider extends ChangeNotifier {
     await _authService.signOut();
     _status = AuthStatus.unauthenticated;
     _profile = null;
-    _needsEmailConfirmation = false;
     notifyListeners();
   }
 
@@ -187,11 +186,6 @@ class AuthProvider extends ChangeNotifier {
 
   void clearError() {
     _errorMessage = null;
-    notifyListeners();
-  }
-
-  void resetEmailConfirmationFlag() {
-    _needsEmailConfirmation = false;
     notifyListeners();
   }
 }
