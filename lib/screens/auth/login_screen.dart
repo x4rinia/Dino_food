@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../config/app_theme.dart';
 import '../../config/supabase_config.dart';
 import '../../providers/auth_provider.dart';
+import 'forgot_password_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -37,7 +38,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(authProvider.errorMessage ?? 'Anmeldung fehlgeschlagen.'),
+          content: Text(authProvider.errorMessage ?? 'E-Mail-Adresse oder Passwort ist falsch.'),
           backgroundColor: AppTheme.errorRed,
         ),
       );
@@ -179,7 +180,28 @@ class _LoginScreenState extends State<LoginScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 8),
+
+                  // Forgot Password Link
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
+                        );
+                      },
+                      child: const Text(
+                        'Passwort vergessen?',
+                        style: TextStyle(
+                          color: AppTheme.primaryGreen,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
 
                   // Submit Button
                   SizedBox(
@@ -237,3 +259,4 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
+

@@ -3,46 +3,44 @@ import 'package:provider/provider.dart';
 import '../../config/app_theme.dart';
 import '../../providers/auth_provider.dart';
 
-class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+class SetNewPasswordScreen extends StatefulWidget {
+  const SetNewPasswordScreen({super.key});
 
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  State<SetNewPasswordScreen> createState() => _SetNewPasswordScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _obscurePassword = true;
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  Future<void> _handleRegister() async {
+  Future<void> _handleSavePassword() async {
     if (!_formKey.currentState!.validate()) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final success = await authProvider.signUp(
-      _emailController.text.trim(),
-      _passwordController.text,
-      _nameController.text.trim(),
-    );
+    final success = await authProvider.changePassword(_passwordController.text);
 
     if (success && mounted) {
-      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Dein Dino_food-Passwort wurde geändert.'),
+          backgroundColor: AppTheme.primaryGreen,
+        ),
+      );
+      authProvider.clearPasswordRecovery();
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(authProvider.errorMessage ?? 'Registrierung fehlgeschlagen.'),
+          content: Text(authProvider.errorMessage ?? 'Passwort konnte nicht geändert werden.'),
           backgroundColor: AppTheme.errorRed,
         ),
       );
@@ -54,82 +52,69 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final authProvider = Provider.of<AuthProvider>(context);
     final isLoading = authProvider.status == AuthStatus.loading;
 
-
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Konto erstellen'),
+        title: const Text('Neues Passwort festlegen'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.close),
+            tooltip: 'Abbrechen',
+            onPressed: () {
+              authProvider.clearPasswordRecovery();
+            },
+          ),
+        ],
       ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 20.0),
+            padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 24.0),
             child: Form(
               key: _formKey,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  Center(
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primarySoft,
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      alignment: Alignment.center,
+                      child: const Text('🔑', style: TextStyle(fontSize: 38)),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
                   const Text(
-                    'Willkommen bei Dino_food 🦕',
+                    'Neues Passwort festlegen',
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 24,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
                       color: AppTheme.primaryDark,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   const Text(
-                    'Erstelle dein Konto, um gemeinsame Einkaufslisten zu verwalten.',
+                    'Gib dein neues Dino_food-Passwort ein, um wieder Zugriff auf deinen Account zu erhalten.',
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,
                       color: AppTheme.textMuted,
+                      height: 1.4,
                     ),
                   ),
                   const SizedBox(height: 28),
 
-                  // Display Name
-                  TextFormField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Dein Name / Spitzname',
-                      prefixIcon: Icon(Icons.person_outline, color: AppTheme.textMuted),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Bitte Namen eingeben';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Email
-                  TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      labelText: 'E-Mail-Adresse',
-                      prefixIcon: Icon(Icons.email_outlined, color: AppTheme.textMuted),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Bitte E-Mail eingeben';
-                      }
-                      if (!value.contains('@')) {
-                        return 'Ungültige E-Mail-Adresse';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Password
+                  // Password Field
                   TextFormField(
                     controller: _passwordController,
                     obscureText: _obscurePassword,
                     decoration: InputDecoration(
-                      labelText: 'Passwort',
+                      labelText: 'Neues Passwort',
                       prefixIcon: const Icon(Icons.lock_outline, color: AppTheme.textMuted),
                       suffixIcon: IconButton(
                         icon: Icon(
@@ -145,7 +130,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Bitte Passwort eingeben';
+                        return 'Bitte neues Passwort eingeben';
                       }
                       if (value.length < 6) {
                         return 'Mindestens 6 Zeichen erforderlich';
@@ -155,7 +140,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Confirm Password
+                  // Confirm Password Field
                   TextFormField(
                     controller: _confirmPasswordController,
                     obscureText: _obscurePassword,
@@ -170,13 +155,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 24),
 
-                  // Register Button
+                  // Save Button
                   SizedBox(
                     height: 52,
                     child: ElevatedButton(
-                      onPressed: isLoading ? null : _handleRegister,
+                      onPressed: isLoading ? null : _handleSavePassword,
                       child: isLoading
                           ? const SizedBox(
                               height: 22,
@@ -187,7 +172,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                             )
                           : const Text(
-                              'Account erstellen',
+                              'Passwort speichern',
                               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                             ),
                     ),

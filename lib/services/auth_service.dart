@@ -121,6 +121,13 @@ class AuthService {
     await _client.auth.updateUser(UserAttributes(password: newPassword));
   }
 
+  Future<void> sendPasswordResetEmail(String email) async {
+    if (!SupabaseConfig.isConfigured) {
+      throw Exception('Supabase ist nicht konfiguriert. Bitte trage deine URL und Anon Key in die .env Datei ein.');
+    }
+    await _client.auth.resetPasswordForEmail(email.trim());
+  }
+
   Future<void> deleteAccount() async {
     if (!SupabaseConfig.isConfigured || currentUser == null) {
       throw Exception('Nicht angemeldet.');
