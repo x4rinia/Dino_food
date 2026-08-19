@@ -18,16 +18,12 @@ class HouseholdScreen extends StatefulWidget {
 }
 
 class _HouseholdScreenState extends State<HouseholdScreen> {
-  final _plzController = TextEditingController();
-  bool _isEditingPlz = false;
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final householdProvider = Provider.of<HouseholdProvider>(context, listen: false);
       if (householdProvider.currentHousehold != null) {
-        _plzController.text = householdProvider.currentHousehold!.postalCode;
         householdProvider.loadMembers();
       }
     });
@@ -35,7 +31,6 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
 
   @override
   void dispose() {
-    _plzController.dispose();
     super.dispose();
   }
 
@@ -74,32 +69,6 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
     }
   }
 
-  Future<void> _pickAndUploadImage() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    
-    if (pickedFile != null) {
-      final bytes = await pickedFile.readAsBytes();
-      final ext = pickedFile.name.split('.').last;
-      
-      if (!mounted) return;
-      final householdProvider = Provider.of<HouseholdProvider>(context, listen: false);
-      final success = await householdProvider.uploadHouseholdImage(bytes, ext);
-      
-      if (mounted) {
-        if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('WG-Bild erfolgreich hochgeladen!'), backgroundColor: AppTheme.primaryGreen),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(householdProvider.errorMessage ?? 'Fehler beim Upload'), backgroundColor: AppTheme.errorRed),
-          );
-        }
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
@@ -126,46 +95,17 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                       children: [
                         Row(
                           children: [
-                            GestureDetector(
-                              onTap: _pickAndUploadImage,
-                              child: Stack(
-                                clipBehavior: Clip.none,
-                                children: [
-                                  if (currentHousehold?.imageUrl != null)
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: Image.network(
-                                        currentHousehold!.imageUrl!,
-                                        width: 56,
-                                        height: 56,
-                                        fit: BoxFit.cover,
-                                      ),
-                                    )
-                                  else
-                                    Container(
-                                      width: 56,
-                                      height: 56,
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.primarySoft,
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: const Center(child: Text('🏠', style: TextStyle(fontSize: 24))),
-                                    ),
-                                  Positioned(
-                                    right: -4,
-                                    bottom: -4,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: const BoxDecoration(
-                                        color: AppTheme.primaryGreen,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(Icons.camera_alt, size: 14, color: Colors.white),
-                                    ),
-                                  ),
-                                ],
+                            Container(
+                              width: 56,
+                              height: 56,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: currentHousehold != null 
+                                    ? Color(int.parse(currentHousehold.color.replaceFirst('#', '0xFF')))
+                                    : AppTheme.primarySoft,
+                                borderRadius: BorderRadius.circular(12),
                               ),
+                              child: const Center(child: Text('🏠', style: TextStyle(fontSize: 24))),
                             ),
                             const SizedBox(width: 14),
                             Expanded(
@@ -220,7 +160,6 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                                 onSelected: (h) {
                                   householdProvider.setCurrentHousehold(h);
                                   shoppingProvider.bindToHousehold(h.id);
-                                  _plzController.text = h.postalCode;
                                 },
                                 itemBuilder: (ctx) {
                                   return householdProvider.households.map((h) {

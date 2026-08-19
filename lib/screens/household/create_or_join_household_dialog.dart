@@ -15,9 +15,18 @@ class CreateOrJoinHouseholdDialog extends StatefulWidget {
 class _CreateOrJoinHouseholdDialogState extends State<CreateOrJoinHouseholdDialog> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _postalCodeController = TextEditingController();
   final _codeController = TextEditingController();
+  String _selectedColor = '#2A9D8F';
   late bool _isJoining;
+
+  final List<String> _householdColors = [
+    '#2A9D8F', // Green
+    '#2196F3', // Blue
+    '#E76F51', // Red
+    '#F4A261', // Orange
+    '#9C27B0', // Purple
+    '#009688', // Teal
+  ];
 
   @override
   void initState() {
@@ -28,7 +37,6 @@ class _CreateOrJoinHouseholdDialogState extends State<CreateOrJoinHouseholdDialo
   @override
   void dispose() {
     _nameController.dispose();
-    _postalCodeController.dispose();
     _codeController.dispose();
     super.dispose();
   }
@@ -44,7 +52,7 @@ class _CreateOrJoinHouseholdDialogState extends State<CreateOrJoinHouseholdDialo
     } else {
       success = await provider.createHousehold(
         name: _nameController.text.trim(),
-        postalCode: _postalCodeController.text.trim(),
+        color: _selectedColor,
       );
     }
 
@@ -180,15 +188,40 @@ class _CreateOrJoinHouseholdDialogState extends State<CreateOrJoinHouseholdDialo
                 ),
                 const SizedBox(height: 14),
 
-                // Postal Code
-                TextFormField(
-                  controller: _postalCodeController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Postleitzahl (PLZ)',
-                    hintText: 'z. B. 10115',
-                    prefixIcon: Icon(Icons.location_on_outlined, color: AppTheme.textMuted),
-                  ),
+                // Color Picker
+                const Text(
+                  'Farbe des Haushalts',
+                  style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: _householdColors.map((colorHex) {
+                    final color = Color(int.parse(colorHex.replaceFirst('#', '0xFF')));
+                    final isSelected = _selectedColor == colorHex;
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedColor = colorHex;
+                        });
+                      },
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                          border: isSelected ? Border.all(color: AppTheme.textDark, width: 3) : null,
+                          boxShadow: [
+                            if (isSelected)
+                              BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 2))
+                          ],
+                        ),
+                        child: isSelected ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+                      ),
+                    );
+                  }).toList(),
                 ),
               ] else ...[
                 // Invite Code

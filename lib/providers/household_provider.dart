@@ -46,7 +46,7 @@ class HouseholdProvider extends ChangeNotifier {
         final mockHousehold = Household(
           id: 'demo-household-id',
           name: 'Dino Zuhause 🦕',
-          postalCode: '27568',
+          color: '#2A9D8F',
           inviteCode: 'DINO-4F8K',
           createdAt: DateTime.now(),
         );
@@ -119,7 +119,7 @@ class HouseholdProvider extends ChangeNotifier {
 
   Future<bool> createHousehold({
     required String name,
-    String postalCode = '',
+    String color = '#2A9D8F',
   }) async {
     _state = HouseholdState.loading;
     _errorMessage = null;
@@ -130,7 +130,7 @@ class HouseholdProvider extends ChangeNotifier {
         final newH = Household(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           name: name,
-          postalCode: postalCode,
+          color: color,
           inviteCode: 'DINO-8888',
           createdAt: DateTime.now(),
         );
@@ -143,7 +143,7 @@ class HouseholdProvider extends ChangeNotifier {
 
       final household = await _householdService.createHousehold(
         name: name,
-        postalCode: postalCode,
+        color: color,
       );
       _households.add(household);
       _currentHousehold = household;
@@ -198,7 +198,7 @@ class HouseholdProvider extends ChangeNotifier {
     final updated = Household(
       id: _currentHousehold!.id,
       name: trimmed,
-      postalCode: _currentHousehold!.postalCode,
+      color: _currentHousehold!.color,
       inviteCode: _currentHousehold!.inviteCode,
       createdBy: _currentHousehold!.createdBy,
       createdAt: _currentHousehold!.createdAt,
@@ -222,13 +222,13 @@ class HouseholdProvider extends ChangeNotifier {
     return true;
   }
 
-  Future<void> updatePostalCode(String postalCode) async {
+  Future<void> updateColor(String color) async {
     if (_currentHousehold == null) return;
 
     final updated = Household(
       id: _currentHousehold!.id,
       name: _currentHousehold!.name,
-      postalCode: postalCode.trim(),
+      color: color,
       inviteCode: _currentHousehold!.inviteCode,
       createdBy: _currentHousehold!.createdBy,
       createdAt: _currentHousehold!.createdAt,
@@ -246,45 +246,7 @@ class HouseholdProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> uploadHouseholdImage(Uint8List imageBytes, String fileExtension) async {
-    if (_currentHousehold == null) return false;
 
-    _state = HouseholdState.loading;
-    notifyListeners();
-
-    try {
-      final imageUrl = await _householdService.uploadHouseholdImage(
-        _currentHousehold!.id,
-        imageBytes,
-        fileExtension,
-      );
-
-      final updated = Household(
-        id: _currentHousehold!.id,
-        name: _currentHousehold!.name,
-        postalCode: _currentHousehold!.postalCode,
-        inviteCode: _currentHousehold!.inviteCode,
-        imageUrl: imageUrl,
-        createdBy: _currentHousehold!.createdBy,
-        createdAt: _currentHousehold!.createdAt,
-      );
-
-      final index = _households.indexWhere((h) => h.id == _currentHousehold!.id);
-      if (index != -1) {
-        _households[index] = updated;
-      }
-      _currentHousehold = updated;
-      _state = HouseholdState.loaded;
-      notifyListeners();
-      return true;
-    } catch (e) {
-      debugPrint('Error uploading image: $e');
-      _errorMessage = e.toString().replaceFirst('Exception: ', '');
-      _state = HouseholdState.loaded;
-      notifyListeners();
-      return false;
-    }
-  }
 
   /// Reset is ONLY called on explicit user logout / account switch
   void reset() {

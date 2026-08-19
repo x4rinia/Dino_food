@@ -78,7 +78,7 @@ $$ LANGUAGE plpgsql VOLATILE;
 CREATE TABLE IF NOT EXISTS public.households (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
-    postal_code TEXT NOT NULL DEFAULT '',
+    color TEXT NOT NULL DEFAULT '#2A9D8F',
     invite_code TEXT UNIQUE NOT NULL DEFAULT public.generate_dino_invite_code(),
     created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
@@ -349,31 +349,31 @@ CREATE POLICY "Members can delete household stock"
 -- ------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.create_household_and_join(
     name text,
-    postal_code text DEFAULT ''
+    color text DEFAULT '#2A9D8F'
 )
-RETURNS json AS $$
+RETURNS public.households
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
 DECLARE
     new_household public.households;
-    current_uid uuid := auth.uid();
+    current_uid uuid;
 BEGIN
+    current_uid := auth.uid();
     IF current_uid IS NULL THEN
         RAISE EXCEPTION 'Nicht authentifiziert';
     END IF;
 
-    IF trim(name) = '' THEN
-        RAISE EXCEPTION 'Haushaltsname darf nicht leer sein';
-    END IF;
-
-    INSERT INTO public.households (name, postal_code, created_by, invite_code)
-    VALUES (trim(name), trim(postal_code), current_uid, public.generate_dino_invite_code())
+    INSERT INTO public.households (name, color, created_by, invite_code)
+    VALUES (trim(name), color, current_uid, public.generate_dino_invite_code())
     RETURNING * INTO new_household;
 
     INSERT INTO public.household_members (household_id, user_id, role)
     VALUES (new_household.id, current_uid, 'owner');
 
-    RETURN row_to_json(new_household);
+    RETURN new_household;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 CREATE OR REPLACE FUNCTION public.join_household_by_code(
     code text

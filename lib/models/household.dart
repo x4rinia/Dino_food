@@ -1,18 +1,16 @@
 class Household {
   final String id;
   final String name;
-  final String postalCode;
+  final String color;
   final String inviteCode;
-  final String? imageUrl;
   final String? createdBy;
   final DateTime createdAt;
 
   Household({
     required this.id,
     required this.name,
-    this.postalCode = '',
+    this.color = '#2A9D8F',
     required this.inviteCode,
-    this.imageUrl,
     this.createdBy,
     required this.createdAt,
   });
@@ -21,9 +19,8 @@ class Household {
     return Household(
       id: json['id'] as String,
       name: json['name'] as String? ?? 'Haushalt',
-      postalCode: json['postal_code'] as String? ?? '',
+      color: json['color'] as String? ?? '#2A9D8F',
       inviteCode: json['invite_code'] as String? ?? '',
-      imageUrl: json['image_url'] as String?,
       createdBy: json['created_by'] as String?,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
@@ -35,9 +32,8 @@ class Household {
     return {
       'id': id,
       'name': name,
-      'postal_code': postalCode,
+      'color': color,
       'invite_code': inviteCode,
-      if (imageUrl != null) 'image_url': imageUrl,
       if (createdBy != null) 'created_by': createdBy,
       'created_at': createdAt.toIso8601String(),
     };
