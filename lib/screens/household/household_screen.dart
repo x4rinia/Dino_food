@@ -54,7 +54,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
         
         if (mounted) {
           if (success) {
-            householdProvider.loadMembers(); // Refresh members list to show new avatar
+            context.read<HouseholdProvider>().loadMembers(); // Refresh members list to show new avatar
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Profilbild erfolgreich hochgeladen!'), backgroundColor: AppTheme.primaryGreen),
             );
