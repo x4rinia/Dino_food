@@ -65,7 +65,13 @@ class ShoppingProvider extends ChangeNotifier {
 
     _streamSubscription = _shoppingService.streamShoppingItems(householdId).listen(
       (items) {
-        _items = items;
+        final foodMap = {for (final item in _items) if (item.food != null) item.id: item.food};
+        _items = items.map((i) {
+          if (i.food == null && foodMap.containsKey(i.id)) {
+            return i.copyWith(food: foodMap[i.id]);
+          }
+          return i;
+        }).toList();
         _isLoading = false;
         notifyListeners();
       },
@@ -104,15 +110,23 @@ class ShoppingProvider extends ChangeNotifier {
     }
 
     try {
-      await _shoppingService.addItem(
+      final newItem = await _shoppingService.addItem(
         householdId: _currentHouseholdId!,
         foodId: foodId,
         customName: customName,
         quantity: quantity,
         note: note,
       );
+      final existingIndex = _items.indexWhere((i) => i.id == newItem.id);
+      if (existingIndex != -1) {
+        _items[existingIndex] = newItem;
+      } else {
+        _items.insert(0, newItem);
+      }
+      notifyListeners();
       return true;
     } catch (e) {
+      debugPrint('Error adding shopping item: $e');
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
       notifyListeners();
       return false;
@@ -187,7 +201,6 @@ class ShoppingProvider extends ChangeNotifier {
     if (SupabaseConfig.isConfigured) {
       try {
         await _shoppingService.deleteItem(itemId);
-        _forceRefresh();
       } catch (e) {
         debugPrint('Error deleting item: $e');
       }
@@ -292,25 +305,9 @@ class ShoppingProvider extends ChangeNotifier {
         _householdMockItems[_currentHouseholdId!] = _items;
       }
       notifyListeners();
-
-      if (SupabaseConfig.isConfigured) {
-        _forceRefresh();
-      }
     }
 
     return successfullyHandledIds.length;
-  }
-
-  void _forceRefresh() {
-    if (_currentHouseholdId == null || !SupabaseConfig.isConfigured) return;
-    
-    // Force a fresh fetch from DB so the local stream cache is reset
-    final currentId = _currentHouseholdId;
-    _currentHouseholdId = null;
-    _streamSubscription?.cancel();
-    _streamSubscription = null;
-    
-    Future.microtask(() => bindToHousehold(currentId));
   }
 
   @override
