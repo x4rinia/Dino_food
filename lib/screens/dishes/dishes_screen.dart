@@ -462,10 +462,15 @@ class _DishesScreenState extends State<DishesScreen> {
       }
     }
 
+    final isCookable = match.totalCount > 0 && match.inStockCount == match.totalCount;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: DinoCard(
         padding: const EdgeInsets.all(16),
+        border: isCookable
+            ? Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.6), width: 1.5)
+            : null,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -476,23 +481,48 @@ class _DishesScreenState extends State<DishesScreen> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppTheme.primarySoft,
+                    color: isCookable ? const Color(0xFFFEF2F2) : AppTheme.primarySoft,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Text('🍲', style: TextStyle(fontSize: 22)),
+                  child: Text(isCookable ? '🔥' : '🍲', style: const TextStyle(fontSize: 22)),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        dish.name,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.textDark,
-                        ),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              dish.name,
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.textDark,
+                              ),
+                            ),
+                          ),
+                          if (isCookable) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFEF2F2),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: const Color(0xFFFCA5A5)),
+                              ),
+                              child: const Text(
+                                '🔥 Kochbar',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFFDC2626),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       const SizedBox(height: 4),
 
@@ -736,13 +766,102 @@ class _DishesScreenState extends State<DishesScreen> {
       );
     }
 
-    return ListView.builder(
+    final inStockFoodIds = stockProvider.inStockFoodIds;
+    final cookableDishes = <Dish>[];
+    final otherDishes = <Dish>[];
+
+    for (final dish in dishProvider.dishes) {
+      var inStockCount = 0;
+      for (final item in dish.items) {
+        final fId = item.foodId ?? item.food?.id;
+        final resolvedByName = foodMap[item.displayName.trim().toLowerCase()];
+        if ((fId != null && inStockFoodIds.contains(fId)) ||
+            (resolvedByName != null && inStockFoodIds.contains(resolvedByName))) {
+          inStockCount++;
+        }
+      }
+      if (dish.items.isNotEmpty && inStockCount == dish.items.length) {
+        cookableDishes.add(dish);
+      } else {
+        otherDishes.add(dish);
+      }
+    }
+
+    // If no dishes are cookable, show the simple standard list
+    if (cookableDishes.isEmpty) {
+      return ListView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
+        itemCount: dishProvider.dishes.length,
+        itemBuilder: (context, index) {
+          final dish = dishProvider.dishes[index];
+          return _buildStandardDishCard(context, dish, dishProvider, stockProvider, foodMap);
+        },
+      );
+    }
+
+    // When at least one dish is cookable: partition with headers (NO duplicates)
+    return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
-      itemCount: dishProvider.dishes.length,
-      itemBuilder: (context, index) {
-        final dish = dishProvider.dishes[index];
-        return _buildStandardDishCard(context, dish, dishProvider, stockProvider, foodMap);
-      },
+      children: [
+        // Section Header: 🔥 Kochbar
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10.0, top: 4.0),
+          child: Row(
+            children: [
+              const Text('🔥', style: TextStyle(fontSize: 18)),
+              const SizedBox(width: 6),
+              const Text(
+                'Kochbar',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFFDC2626),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEE2E2),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFFCA5A5)),
+                ),
+                child: Text(
+                  '${cookableDishes.length}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFFDC2626),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Cookable Dish Cards
+        ...cookableDishes.map(
+          (dish) => _buildStandardDishCard(context, dish, dishProvider, stockProvider, foodMap),
+        ),
+
+        // Section Header for other dishes (if any)
+        if (otherDishes.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: 16.0, bottom: 10.0),
+            child: Text(
+              'Alle anderen Gerichte (${otherDishes.length})',
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textDark,
+              ),
+            ),
+          ),
+          ...otherDishes.map(
+            (dish) => _buildStandardDishCard(context, dish, dishProvider, stockProvider, foodMap),
+          ),
+        ],
+      ],
     );
   }
 
@@ -765,10 +884,15 @@ class _DishesScreenState extends State<DishesScreen> {
       }
     }
 
+    final isCookable = dish.items.isNotEmpty && inStockCount == dish.items.length;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: DinoCard(
         padding: const EdgeInsets.all(16),
+        border: isCookable
+            ? Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.6), width: 1.5)
+            : null,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -778,28 +902,59 @@ class _DishesScreenState extends State<DishesScreen> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppTheme.primarySoft,
+                    color: isCookable ? const Color(0xFFFEF2F2) : AppTheme.primarySoft,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Text('🍲', style: TextStyle(fontSize: 22)),
+                  child: Text(isCookable ? '🔥' : '🍲', style: const TextStyle(fontSize: 22)),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        dish.name,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.textDark,
-                        ),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              dish.name,
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.textDark,
+                              ),
+                            ),
+                          ),
+                          if (isCookable) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFEF2F2),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: const Color(0xFFFCA5A5)),
+                              ),
+                              child: const Text(
+                                '🔥 Kochbar',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFFDC2626),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${dish.items.length} Zutaten · $inStockCount im Vorrat',
-                        style: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
+                        isCookable
+                            ? '${dish.items.length} von ${dish.items.length} Zutaten vorhanden'
+                            : '${dish.items.length} Zutaten · $inStockCount im Vorrat',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: isCookable ? FontWeight.w600 : FontWeight.normal,
+                          color: isCookable ? const Color(0xFFDC2626) : AppTheme.textMuted,
+                        ),
                       ),
                     ],
                   ),

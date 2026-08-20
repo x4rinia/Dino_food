@@ -383,7 +383,7 @@ class DishService {
           id: 'item_${DateTime.now().millisecondsSinceEpoch}_${i['food_id']}',
           dishId: dishId,
           foodId: fId,
-          customName: i['custom_name'] ?? (fId == null ? i['food_name'] : null),
+          customName: i['custom_name'] ?? (fId == null ? (i['food_name'] ?? i['name']) : null),
           quantity: (i['quantity'] as num?)?.toDouble() ?? 1.0,
         );
       }).toList();
