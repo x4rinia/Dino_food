@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/app_theme.dart';
+import '../../config/supabase_config.dart';
 import '../../models/dish.dart';
 import '../../models/dish_item.dart';
 import '../../providers/dish_provider.dart';
+import '../../providers/food_provider.dart';
 import '../../providers/household_provider.dart';
 import '../../providers/shopping_provider.dart';
 import '../../providers/stock_provider.dart';
@@ -19,6 +21,7 @@ class DishPreviewDialog extends StatelessWidget {
     final shoppingProvider = Provider.of<ShoppingProvider>(context);
     final householdProvider = Provider.of<HouseholdProvider>(context);
     final dishProvider = Provider.of<DishProvider>(context, listen: false);
+    final foodProvider = Provider.of<FoodProvider>(context);
 
     // Check open (unchecked) items to avoid duplicates
     final openItems = shoppingProvider.activeItems;
@@ -28,15 +31,56 @@ class DishPreviewDialog extends StatelessWidget {
     final List<DishItem> alreadyOnListItems = [];
 
     for (final item in dish.items) {
-      final isInStock = item.foodId != null && stockProvider.isInStock(item.foodId!);
-      final isAlreadyOnList = openItems.any((openItem) {
-        if (item.foodId != null && openItem.foodId != null && openItem.foodId == item.foodId) {
-          return true;
-        }
-        final itemName = item.displayName.toLowerCase().trim();
-        final openName = openItem.displayName.toLowerCase().trim();
-        return itemName == openName;
-      });
+      final itemName = item.displayName.toLowerCase().trim();
+      final itemCustomName = item.customName?.toLowerCase().trim();
+
+      // Find matching catalog food if available
+      final matchingFood = foodProvider.foods.where((f) {
+        final fName = f.name.toLowerCase().trim();
+        return fName == itemName || (itemCustomName != null && fName == itemCustomName);
+      }).firstOrNull;
+
+      final matchedFoodId = item.foodId ?? item.food?.id ?? matchingFood?.id;
+
+      // 1. Check if in stock (Vorrat aktiv)
+      bool isInStock = false;
+      if (item.foodId != null && stockProvider.isInStock(item.foodId!)) {
+        isInStock = true;
+      } else if (item.food != null && stockProvider.isInStock(item.food!.id)) {
+        isInStock = true;
+      } else if (matchedFoodId != null && stockProvider.isInStock(matchedFoodId)) {
+        isInStock = true;
+      }
+
+      // 2. Check if already on active shopping list
+      bool isAlreadyOnList = false;
+      if (!isInStock) {
+        isAlreadyOnList = openItems.any((openItem) {
+          final openFoodId = openItem.foodId ?? openItem.food?.id;
+          // Match by food ID
+          if (matchedFoodId != null && openFoodId != null && matchedFoodId == openFoodId) {
+            return true;
+          }
+          // Match by display name
+          final openName = openItem.displayName.toLowerCase().trim();
+          if (openName == itemName) {
+            return true;
+          }
+          // Match by custom name
+          final openCustomName = openItem.customName?.toLowerCase().trim();
+          if (openCustomName != null && itemCustomName != null && openCustomName == itemCustomName) {
+            return true;
+          }
+          // Match with open food catalog name
+          if (openItem.food != null) {
+            final openCatalogName = openItem.food!.name.toLowerCase().trim();
+            if (openCatalogName == itemName || (itemCustomName != null && openCatalogName == itemCustomName)) {
+              return true;
+            }
+          }
+          return false;
+        });
+      }
 
       if (isInStock) {
         inStockItems.add(item);
@@ -264,13 +308,21 @@ class DishPreviewDialog extends StatelessWidget {
                       ? () => Navigator.of(context).pop()
                       : () async {
                           final householdId = householdProvider.currentHousehold?.id ?? '';
-                          await dishProvider.addItemsToShoppingList(
-                            householdId: householdId,
-                            items: itemsToAdd,
-                          );
-
-                          // Refresh shopping items stream
-                          shoppingProvider.bindToHousehold(householdId);
+                          if (!SupabaseConfig.isConfigured) {
+                            for (final item in itemsToAdd) {
+                              await shoppingProvider.addItem(
+                                foodId: item.foodId ?? item.food?.id,
+                                customName: item.food?.name ?? item.customName ?? item.displayName,
+                                quantity: item.quantity > 0 ? item.quantity : 1.0,
+                              );
+                            }
+                          } else {
+                            await dishProvider.addItemsToShoppingList(
+                              householdId: householdId,
+                              items: itemsToAdd,
+                            );
+                            shoppingProvider.bindToHousehold(householdId);
+                          }
 
                           if (context.mounted) {
                             Navigator.of(context).pop();
