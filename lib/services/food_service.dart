@@ -298,7 +298,7 @@ class FoodService {
 
   Future<List<Food>> fetchFoods() async {
     if (!SupabaseConfig.isConfigured) {
-      return defaultFoods;
+      return List<Food>.from(defaultFoods);
     }
 
     try {
@@ -309,12 +309,12 @@ class FoodService {
 
       final List<Food> items = (data as List).map((f) => Food.fromJson(f)).toList();
       if (items.isEmpty) {
-        return defaultFoods;
+        return List<Food>.from(defaultFoods);
       }
       return items;
     } catch (e) {
       debugPrint('Error fetching foods: $e');
-      return defaultFoods;
+      return List<Food>.from(defaultFoods);
     }
   }
 

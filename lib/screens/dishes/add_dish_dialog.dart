@@ -6,6 +6,8 @@ import '../../models/food.dart';
 import '../../providers/dish_provider.dart';
 import '../../providers/food_provider.dart';
 import '../../providers/household_provider.dart';
+import '../../utils/string_extensions.dart';
+import '../../widgets/add_to_catalog_dialog.dart';
 
 class AddDishDialog extends StatefulWidget {
   final Dish? dishToEdit;
@@ -21,6 +23,7 @@ class _AddDishDialogState extends State<AddDishDialog> {
   final List<Map<String, dynamic>> _selectedIngredients = [];
 
   Food? _tempSelectedFood;
+  TextEditingController? _autocompleteTextController;
   final _tempQuantityController = TextEditingController(text: '1');
 
   @override
@@ -32,6 +35,7 @@ class _AddDishDialogState extends State<AddDishDialog> {
         _selectedIngredients.add({
           'food_id': item.foodId,
           'food_name': item.displayName,
+          'custom_name': item.customName,
           'quantity': item.quantity,
         });
       }
@@ -45,21 +49,87 @@ class _AddDishDialogState extends State<AddDishDialog> {
     super.dispose();
   }
 
-  void _addIngredient() {
-    if (_tempSelectedFood == null) return;
+  void _addIngredient() async {
+    final rawName = _autocompleteTextController?.text.trim() ?? '';
+    final name = rawName.isNotEmpty ? rawName.toCapitalized() : (_tempSelectedFood?.name ?? '');
+    if (name.isEmpty) return;
 
+    final foodProvider = Provider.of<FoodProvider>(context, listen: false);
     final rawQty = _tempQuantityController.text.trim().replaceAll(',', '.');
     final qty = double.tryParse(rawQty) ?? 1.0;
+    final finalQty = qty > 0 ? qty : 1.0;
 
-    setState(() {
-      _selectedIngredients.add({
-        'food_id': _tempSelectedFood!.id,
-        'food_name': _tempSelectedFood!.name,
-        'quantity': qty > 0 ? qty : 1.0,
+    // Check if matching catalog food exists
+    Food? matchedFood;
+    if (_tempSelectedFood != null && _tempSelectedFood!.name.toLowerCase().trim() == name.toLowerCase()) {
+      matchedFood = _tempSelectedFood;
+    } else {
+      matchedFood = foodProvider.foods.where((f) {
+        return f.name.toLowerCase().trim() == name.toLowerCase();
+      }).firstOrNull;
+    }
+
+    if (matchedFood != null) {
+      setState(() {
+        _selectedIngredients.add({
+          'food_id': matchedFood!.id,
+          'food_name': matchedFood.name,
+          'quantity': finalQty,
+        });
+        _tempSelectedFood = null;
+        _autocompleteTextController?.clear();
+        _tempQuantityController.text = '1';
       });
-      _tempSelectedFood = null;
-      _tempQuantityController.text = '1';
-    });
+      return;
+    }
+
+    // Food is not in catalog -> Ask user with AddToCatalogDialog
+    final decision = await AddToCatalogDialog.show(context, name);
+    if (!mounted) return;
+
+    if (decision == null || decision.isCanceled) {
+      return; // Stay in dialog
+    }
+
+    if (decision.shouldAddToCatalog) {
+      final newFood = await foodProvider.addCustomFood(
+        name: name,
+        category: decision.category,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$name zum Katalog hinzugefügt! 🥦'),
+            backgroundColor: AppTheme.primaryGreen,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+
+      setState(() {
+        _selectedIngredients.add({
+          'food_id': newFood.id,
+          'food_name': newFood.name,
+          'quantity': finalQty,
+        });
+        _tempSelectedFood = null;
+        _autocompleteTextController?.clear();
+        _tempQuantityController.text = '1';
+      });
+    } else if (decision.shouldUseOnce) {
+      setState(() {
+        _selectedIngredients.add({
+          'food_id': null,
+          'food_name': name,
+          'custom_name': name,
+          'quantity': finalQty,
+        });
+        _tempSelectedFood = null;
+        _autocompleteTextController?.clear();
+        _tempQuantityController.text = '1';
+      });
+    }
   }
 
   void _submit() async {
@@ -193,6 +263,7 @@ class _AddDishDialogState extends State<AddDishDialog> {
                       });
                     },
                     fieldViewBuilder: (context, controller, focusNode, onSubmitted) {
+                      _autocompleteTextController = controller;
                       return TextField(
                         controller: controller,
                         focusNode: focusNode,
@@ -201,6 +272,10 @@ class _AddDishDialogState extends State<AddDishDialog> {
                           prefixIcon: Icon(Icons.search, size: 20),
                           isDense: true,
                         ),
+                        onChanged: (_) {
+                          setState(() {});
+                        },
+                        onSubmitted: (_) => _addIngredient(),
                       );
                     },
                   ),
@@ -217,6 +292,7 @@ class _AddDishDialogState extends State<AddDishDialog> {
                             hintText: 'z. B. 4',
                             isDense: true,
                           ),
+                          onSubmitted: (_) => _addIngredient(),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -224,7 +300,9 @@ class _AddDishDialogState extends State<AddDishDialog> {
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         ),
-                        onPressed: _tempSelectedFood != null ? _addIngredient : null,
+                        onPressed: ((_autocompleteTextController?.text.trim().isNotEmpty ?? false) || _tempSelectedFood != null)
+                            ? _addIngredient
+                            : null,
                         child: const Text('Zutat hinzufügen'),
                       ),
                     ],

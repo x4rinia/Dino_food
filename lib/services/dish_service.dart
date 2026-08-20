@@ -91,7 +91,7 @@ class DishService {
         return {
           'dish_id': dishId,
           'food_id': i['food_id'],
-          'custom_name': i['custom_name'],
+          'custom_name': i['custom_name'] ?? (i['food_id'] == null ? i['food_name'] : null),
           'quantity': i['quantity'] ?? 1.0,
         };
       }).toList();
@@ -131,7 +131,7 @@ class DishService {
         return {
           'dish_id': dishId,
           'food_id': i['food_id'],
-          'custom_name': i['custom_name'],
+          'custom_name': i['custom_name'] ?? (i['food_id'] == null ? i['food_name'] : null),
           'quantity': i['quantity'] ?? 1.0,
         };
       }).toList();

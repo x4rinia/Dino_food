@@ -107,7 +107,9 @@ class FoodProvider extends ChangeNotifier {
       category: category,
       defaultUnit: defaultUnit,
     );
-    _foods.insert(0, food);
+    if (!_foods.contains(food)) {
+      _foods.insert(0, food);
+    }
     notifyListeners();
     return food;
   }

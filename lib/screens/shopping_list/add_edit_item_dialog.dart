@@ -6,6 +6,7 @@ import '../../models/shopping_item.dart';
 import '../../providers/food_provider.dart';
 import '../../providers/shopping_provider.dart';
 import '../../utils/string_extensions.dart';
+import '../../widgets/add_to_catalog_dialog.dart';
 
 class AddEditItemDialog extends StatefulWidget {
   final ShoppingItem? itemToEdit;
@@ -51,15 +52,58 @@ class _AddEditItemDialogState extends State<AddEditItemDialog> {
     super.dispose();
   }
 
-  void _submit() {
+  void _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final foodProvider = Provider.of<FoodProvider>(context, listen: false);
     final shoppingProvider = Provider.of<ShoppingProvider>(context, listen: false);
-    final name = _nameController.text.toCapitalized();
-    final note = _noteController.text.toCapitalized();
+    final name = _nameController.text.trim().toCapitalized();
+    final note = _noteController.text.trim().toCapitalized();
 
     final rawQty = _quantityController.text.trim().replaceAll(',', '.');
     final quantity = double.tryParse(rawQty) ?? 1.0;
+
+    // Check if the food exists in catalog
+    Food? matchedFood;
+    if (_selectedFood != null && _selectedFood!.name.toLowerCase().trim() == name.toLowerCase()) {
+      matchedFood = _selectedFood;
+    } else {
+      matchedFood = foodProvider.foods.where((f) {
+        return f.name.toLowerCase().trim() == name.toLowerCase();
+      }).firstOrNull;
+    }
+
+    String? finalFoodId = matchedFood?.id;
+    String? finalCustomName = name;
+
+    // If new item (or name changed to an unknown item) and not in catalog, ask user
+    if (matchedFood == null && widget.itemToEdit == null) {
+      final decision = await AddToCatalogDialog.show(context, name);
+      if (!mounted) return;
+
+      if (decision == null || decision.isCanceled) {
+        return; // Stay in dialog
+      }
+
+      if (decision.shouldAddToCatalog) {
+        final newFood = await foodProvider.addCustomFood(
+          name: name,
+          category: decision.category,
+        );
+        finalFoodId = newFood.id;
+        finalCustomName = name;
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('$name zum Katalog hinzugefügt! 🥦'),
+              backgroundColor: AppTheme.primaryGreen,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    }
 
     if (widget.itemToEdit != null) {
       shoppingProvider.updateItem(
@@ -70,14 +114,16 @@ class _AddEditItemDialogState extends State<AddEditItemDialog> {
       );
     } else {
       shoppingProvider.addItem(
-        foodId: _selectedFood?.id,
-        customName: name,
+        foodId: finalFoodId,
+        customName: finalCustomName,
         quantity: quantity,
         note: note.isNotEmpty ? note : null,
       );
     }
 
-    Navigator.of(context).pop();
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   @override
