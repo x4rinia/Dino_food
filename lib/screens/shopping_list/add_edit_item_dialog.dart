@@ -126,15 +126,17 @@ class _AddEditItemDialogState extends State<AddEditItemDialog> {
       }
     }
 
+    bool success = false;
     if (widget.itemToEdit != null) {
-      shoppingProvider.updateItem(
+      await shoppingProvider.updateItem(
         itemId: widget.itemToEdit!.id,
         customName: finalCustomName,
         quantity: quantity,
         note: note.isNotEmpty ? note : null,
       );
+      success = true;
     } else {
-      shoppingProvider.addItem(
+      success = await shoppingProvider.addItem(
         foodId: finalFoodId,
         customName: finalCustomName,
         quantity: quantity,
@@ -142,8 +144,15 @@ class _AddEditItemDialogState extends State<AddEditItemDialog> {
       );
     }
 
-    if (mounted) {
+    if (success && mounted) {
       Navigator.of(context).pop();
+    } else if (!success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(shoppingProvider.errorMessage ?? 'Fehler beim Speichern des Artikels.'),
+          backgroundColor: AppTheme.errorRed,
+        ),
+      );
     }
   }
 

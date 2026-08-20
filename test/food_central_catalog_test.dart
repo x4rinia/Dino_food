@@ -53,8 +53,43 @@ void main() {
       expect(updated.name, 'Reife Mango');
       expect(foodProvider.foodExists('Reife Mango'), isTrue);
       expect(foodProvider.foodExists('Spezial Mango'), isFalse);
+    });
 
-      // Attempt to update name to an existing food
+    test('Foods list is ALWAYS sorted alphabetically on initial load, after add, and after update', () async {
+      final foodProvider = FoodProvider();
+      await foodProvider.loadFoods();
+
+      // Initial check: is every element alphabetically <= next element
+      for (int i = 0; i < foodProvider.foods.length - 1; i++) {
+        final current = foodProvider.foods[i].name;
+        final next = foodProvider.foods[i + 1].name;
+        expect(FoodProvider.compareFoodNames(current, next) <= 0, isTrue, reason: '$current should precede $next');
+      }
+
+      // Add 'Bio-Apfelkompott'
+      final apfelkompott = await foodProvider.addCustomFood(name: 'Bio-Apfelkompott', category: 'Obst');
+      final apfelIndex = foodProvider.foods.indexWhere((f) => f.id == apfelkompott.id);
+      
+      expect(apfelIndex >= 0, isTrue);
+      for (int i = 0; i < foodProvider.foods.length - 1; i++) {
+        final current = foodProvider.foods[i].name;
+        final next = foodProvider.foods[i + 1].name;
+        expect(FoodProvider.compareFoodNames(current, next) <= 0, isTrue, reason: '$current should precede $next after add');
+      }
+
+      // Update a food name
+      await foodProvider.updateFood(id: apfelkompott.id, name: 'Zimtapfel', category: 'Obst');
+      for (int i = 0; i < foodProvider.foods.length - 1; i++) {
+        final current = foodProvider.foods[i].name;
+        final next = foodProvider.foods[i + 1].name;
+        expect(FoodProvider.compareFoodNames(current, next) <= 0, isTrue, reason: '$current should precede $next after update');
+      }
+    });
+
+    test('Attempt to update name to an existing food', () async {
+      final foodProvider = FoodProvider();
+      await foodProvider.loadFoods();
+      final newFood = await foodProvider.addCustomFood(name: 'Initial', category: 'Obst');
       expect(
         () => foodProvider.updateFood(id: newFood.id, name: 'Bananen', category: 'Obst'),
         throwsA(isA<Exception>().having(
@@ -101,7 +136,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Lebensmittel & Vorrat 🥕'), findsOneWidget);
-      expect(find.text('Tomaten'), findsOneWidget);
+      final firstFoodName = foodProvider.foods.first.name;
+      expect(find.text(firstFoodName), findsOneWidget);
 
       // Verify PopupMenu with Edit and Delete options
       final moreButtons = find.byType(PopupMenuButton<String>);

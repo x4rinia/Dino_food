@@ -91,6 +91,23 @@ class FoodProvider extends ChangeNotifier {
     loadFoods(force: true);
   }
 
+  static int compareFoodNames(String a, String b) {
+    String normalize(String s) {
+      return s
+          .trim()
+          .toLowerCase()
+          .replaceAll('ä', 'ae')
+          .replaceAll('ö', 'oe')
+          .replaceAll('ü', 'ue')
+          .replaceAll('ß', 'ss');
+    }
+    return normalize(a).compareTo(normalize(b));
+  }
+
+  void _sortFoods() {
+    _foods.sort((a, b) => compareFoodNames(a.name, b.name));
+  }
+
   Future<void> loadFoods({bool force = false}) async {
     if (_hasLoaded && !force && _foods.isNotEmpty) return;
 
@@ -99,6 +116,7 @@ class FoodProvider extends ChangeNotifier {
 
     try {
       _foods = await _foodService.fetchFoods(_currentHouseholdId);
+      _sortFoods();
       _hasLoaded = true;
     } catch (e) {
       debugPrint('Error loading foods: $e');
@@ -142,8 +160,9 @@ class FoodProvider extends ChangeNotifier {
       defaultUnit: defaultUnit,
       householdId: _currentHouseholdId,
     );
-    if (!_foods.contains(food)) {
-      _foods.insert(0, food);
+    if (!_foods.any((f) => f.id == food.id)) {
+      _foods.add(food);
+      _sortFoods();
     }
     notifyListeners();
     return food;
@@ -169,6 +188,7 @@ class FoodProvider extends ChangeNotifier {
     final index = _foods.indexWhere((f) => f.id == id);
     if (index != -1) {
       _foods[index] = updated;
+      _sortFoods();
     }
     notifyListeners();
     return updated;

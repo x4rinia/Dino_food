@@ -266,5 +266,53 @@ void main() {
       // Now Bolognese is 6 of 6 -> KOCHBAR!
       expect(isCookable(bolognese), isTrue);
     });
+
+    test('Test 7: Shopping items with note are persisted, and Besen transfers food to stock without note in stock', () async {
+      await householdProvider.loadHouseholds();
+      await householdProvider.createHousehold(name: 'HH Test 7');
+      final hh = householdProvider.currentHousehold!;
+
+      shoppingProvider.bindToHousehold(hh.id);
+      foodProvider.bindToHousehold(hh.id);
+      stockProvider.bindToHousehold(hh.id);
+
+      await foodProvider.loadFoods();
+      final milch = foodProvider.foods.firstWhere((f) => f.name == 'Milch');
+
+      // Add item with note 'laktosefrei'
+      final added = await shoppingProvider.addItem(
+        foodId: milch.id,
+        quantity: 2,
+        note: 'laktosefrei',
+      );
+      expect(added, isTrue);
+
+      final item = shoppingProvider.allItems.firstWhere((i) => i.foodId == milch.id);
+      expect(item.note, 'laktosefrei');
+
+      // Update note
+      await shoppingProvider.updateItem(
+        itemId: item.id,
+        quantity: 3,
+        note: 'bio laktosefrei 1.5%',
+      );
+
+      final updatedItem = shoppingProvider.allItems.firstWhere((i) => i.id == item.id);
+      expect(updatedItem.note, 'bio laktosefrei 1.5%');
+      expect(updatedItem.quantity, 3);
+
+      // Check item and run Besen
+      await shoppingProvider.toggleItemChecked(item.id);
+      final transferredCount = await shoppingProvider.clearCheckedItems(
+        stockProvider: stockProvider,
+        foodProvider: foodProvider,
+      );
+
+      expect(transferredCount, 1);
+      expect(stockProvider.isInStock(milch.id), isTrue);
+      // Vorrat only contains food IDs, no notes
+      expect(stockProvider.inStockFoodIds.contains(milch.id), isTrue);
+      expect(shoppingProvider.allItems.isEmpty, isTrue);
+    });
   });
 }

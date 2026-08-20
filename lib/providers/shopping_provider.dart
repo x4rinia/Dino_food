@@ -194,14 +194,14 @@ class ShoppingProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> clearCheckedItems({
+  Future<int> clearCheckedItems({
     StockProvider? stockProvider,
     FoodProvider? foodProvider,
   }) async {
-    if (_currentHouseholdId == null) return;
+    if (_currentHouseholdId == null) return 0;
 
     final checked = _items.where((i) => i.checked).toList();
-    if (checked.isEmpty) return;
+    if (checked.isEmpty) return 0;
 
     final stockSvc = StockService();
     final foodSvc = FoodService();
@@ -297,6 +297,8 @@ class ShoppingProvider extends ChangeNotifier {
         _forceRefresh();
       }
     }
+
+    return successfullyHandledIds.length;
   }
 
   void _forceRefresh() {

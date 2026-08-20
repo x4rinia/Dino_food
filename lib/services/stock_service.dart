@@ -76,8 +76,9 @@ class StockService {
             .eq('household_id', householdId)
             .eq('food_id', foodId);
       }
-    } catch (e) {
-      debugPrint('Error updating household stock: $e');
+    } catch (e, stackTrace) {
+      debugPrint('Error updating household stock ($householdId, food: $foodId): $e\n$stackTrace');
+      rethrow;
     }
   }
 }

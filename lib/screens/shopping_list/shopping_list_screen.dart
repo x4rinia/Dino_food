@@ -44,8 +44,8 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
         actions: [
           if (shoppingProvider.checkedCount > 0)
             IconButton(
-              icon: const Icon(Icons.cleaning_services_outlined, color: AppTheme.textMuted),
-              tooltip: 'Erledigte Artikel entfernen',
+              icon: const Icon(Icons.cleaning_services_outlined, color: AppTheme.primaryGreen),
+              tooltip: 'Erledigte in den Vorrat übernehmen',
               onPressed: () {
                 _showClearCheckedDialog(context, shoppingProvider);
               },
@@ -93,13 +93,21 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
                               'Erledigt (${shoppingProvider.checkedCount})',
                               AppTheme.textMuted,
                             ),
-                            TextButton(
+                            TextButton.icon(
                               onPressed: () => _showClearCheckedDialog(context, shoppingProvider),
                               style: TextButton.styleFrom(
                                 visualDensity: VisualDensity.compact,
-                                padding: EdgeInsets.zero,
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               ),
-                              child: const Text('Alle löschen', style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+                              icon: const Text('📦', style: TextStyle(fontSize: 12)),
+                              label: const Text(
+                                'In Vorrat',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.primaryGreen,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -353,12 +361,38 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
               backgroundColor: AppTheme.primaryGreen,
               foregroundColor: Colors.white,
             ),
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(ctx);
-              provider.clearCheckedItems(
+              final initialChecked = provider.checkedCount;
+              final transferredCount = await provider.clearCheckedItems(
                 stockProvider: stockProvider,
                 foodProvider: foodProvider,
               );
+              if (context.mounted) {
+                if (transferredCount > 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        transferredCount == 1
+                            ? '1 Artikel wurde zum Vorrat hinzugefügt 📦'
+                            : '$transferredCount Artikel wurden zum Vorrat hinzugefügt 📦',
+                      ),
+                      backgroundColor: AppTheme.primaryGreen,
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                } else if (initialChecked > 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Artikel konnte nicht in den Vorrat übernommen werden.\nEr bleibt auf der Einkaufsliste.',
+                      ),
+                      backgroundColor: AppTheme.errorRed,
+                      duration: Duration(seconds: 3),
+                    ),
+                  );
+                }
+              }
             },
             child: const Text('Übernehmen'),
           ),
