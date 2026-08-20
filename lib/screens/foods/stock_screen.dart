@@ -251,33 +251,6 @@ class _StockScreenState extends State<StockScreen> {
                                         );
                                       },
                                     ),
-                                    const SizedBox(width: 6),
-
-                                    // Remove from Stock Button
-                                    OutlinedButton.icon(
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: AppTheme.errorRed,
-                                        side: BorderSide(color: AppTheme.errorRed.withValues(alpha: 0.3)),
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                        minimumSize: const Size(0, 36),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                      ),
-                                      icon: const Icon(Icons.remove_circle_outline, size: 16),
-                                      label: const Text('Entfernen', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                                      onPressed: () async {
-                                        await stockProvider.toggleStock(food.id);
-                                        if (context.mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(
-                                              content: Text('${food.name} aus Vorrat entfernt.'),
-                                              duration: const Duration(seconds: 2),
-                                            ),
-                                          );
-                                        }
-                                      },
-                                    ),
                                   ],
                                 ),
                               ),

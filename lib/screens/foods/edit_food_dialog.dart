@@ -55,11 +55,13 @@ class _EditFoodDialogState extends State<EditFoodDialog> {
       );
 
       if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('„$name“ erfolgreich aktualisiert!'),
             backgroundColor: AppTheme.primaryGreen,
             duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
           ),
         );
         Navigator.of(context).pop(updated);
@@ -67,11 +69,17 @@ class _EditFoodDialogState extends State<EditFoodDialog> {
     } catch (e) {
       if (mounted) {
         setState(() => _isSaving = false);
+        final raw = e.toString().replaceFirst('Exception: ', '');
+        final msg = raw.contains('duplicate') || raw.contains('23505')
+            ? 'Dieses Lebensmittel gibt es bereits.'
+            : raw;
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            content: Text(msg),
             backgroundColor: AppTheme.errorRed,
             duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
