@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import '../config/supabase_config.dart';
 import '../models/household.dart';
 import '../models/household_member.dart';
+import '../services/dish_service.dart';
+import '../services/food_service.dart';
 import '../services/household_service.dart';
 
 enum HouseholdState {
@@ -13,6 +15,8 @@ enum HouseholdState {
 
 class HouseholdProvider extends ChangeNotifier {
   final HouseholdService _householdService = HouseholdService();
+  final FoodService _foodService = FoodService();
+  final DishService _dishService = DishService();
 
   HouseholdState _state = HouseholdState.initial;
   List<Household> _households = [];
@@ -77,6 +81,10 @@ class HouseholdProvider extends ChangeNotifier {
             joinedAt: DateTime.now(),
           )
         ];
+        // Seed default foods & dishes for demo mock household if not yet seeded
+        final foodMap = await _foodService.seedDefaultFoodsForHousehold(mockHousehold.id);
+        await _dishService.seedDefaultDishesForHousehold(mockHousehold.id, foodMap);
+
         _state = HouseholdState.loaded;
         _errorMessage = null;
         notifyListeners();
@@ -183,7 +191,7 @@ class HouseholdProvider extends ChangeNotifier {
     try {
       if (!SupabaseConfig.isConfigured) {
         final newH = Household(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          id: 'h_${DateTime.now().millisecondsSinceEpoch}',
           name: name,
           color: color,
           inviteCode: 'DINO-8888',
@@ -195,6 +203,10 @@ class HouseholdProvider extends ChangeNotifier {
         if (_defaultHouseholdId == null || _households.length == 1) {
           _defaultHouseholdId = newH.id;
         }
+        // Seed default foods & dishes for new mock household
+        final foodMap = await _foodService.seedDefaultFoodsForHousehold(newH.id);
+        await _dishService.seedDefaultDishesForHousehold(newH.id, foodMap);
+
         _state = HouseholdState.loaded;
         notifyListeners();
         return true;

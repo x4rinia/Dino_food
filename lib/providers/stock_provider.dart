@@ -6,6 +6,8 @@ import '../services/stock_service.dart';
 class StockProvider extends ChangeNotifier {
   final StockService _stockService = StockService();
 
+  static final Map<String, Set<String>> _householdMockStock = {};
+
   Set<String> _inStockFoodIds = {};
   StreamSubscription<Set<String>>? _subscription;
   String? _currentHouseholdId;
@@ -34,8 +36,8 @@ class StockProvider extends ChangeNotifier {
     _subscription?.cancel();
 
     if (!SupabaseConfig.isConfigured) {
-      // Demo mock stock
-      _inStockFoodIds = {'5', '7', '8'}; // Zwiebeln, Knoblauch, Milch
+      // Demo mock stock starts empty per household
+      _inStockFoodIds = _householdMockStock.putIfAbsent(householdId, () => <String>{});
       notifyListeners();
       return;
     }
@@ -68,6 +70,9 @@ class StockProvider extends ChangeNotifier {
       _inStockFoodIds.add(foodId);
     } else {
       _inStockFoodIds.remove(foodId);
+    }
+    if (!SupabaseConfig.isConfigured) {
+      _householdMockStock[_currentHouseholdId!] = _inStockFoodIds;
     }
     notifyListeners();
 

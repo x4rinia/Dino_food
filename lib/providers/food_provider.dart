@@ -163,6 +163,7 @@ class FoodProvider extends ChangeNotifier {
       id: id,
       name: trimmedName,
       category: category,
+      householdId: _currentHouseholdId,
     );
 
     final index = _foods.indexWhere((f) => f.id == id);
@@ -179,7 +180,7 @@ class FoodProvider extends ChangeNotifier {
 
   Future<bool> deleteFood(String foodId, {String? foodName}) async {
     final name = foodName ?? _foods.where((f) => f.id == foodId).firstOrNull?.name;
-    await _foodService.deleteFood(foodId, foodName: name);
+    await _foodService.deleteFood(foodId, foodName: name, householdId: _currentHouseholdId);
     _foods.removeWhere((f) => f.id == foodId);
     notifyListeners();
     return true;

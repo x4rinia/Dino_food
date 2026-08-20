@@ -296,31 +296,109 @@ class FoodService {
     Food(id: 'f_245', name: 'Spülmittel', category: 'Sonstiges', createdAt: DateTime.now()),
   ];
 
+  // Household-scoped mock storage for offline / testing
+  static final Map<String, List<Food>> _householdMockFoods = {};
+
+  static List<Food> _createDefaultFoodsForHousehold(String householdId) {
+    return defaultFoods.map((f) {
+      return Food(
+        id: '${f.id}_$householdId',
+        householdId: householdId,
+        name: f.name,
+        category: f.category,
+        defaultUnit: f.defaultUnit,
+        createdAt: DateTime.now(),
+      );
+    }).toList();
+  }
+
+  /// Seeds the standard food catalogue for a newly created household.
+  /// Returns a map of lowercased food name -> newly created food ID.
+  Future<Map<String, String>> seedDefaultFoodsForHousehold(String householdId) async {
+    final Map<String, String> nameToIdMap = {};
+
+    if (!SupabaseConfig.isConfigured || householdId.isEmpty) {
+      final seeded = _createDefaultFoodsForHousehold(householdId);
+      _householdMockFoods[householdId] = seeded;
+      for (final f in seeded) {
+        nameToIdMap[f.name.trim().toLowerCase()] = f.id;
+      }
+      return nameToIdMap;
+    }
+
+    try {
+      final foodsToInsert = defaultFoods.map((f) {
+        return {
+          'household_id': householdId,
+          'name': f.name,
+          'category': f.category,
+          'default_unit': f.defaultUnit,
+        };
+      }).toList();
+
+      // Insert in chunks of 50 to avoid request size limits
+      const chunkSize = 50;
+      for (var i = 0; i < foodsToInsert.length; i += chunkSize) {
+        final chunk = foodsToInsert.sublist(
+          i,
+          (i + chunkSize > foodsToInsert.length) ? foodsToInsert.length : i + chunkSize,
+        );
+        final inserted = await _client.from('foods').insert(chunk).select('id, name');
+        for (final row in inserted as List) {
+          final id = row['id'] as String?;
+          final name = row['name'] as String?;
+          if (id != null && name != null) {
+            nameToIdMap[name.trim().toLowerCase()] = id;
+          }
+        }
+      }
+      return nameToIdMap;
+    } catch (e) {
+      debugPrint('Error seeding default foods for household $householdId: $e');
+      // Fallback for mock/test
+      final seeded = _createDefaultFoodsForHousehold(householdId);
+      _householdMockFoods[householdId] = seeded;
+      for (final f in seeded) {
+        nameToIdMap[f.name.trim().toLowerCase()] = f.id;
+      }
+      return nameToIdMap;
+    }
+  }
+
   Future<List<Food>> fetchFoods([String? householdId]) async {
     if (!SupabaseConfig.isConfigured) {
       if (householdId != null && householdId.isNotEmpty) {
-        return defaultFoods.where((f) => f.householdId == null || f.householdId == householdId).toList();
+        return _householdMockFoods.putIfAbsent(
+          householdId,
+          () => _createDefaultFoodsForHousehold(householdId),
+        );
       }
       return List<Food>.from(defaultFoods);
     }
 
     try {
       if (householdId != null && householdId.isNotEmpty) {
-        try {
-          final data = await _client
-              .from('foods')
-              .select()
-              .or('household_id.eq.$householdId,household_id.is.null')
-              .order('name', ascending: true);
+        final data = await _client
+            .from('foods')
+            .select()
+            .eq('household_id', householdId)
+            .order('name', ascending: true);
 
-          final List<Food> items = (data as List).map((f) => Food.fromJson(f)).toList();
-          if (items.isNotEmpty) return items;
-        } catch (e) {
-          debugPrint('Household-scoped fetch fallback: $e');
-        }
+        final List<Food> items = (data as List).map((f) => Food.fromJson(f)).toList();
+        if (items.isNotEmpty) return items;
+
+        // Fallback for legacy households that might have null household_id
+        final legacyData = await _client
+            .from('foods')
+            .select()
+            .or('household_id.eq.$householdId,household_id.is.null')
+            .order('name', ascending: true);
+
+        final List<Food> legacyItems = (legacyData as List).map((f) => Food.fromJson(f)).toList();
+        if (legacyItems.isNotEmpty) return legacyItems;
       }
 
-      // Fallback query without household_id filter
+      // Fallback query
       final data = await _client
           .from('foods')
           .select()
@@ -333,6 +411,12 @@ class FoodService {
       return items;
     } catch (e) {
       debugPrint('Error fetching foods: $e');
+      if (householdId != null && householdId.isNotEmpty) {
+        return _householdMockFoods.putIfAbsent(
+          householdId,
+          () => _createDefaultFoodsForHousehold(householdId),
+        );
+      }
       return List<Food>.from(defaultFoods);
     }
   }
@@ -345,14 +429,22 @@ class FoodService {
   }) async {
     if (!SupabaseConfig.isConfigured) {
       final newFood = Food(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        id: 'f_custom_${DateTime.now().millisecondsSinceEpoch}',
         householdId: householdId,
         name: name,
         category: category,
-        defaultUnit: '',
+        defaultUnit: defaultUnit,
         createdAt: DateTime.now(),
       );
-      defaultFoods.insert(0, newFood);
+      if (householdId != null && householdId.isNotEmpty) {
+        final list = _householdMockFoods.putIfAbsent(
+          householdId,
+          () => _createDefaultFoodsForHousehold(householdId),
+        );
+        list.insert(0, newFood);
+      } else {
+        defaultFoods.insert(0, newFood);
+      }
       return newFood;
     }
 
@@ -363,7 +455,7 @@ class FoodService {
             .insert({
               'name': name,
               'category': category,
-              'default_unit': '',
+              'default_unit': defaultUnit,
               'household_id': householdId,
             })
             .select()
@@ -382,7 +474,7 @@ class FoodService {
           .insert({
             'name': name,
             'category': category,
-            'default_unit': '',
+            'default_unit': defaultUnit,
           })
           .select()
           .single();
@@ -402,8 +494,27 @@ class FoodService {
     required String id,
     required String name,
     required String category,
+    String? householdId,
   }) async {
     if (!SupabaseConfig.isConfigured) {
+      if (householdId != null && _householdMockFoods.containsKey(householdId)) {
+        final list = _householdMockFoods[householdId]!;
+        final index = list.indexWhere((f) => f.id == id);
+        final updated = Food(
+          id: id,
+          householdId: householdId,
+          name: name,
+          category: category,
+          defaultUnit: '',
+          createdAt: index != -1 ? list[index].createdAt : DateTime.now(),
+        );
+        if (index != -1) {
+          list[index] = updated;
+        } else {
+          list.insert(0, updated);
+        }
+        return updated;
+      }
       final index = defaultFoods.indexWhere((f) => f.id == id);
       final updated = Food(
         id: id,
@@ -470,8 +581,11 @@ class FoodService {
     }
   }
 
-  Future<void> deleteFood(String foodId, {String? foodName}) async {
+  Future<void> deleteFood(String foodId, {String? foodName, String? householdId}) async {
     if (!SupabaseConfig.isConfigured) {
+      if (householdId != null && _householdMockFoods.containsKey(householdId)) {
+        _householdMockFoods[householdId]!.removeWhere((f) => f.id == foodId);
+      }
       defaultFoods.removeWhere((f) => f.id == foodId);
       return;
     }

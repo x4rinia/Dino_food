@@ -7,6 +7,8 @@ import '../services/shopping_service.dart';
 class ShoppingProvider extends ChangeNotifier {
   final ShoppingService _shoppingService = ShoppingService();
 
+  static final Map<String, List<ShoppingItem>> _householdMockItems = {};
+
   List<ShoppingItem> _items = [];
   StreamSubscription<List<ShoppingItem>>? _streamSubscription;
   String? _currentHouseholdId;
@@ -41,40 +43,7 @@ class ShoppingProvider extends ChangeNotifier {
     _streamSubscription?.cancel();
 
     if (!SupabaseConfig.isConfigured) {
-      // Setup demo items
-      if (_items.isEmpty) {
-        _items = [
-          ShoppingItem(
-            id: 'mock_1',
-            householdId: householdId,
-            customName: 'Milch',
-            quantity: 2,
-            note: 'laktosefrei',
-            checked: false,
-            createdAt: DateTime.now().subtract(const Duration(minutes: 30)),
-            updatedAt: DateTime.now(),
-          ),
-          ShoppingItem(
-            id: 'mock_2',
-            householdId: householdId,
-            customName: 'Tomaten',
-            quantity: 4,
-            note: 'Cherrytomaten',
-            checked: false,
-            createdAt: DateTime.now().subtract(const Duration(minutes: 20)),
-            updatedAt: DateTime.now(),
-          ),
-          ShoppingItem(
-            id: 'mock_3',
-            householdId: householdId,
-            customName: 'Brot',
-            quantity: 1,
-            checked: true,
-            createdAt: DateTime.now().subtract(const Duration(hours: 2)),
-            updatedAt: DateTime.now(),
-          ),
-        ];
-      }
+      _items = _householdMockItems.putIfAbsent(householdId, () => []);
       notifyListeners();
       return;
     }
@@ -114,18 +83,21 @@ class ShoppingProvider extends ChangeNotifier {
     if (_currentHouseholdId == null) return false;
 
     if (!SupabaseConfig.isConfigured) {
-      final newItem = ShoppingItem(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        householdId: _currentHouseholdId!,
-        foodId: foodId,
-        customName: customName,
-        quantity: quantity,
-        note: note,
-        checked: false,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
+      _items.insert(
+        0,
+        ShoppingItem(
+          id: 'mock_${DateTime.now().millisecondsSinceEpoch}',
+          householdId: _currentHouseholdId!,
+          foodId: foodId,
+          customName: customName,
+          quantity: quantity,
+          note: note,
+          checked: false,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
       );
-      _items.insert(0, newItem);
+      _householdMockItems[_currentHouseholdId!] = _items;
       notifyListeners();
       return true;
     }

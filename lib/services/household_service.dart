@@ -4,6 +4,8 @@ import '../config/supabase_config.dart';
 import '../models/household.dart';
 import '../models/household_member.dart';
 import '../models/profile.dart';
+import 'dish_service.dart';
+import 'food_service.dart';
 
 class UserHouseholdsResult {
   final List<Household> households;
@@ -113,10 +115,24 @@ class HouseholdService {
         'color': color,
       });
 
+      Household household;
+      final userId = SupabaseConfig.currentUserId;
+
       if (response != null) {
-        return Household.fromJson(Map<String, dynamic>.from(response as Map));
+        household = Household.fromJson(Map<String, dynamic>.from(response as Map));
+      } else {
+        throw Exception('Haushalt konnte nicht erstellt werden.');
       }
-      throw Exception('Haushalt konnte nicht erstellt werden.');
+
+      // Seed standard food catalogue and dishes for this newly created household
+      try {
+        final foodMap = await FoodService().seedDefaultFoodsForHousehold(household.id);
+        await DishService().seedDefaultDishesForHousehold(household.id, foodMap, userId: userId);
+      } catch (seedErr) {
+        debugPrint('Seeding defaults warning: $seedErr');
+      }
+
+      return household;
     } catch (e) {
       debugPrint('RPC create_household_and_join failed: $e. Falling back to direct insert.');
       final userId = SupabaseConfig.currentUserId!;
@@ -137,6 +153,14 @@ class HouseholdService {
         'user_id': userId,
         'role': 'owner',
       });
+
+      // Seed standard food catalogue and dishes for this newly created household
+      try {
+        final foodMap = await FoodService().seedDefaultFoodsForHousehold(household.id);
+        await DishService().seedDefaultDishesForHousehold(household.id, foodMap, userId: userId);
+      } catch (seedErr) {
+        debugPrint('Seeding defaults warning: $seedErr');
+      }
 
       return household;
     }

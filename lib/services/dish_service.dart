@@ -3,13 +3,241 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
 import '../models/dish.dart';
 import '../models/dish_item.dart';
+import '../models/food.dart';
+import 'food_service.dart';
 
 class DishService {
   SupabaseClient get _client => SupabaseConfig.client;
 
+  // 10 Standard Dino_food dishes template
+  static final List<Map<String, dynamic>> defaultDishesTemplate = [
+    {
+      'name': 'Spaghetti Bolognese',
+      'items': [
+        {'name': 'Spaghetti', 'quantity': 1.0},
+        {'name': 'Hackfleisch', 'quantity': 1.0},
+        {'name': 'Passierte Tomaten', 'quantity': 1.0},
+        {'name': 'Tomatenmark', 'quantity': 1.0},
+        {'name': 'Zwiebeln', 'quantity': 1.0},
+        {'name': 'Knoblauch', 'quantity': 1.0},
+      ],
+    },
+    {
+      'name': 'Chili con Carne',
+      'items': [
+        {'name': 'Hackfleisch', 'quantity': 1.0},
+        {'name': 'Kidneybohnen', 'quantity': 1.0},
+        {'name': 'Mais', 'quantity': 1.0},
+        {'name': 'Gehackte Tomaten', 'quantity': 1.0},
+        {'name': 'Zwiebeln', 'quantity': 1.0},
+        {'name': 'Paprika', 'quantity': 1.0},
+      ],
+    },
+    {
+      'name': 'Kartoffelauflauf',
+      'items': [
+        {'name': 'Kartoffeln', 'quantity': 6.0},
+        {'name': 'Sahne', 'quantity': 1.0},
+        {'name': 'Reibekäse', 'quantity': 1.0},
+        {'name': 'Zwiebeln', 'quantity': 1.0},
+        {'name': 'Kochschinken', 'quantity': 1.0},
+      ],
+    },
+    {
+      'name': 'Nudelauflauf',
+      'items': [
+        {'name': 'Penne', 'quantity': 1.0},
+        {'name': 'Kochschinken', 'quantity': 1.0},
+        {'name': 'Sahne', 'quantity': 1.0},
+        {'name': 'Reibekäse', 'quantity': 1.0},
+        {'name': 'Tomaten', 'quantity': 2.0},
+      ],
+    },
+    {
+      'name': 'Gemüse-Reis-Pfanne',
+      'items': [
+        {'name': 'Reis', 'quantity': 1.0},
+        {'name': 'Paprika', 'quantity': 2.0},
+        {'name': 'Zucchini', 'quantity': 1.0},
+        {'name': 'Karotten', 'quantity': 2.0},
+        {'name': 'Zwiebeln', 'quantity': 1.0},
+        {'name': 'Erbsen', 'quantity': 1.0},
+      ],
+    },
+    {
+      'name': 'Bratkartoffeln mit Spiegelei',
+      'items': [
+        {'name': 'Kartoffeln', 'quantity': 6.0},
+        {'name': 'Eier', 'quantity': 4.0},
+        {'name': 'Zwiebeln', 'quantity': 1.0},
+        {'name': 'Bacon', 'quantity': 1.0},
+      ],
+    },
+    {
+      'name': 'Wraps',
+      'items': [
+        {'name': 'Wraps', 'quantity': 1.0},
+        {'name': 'Hackfleisch', 'quantity': 1.0},
+        {'name': 'Tomaten', 'quantity': 2.0},
+        {'name': 'Gurke', 'quantity': 1.0},
+        {'name': 'Eisbergsalat', 'quantity': 1.0},
+        {'name': 'Reibekäse', 'quantity': 1.0},
+      ],
+    },
+    {
+      'name': 'Tomaten-Mozzarella-Pasta',
+      'items': [
+        {'name': 'Nudeln', 'quantity': 1.0},
+        {'name': 'Tomaten', 'quantity': 4.0},
+        {'name': 'Mozzarella', 'quantity': 2.0},
+        {'name': 'Basilikum', 'quantity': 1.0},
+        {'name': 'Knoblauch', 'quantity': 1.0},
+      ],
+    },
+    {
+      'name': 'Kartoffelsuppe',
+      'items': [
+        {'name': 'Kartoffeln', 'quantity': 6.0},
+        {'name': 'Karotten', 'quantity': 3.0},
+        {'name': 'Lauch', 'quantity': 1.0},
+        {'name': 'Zwiebeln', 'quantity': 1.0},
+        {'name': 'Gemüsebrühe', 'quantity': 1.0},
+        {'name': 'Sahne', 'quantity': 1.0},
+      ],
+    },
+    {
+      'name': 'Hähnchen-Reis-Pfanne',
+      'items': [
+        {'name': 'Hähnchenbrust', 'quantity': 1.0},
+        {'name': 'Reis', 'quantity': 1.0},
+        {'name': 'Paprika', 'quantity': 2.0},
+        {'name': 'Zucchini', 'quantity': 1.0},
+        {'name': 'Zwiebeln', 'quantity': 1.0},
+        {'name': 'Kochsahne', 'quantity': 1.0},
+      ],
+    },
+  ];
+
+  // Household-scoped mock storage for offline / testing
+  static final Map<String, List<Dish>> _householdMockDishes = {};
+
+  static List<Dish> _createDefaultDishesForHousehold(
+    String householdId,
+    Map<String, String> foodNameToIdMap, {
+    Map<String, Food>? foodsById,
+  }) {
+    final List<Dish> result = [];
+    var dishIndex = 1;
+
+    for (final t in defaultDishesTemplate) {
+      final dishId = 'dish_${householdId}_$dishIndex';
+      final rawItems = t['items'] as List<Map<String, dynamic>>;
+      var itemIndex = 1;
+
+      final items = rawItems.map((raw) {
+        final itemName = raw['name'] as String;
+        final qty = (raw['quantity'] as num).toDouble();
+        final foodId = foodNameToIdMap[itemName.trim().toLowerCase()];
+        final foodObj = foodId != null && foodsById != null ? foodsById[foodId] : null;
+
+        return DishItem(
+          id: 'ditem_${dishId}_$itemIndex',
+          dishId: dishId,
+          foodId: foodId,
+          customName: foodId == null ? itemName : null,
+          quantity: qty,
+          food: foodObj,
+        );
+      }).toList();
+
+      result.add(
+        Dish(
+          id: dishId,
+          householdId: householdId,
+          name: t['name'] as String,
+          isFavorite: false,
+          createdAt: DateTime.now(),
+          items: items,
+        ),
+      );
+      dishIndex++;
+    }
+
+    return result;
+  }
+
+  /// Seeds default dishes for a newly created household with exact food IDs.
+  Future<List<Dish>> seedDefaultDishesForHousehold(
+    String householdId,
+    Map<String, String> foodNameToIdMap, {
+    String? userId,
+  }) async {
+    if (!SupabaseConfig.isConfigured || householdId.isEmpty) {
+      final foods = await FoodService().fetchFoods(householdId);
+      final foodsById = {for (final f in foods) f.id: f};
+      final dishes = _createDefaultDishesForHousehold(householdId, foodNameToIdMap, foodsById: foodsById);
+      _householdMockDishes[householdId] = dishes;
+      return dishes;
+    }
+
+    try {
+      final List<Dish> createdDishes = [];
+
+      for (final template in defaultDishesTemplate) {
+        final dishName = template['name'] as String;
+        final rawItems = template['items'] as List<Map<String, dynamic>>;
+
+        final dishMap = <String, dynamic>{
+          'household_id': householdId,
+          'name': dishName,
+        };
+        if (userId != null) {
+          dishMap['created_by'] = userId;
+        }
+
+        final dishData = await _client.from('dishes').insert(dishMap).select().single();
+        final dishId = dishData['id'] as String;
+
+        final itemsToInsert = rawItems.map((raw) {
+          final itemName = raw['name'] as String;
+          final qty = (raw['quantity'] as num).toDouble();
+          final foodId = foodNameToIdMap[itemName.trim().toLowerCase()];
+
+          return {
+            'dish_id': dishId,
+            'food_id': foodId,
+            'custom_name': foodId == null ? itemName : null,
+            'quantity': qty,
+          };
+        }).toList();
+
+        if (itemsToInsert.isNotEmpty) {
+          await _client.from('dish_items').insert(itemsToInsert);
+        }
+
+        final completeData = await _client
+            .from('dishes')
+            .select('*, dish_items(*, foods(*))')
+            .eq('id', dishId)
+            .single();
+
+        createdDishes.add(Dish.fromJson(completeData, isFavorite: false));
+      }
+
+      return createdDishes;
+    } catch (e) {
+      debugPrint('Error seeding default dishes for household $householdId: $e');
+      final foods = await FoodService().fetchFoods(householdId);
+      final foodsById = {for (final f in foods) f.id: f};
+      final dishes = _createDefaultDishesForHousehold(householdId, foodNameToIdMap, foodsById: foodsById);
+      _householdMockDishes[householdId] = dishes;
+      return dishes;
+    }
+  }
+
   Future<List<Dish>> fetchDishes(String householdId) async {
     if (!SupabaseConfig.isConfigured || householdId.isEmpty) {
-      return _mockDishes(householdId);
+      return _getOrInitMockDishes(householdId);
     }
 
     final currentUserId = SupabaseConfig.currentUserId;
@@ -47,14 +275,41 @@ class DishService {
       }).toList();
 
       if (list.isEmpty) {
-        return _mockDishes(householdId);
+        return _getOrInitMockDishes(householdId);
       }
 
       return list;
     } catch (e) {
       debugPrint('Error fetching dishes: $e');
-      return _mockDishes(householdId);
+      return _getOrInitMockDishes(householdId);
     }
+  }
+
+  List<Dish> _getOrInitMockDishes(String householdId) {
+    if (_householdMockDishes.containsKey(householdId)) {
+      return List<Dish>.from(_householdMockDishes[householdId]!);
+    }
+
+    final foodMap = <String, String>{};
+    final foods = FoodService.defaultFoods;
+    for (final f in foods) {
+      foodMap[f.name.trim().toLowerCase()] = '${f.id}_$householdId';
+    }
+    final foodsById = {
+      for (final f in foods)
+        '${f.id}_$householdId': Food(
+          id: '${f.id}_$householdId',
+          householdId: householdId,
+          name: f.name,
+          category: f.category,
+          defaultUnit: f.defaultUnit,
+          createdAt: DateTime.now(),
+        )
+    };
+
+    final seeded = _createDefaultDishesForHousehold(householdId, foodMap, foodsById: foodsById);
+    _householdMockDishes[householdId] = seeded;
+    return seeded;
   }
 
   Future<Dish> createDish({
@@ -63,7 +318,30 @@ class DishService {
     required List<Map<String, dynamic>> items,
   }) async {
     if (!SupabaseConfig.isConfigured) {
-      throw Exception('Supabase ist nicht konfiguriert');
+      final dishId = 'dish_${DateTime.now().millisecondsSinceEpoch}';
+      final dishItems = items.map((i) {
+        final fId = i['food_id'] as String?;
+        return DishItem(
+          id: 'item_${DateTime.now().millisecondsSinceEpoch}_${i['food_id']}',
+          dishId: dishId,
+          foodId: fId,
+          customName: i['custom_name'] ?? (fId == null ? i['food_name'] : null),
+          quantity: (i['quantity'] as num?)?.toDouble() ?? 1.0,
+        );
+      }).toList();
+
+      final newDish = Dish(
+        id: dishId,
+        householdId: householdId,
+        name: name.trim(),
+        isFavorite: false,
+        createdAt: DateTime.now(),
+        items: dishItems,
+      );
+
+      final list = _householdMockDishes.putIfAbsent(householdId, () => []);
+      list.add(newDish);
+      return newDish;
     }
 
     final userId = SupabaseConfig.currentUserId;
@@ -113,9 +391,39 @@ class DishService {
     required String dishId,
     required String name,
     required List<Map<String, dynamic>> items,
+    String? householdId,
   }) async {
     if (!SupabaseConfig.isConfigured) {
-      throw Exception('Supabase ist nicht konfiguriert');
+      if (householdId != null && _householdMockDishes.containsKey(householdId)) {
+        final list = _householdMockDishes[householdId]!;
+        final index = list.indexWhere((d) => d.id == dishId);
+        if (index != -1) {
+          final old = list[index];
+          final dishItems = items.map((i) {
+            final fId = i['food_id'] as String?;
+            return DishItem(
+              id: 'item_${DateTime.now().millisecondsSinceEpoch}_${i['food_id']}',
+              dishId: dishId,
+              foodId: fId,
+              customName: i['custom_name'] ?? (fId == null ? i['food_name'] : null),
+              quantity: (i['quantity'] as num?)?.toDouble() ?? 1.0,
+            );
+          }).toList();
+
+          final updated = old.copyWith(
+            name: name.trim(),
+            items: dishItems,
+          );
+          list[index] = updated;
+          return updated;
+        }
+      }
+      return Dish(
+        id: dishId,
+        householdId: householdId ?? '',
+        name: name,
+        createdAt: DateTime.now(),
+      );
     }
 
     // 1. Update dish name
@@ -149,8 +457,13 @@ class DishService {
     return Dish.fromJson(completeData);
   }
 
-  Future<void> deleteDish(String dishId) async {
-    if (!SupabaseConfig.isConfigured) return;
+  Future<void> deleteDish(String dishId, {String? householdId}) async {
+    if (!SupabaseConfig.isConfigured) {
+      if (householdId != null && _householdMockDishes.containsKey(householdId)) {
+        _householdMockDishes[householdId]!.removeWhere((d) => d.id == dishId);
+      }
+      return;
+    }
 
     try {
       await _client.from('dishes').delete().eq('id', dishId);
@@ -159,8 +472,17 @@ class DishService {
     }
   }
 
-  Future<void> toggleFavorite(String dishId, bool isFavorite) async {
-    if (!SupabaseConfig.isConfigured || SupabaseConfig.currentUserId == null) return;
+  Future<void> toggleFavorite(String dishId, bool isFavorite, {String? householdId}) async {
+    if (!SupabaseConfig.isConfigured || SupabaseConfig.currentUserId == null) {
+      if (householdId != null && _householdMockDishes.containsKey(householdId)) {
+        final list = _householdMockDishes[householdId]!;
+        final idx = list.indexWhere((d) => d.id == dishId);
+        if (idx != -1) {
+          list[idx] = list[idx].copyWith(isFavorite: isFavorite);
+        }
+      }
+      return;
+    }
 
     final userId = SupabaseConfig.currentUserId!;
 
@@ -209,155 +531,5 @@ class DishService {
 
     await _client.from('shopping_items').insert(shoppingItemsToInsert);
     return shoppingItemsToInsert.length;
-  }
-
-  List<Dish> _mockDishes(String householdId) {
-    return [
-      Dish(
-        id: 'mock_dish_1',
-        householdId: householdId,
-        name: 'Spaghetti Bolognese',
-        isFavorite: false,
-        createdAt: DateTime.now(),
-        items: [
-          DishItem(id: 'd1_1', dishId: 'mock_dish_1', customName: 'Spaghetti', quantity: 1),
-          DishItem(id: 'd1_2', dishId: 'mock_dish_1', customName: 'Hackfleisch', quantity: 1),
-          DishItem(id: 'd1_3', dishId: 'mock_dish_1', customName: 'Passierte Tomaten', quantity: 1),
-          DishItem(id: 'd1_4', dishId: 'mock_dish_1', customName: 'Tomatenmark', quantity: 1),
-          DishItem(id: 'd1_5', dishId: 'mock_dish_1', customName: 'Zwiebeln', quantity: 1),
-          DishItem(id: 'd1_6', dishId: 'mock_dish_1', customName: 'Knoblauch', quantity: 1),
-        ],
-      ),
-      Dish(
-        id: 'mock_dish_2',
-        householdId: householdId,
-        name: 'Chili con Carne',
-        isFavorite: false,
-        createdAt: DateTime.now(),
-        items: [
-          DishItem(id: 'd2_1', dishId: 'mock_dish_2', customName: 'Hackfleisch', quantity: 1),
-          DishItem(id: 'd2_2', dishId: 'mock_dish_2', customName: 'Kidneybohnen', quantity: 1),
-          DishItem(id: 'd2_3', dishId: 'mock_dish_2', customName: 'Mais', quantity: 1),
-          DishItem(id: 'd2_4', dishId: 'mock_dish_2', customName: 'Gehackte Tomaten', quantity: 1),
-          DishItem(id: 'd2_5', dishId: 'mock_dish_2', customName: 'Zwiebeln', quantity: 1),
-          DishItem(id: 'd2_6', dishId: 'mock_dish_2', customName: 'Paprika', quantity: 1),
-        ],
-      ),
-      Dish(
-        id: 'mock_dish_3',
-        householdId: householdId,
-        name: 'Kartoffelauflauf',
-        isFavorite: false,
-        createdAt: DateTime.now(),
-        items: [
-          DishItem(id: 'd3_1', dishId: 'mock_dish_3', customName: 'Kartoffeln', quantity: 6),
-          DishItem(id: 'd3_2', dishId: 'mock_dish_3', customName: 'Sahne', quantity: 1),
-          DishItem(id: 'd3_3', dishId: 'mock_dish_3', customName: 'Reibekäse', quantity: 1),
-          DishItem(id: 'd3_4', dishId: 'mock_dish_3', customName: 'Zwiebeln', quantity: 1),
-          DishItem(id: 'd3_5', dishId: 'mock_dish_3', customName: 'Kochschinken', quantity: 1),
-        ],
-      ),
-      Dish(
-        id: 'mock_dish_4',
-        householdId: householdId,
-        name: 'Nudelauflauf',
-        isFavorite: false,
-        createdAt: DateTime.now(),
-        items: [
-          DishItem(id: 'd4_1', dishId: 'mock_dish_4', customName: 'Penne', quantity: 1),
-          DishItem(id: 'd4_2', dishId: 'mock_dish_4', customName: 'Kochschinken', quantity: 1),
-          DishItem(id: 'd4_3', dishId: 'mock_dish_4', customName: 'Sahne', quantity: 1),
-          DishItem(id: 'd4_4', dishId: 'mock_dish_4', customName: 'Reibekäse', quantity: 1),
-          DishItem(id: 'd4_5', dishId: 'mock_dish_4', customName: 'Tomaten', quantity: 2),
-        ],
-      ),
-      Dish(
-        id: 'mock_dish_5',
-        householdId: householdId,
-        name: 'Gemüse-Reis-Pfanne',
-        isFavorite: false,
-        createdAt: DateTime.now(),
-        items: [
-          DishItem(id: 'd5_1', dishId: 'mock_dish_5', customName: 'Reis', quantity: 1),
-          DishItem(id: 'd5_2', dishId: 'mock_dish_5', customName: 'Paprika', quantity: 2),
-          DishItem(id: 'd5_3', dishId: 'mock_dish_5', customName: 'Zucchini', quantity: 1),
-          DishItem(id: 'd5_4', dishId: 'mock_dish_5', customName: 'Karotten', quantity: 2),
-          DishItem(id: 'd5_5', dishId: 'mock_dish_5', customName: 'Zwiebeln', quantity: 1),
-          DishItem(id: 'd5_6', dishId: 'mock_dish_5', customName: 'Erbsen', quantity: 1),
-        ],
-      ),
-      Dish(
-        id: 'mock_dish_6',
-        householdId: householdId,
-        name: 'Bratkartoffeln mit Spiegelei',
-        isFavorite: false,
-        createdAt: DateTime.now(),
-        items: [
-          DishItem(id: 'd6_1', dishId: 'mock_dish_6', customName: 'Kartoffeln', quantity: 6),
-          DishItem(id: 'd6_2', dishId: 'mock_dish_6', customName: 'Eier', quantity: 4),
-          DishItem(id: 'd6_3', dishId: 'mock_dish_6', customName: 'Zwiebeln', quantity: 1),
-          DishItem(id: 'd6_4', dishId: 'mock_dish_6', customName: 'Bacon', quantity: 1),
-        ],
-      ),
-      Dish(
-        id: 'mock_dish_7',
-        householdId: householdId,
-        name: 'Wraps',
-        isFavorite: false,
-        createdAt: DateTime.now(),
-        items: [
-          DishItem(id: 'd7_1', dishId: 'mock_dish_7', customName: 'Wraps', quantity: 1),
-          DishItem(id: 'd7_2', dishId: 'mock_dish_7', customName: 'Hackfleisch', quantity: 1),
-          DishItem(id: 'd7_3', dishId: 'mock_dish_7', customName: 'Tomaten', quantity: 2),
-          DishItem(id: 'd7_4', dishId: 'mock_dish_7', customName: 'Gurke', quantity: 1),
-          DishItem(id: 'd7_5', dishId: 'mock_dish_7', customName: 'Eisbergsalat', quantity: 1),
-          DishItem(id: 'd7_6', dishId: 'mock_dish_7', customName: 'Reibekäse', quantity: 1),
-        ],
-      ),
-      Dish(
-        id: 'mock_dish_8',
-        householdId: householdId,
-        name: 'Tomaten-Mozzarella-Pasta',
-        isFavorite: false,
-        createdAt: DateTime.now(),
-        items: [
-          DishItem(id: 'd8_1', dishId: 'mock_dish_8', customName: 'Nudeln', quantity: 1),
-          DishItem(id: 'd8_2', dishId: 'mock_dish_8', customName: 'Tomaten', quantity: 4),
-          DishItem(id: 'd8_3', dishId: 'mock_dish_8', customName: 'Mozzarella', quantity: 2),
-          DishItem(id: 'd8_4', dishId: 'mock_dish_8', customName: 'Basilikum', quantity: 1),
-          DishItem(id: 'd8_5', dishId: 'mock_dish_8', customName: 'Knoblauch', quantity: 1),
-        ],
-      ),
-      Dish(
-        id: 'mock_dish_9',
-        householdId: householdId,
-        name: 'Kartoffelsuppe',
-        isFavorite: false,
-        createdAt: DateTime.now(),
-        items: [
-          DishItem(id: 'd9_1', dishId: 'mock_dish_9', customName: 'Kartoffeln', quantity: 6),
-          DishItem(id: 'd9_2', dishId: 'mock_dish_9', customName: 'Karotten', quantity: 3),
-          DishItem(id: 'd9_3', dishId: 'mock_dish_9', customName: 'Lauch', quantity: 1),
-          DishItem(id: 'd9_4', dishId: 'mock_dish_9', customName: 'Zwiebeln', quantity: 1),
-          DishItem(id: 'd9_5', dishId: 'mock_dish_9', customName: 'Gemüsebrühe', quantity: 1),
-          DishItem(id: 'd9_6', dishId: 'mock_dish_9', customName: 'Sahne', quantity: 1),
-        ],
-      ),
-      Dish(
-        id: 'mock_dish_10',
-        householdId: householdId,
-        name: 'Hähnchen-Reis-Pfanne',
-        isFavorite: false,
-        createdAt: DateTime.now(),
-        items: [
-          DishItem(id: 'd10_1', dishId: 'mock_dish_10', customName: 'Hähnchenbrust', quantity: 1),
-          DishItem(id: 'd10_2', dishId: 'mock_dish_10', customName: 'Reis', quantity: 1),
-          DishItem(id: 'd10_3', dishId: 'mock_dish_10', customName: 'Paprika', quantity: 2),
-          DishItem(id: 'd10_4', dishId: 'mock_dish_10', customName: 'Zucchini', quantity: 1),
-          DishItem(id: 'd10_5', dishId: 'mock_dish_10', customName: 'Zwiebeln', quantity: 1),
-          DishItem(id: 'd10_6', dishId: 'mock_dish_10', customName: 'Kochsahne', quantity: 1),
-        ],
-      ),
-    ];
   }
 }

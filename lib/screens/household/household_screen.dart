@@ -7,6 +7,7 @@ import '../../config/supabase_config.dart';
 import '../../models/household.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/dish_provider.dart';
+import '../../providers/food_provider.dart';
 import '../../providers/household_provider.dart';
 import '../../providers/shopping_provider.dart';
 import '../../providers/stock_provider.dart';
@@ -173,6 +174,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
     final householdProvider = Provider.of<HouseholdProvider>(context);
     final shoppingProvider = Provider.of<ShoppingProvider>(context, listen: false);
     final stockProvider = Provider.of<StockProvider>(context, listen: false);
+    final foodProvider = Provider.of<FoodProvider>(context, listen: false);
     final dishProvider = Provider.of<DishProvider>(context, listen: false);
     final currentHousehold = householdProvider.currentHousehold;
 
@@ -229,6 +231,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                               householdProvider.setCurrentHousehold(household);
                               shoppingProvider.bindToHousehold(household.id);
                               stockProvider.bindToHousehold(household.id);
+                              foodProvider.bindToHousehold(household.id);
                               dishProvider.loadDishes(household.id);
                             }
                           },
@@ -398,6 +401,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                               final active = householdProvider.currentHousehold!;
                               shoppingProvider.bindToHousehold(active.id);
                               stockProvider.bindToHousehold(active.id);
+                              foodProvider.bindToHousehold(active.id);
                               dishProvider.loadDishes(active.id);
                             }
                           },
@@ -417,6 +421,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                               final active = householdProvider.currentHousehold!;
                               shoppingProvider.bindToHousehold(active.id);
                               stockProvider.bindToHousehold(active.id);
+                              foodProvider.bindToHousehold(active.id);
                               dishProvider.loadDishes(active.id);
                             }
                           },
@@ -799,6 +804,21 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                           ),
                         ),
                       ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Discreet branding
+                  const Center(
+                    child: Text(
+                      '🦕 X4rinia 2026',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textMuted,
+                        letterSpacing: 0.5,
+                      ),
                     ),
                   ),
 
