@@ -4,42 +4,73 @@
  * Completely isolated from Flutter app logic.
  */
 (function () {
-  const DISMISSED_KEY = 'dino_food_pwa_hint_v2';
+  const IOS_DISMISSED_KEY = 'dino_food_ios_install_hint_v3';
+  const ANDROID_DISMISSED_KEY = 'dino_food_pwa_hint_v2';
 
   function isStandalone() {
-    const isStandaloneDisplay = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
-    const isNavStandalone = window.navigator.standalone === true;
-    return isStandaloneDisplay || isNavStandalone;
-  }
-
-  function isDismissed() {
     try {
-      return localStorage.getItem(DISMISSED_KEY) === 'true';
+      const isDisplayStandalone = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
+      const isNavStandalone = window.navigator && window.navigator.standalone === true;
+      return Boolean(isDisplayStandalone || isNavStandalone);
     } catch (e) {
       return false;
     }
   }
 
-  function setDismissed() {
+  function isIOSDismissed() {
     try {
-      localStorage.setItem(DISMISSED_KEY, 'true');
+      return localStorage.getItem(IOS_DISMISSED_KEY) === 'true';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function setIOSDismissed() {
+    try {
+      localStorage.setItem(IOS_DISMISSED_KEY, 'true');
+    } catch (e) {}
+  }
+
+  function isAndroidDismissed() {
+    try {
+      return localStorage.getItem(ANDROID_DISMISSED_KEY) === 'true';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function setAndroidDismissed() {
+    try {
+      localStorage.setItem(ANDROID_DISMISSED_KEY, 'true');
     } catch (e) {}
   }
 
   function isIOS() {
     const ua = window.navigator.userAgent || window.navigator.vendor || window.opera || '';
-    const isAppleDevice = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
-    const isAppleTouch =
-      (window.navigator.platform === 'MacIntel' || /Macintosh/.test(ua)) &&
-      window.navigator.maxTouchPoints > 1;
-    return isAppleDevice || isAppleTouch;
+    const platform = window.navigator.platform || '';
+    const maxTouchPoints = window.navigator.maxTouchPoints || 0;
+
+    // Direct iPhone, iPod, iPad UA check
+    const isDirectAppleMobile = /iPhone|iPod/i.test(ua) || /iPad/i.test(ua);
+
+    // iPadOS 13+ reports as Macintosh in UA & platform, but has multi-touch
+    const isIPadDesktopMode =
+      (/Macintosh|MacIntel/i.test(platform) || /Macintosh/i.test(ua)) && maxTouchPoints > 1;
+
+    // General Apple device with touch (excluding Windows/Android/Linux)
+    const isAppleWithTouch =
+      (/Apple/i.test(window.navigator.vendor || '') || /Safari/i.test(ua)) &&
+      maxTouchPoints > 0 &&
+      !/Windows|Android|Linux/i.test(ua);
+
+    return Boolean(isDirectAppleMobile || isIPadDesktopMode || isAppleWithTouch);
   }
 
   let deferredPrompt = null;
   let bannerElement = null;
 
-  function createBanner({ title, text, buttons }) {
-    if (bannerElement || isStandalone() || isDismissed()) return;
+  function createBanner({ title, text, buttons, onDismiss }) {
+    if (bannerElement || isStandalone()) return;
 
     const styleId = 'dino-pwa-banner-style';
     if (!document.getElementById(styleId)) {
@@ -48,7 +79,7 @@
       style.textContent = `
         .dino-pwa-overlay {
           position: fixed !important;
-          bottom: 20px !important;
+          bottom: calc(20px + env(safe-area-inset-bottom, 0px)) !important;
           left: 50% !important;
           transform: translateX(-50%) translateY(140%) !important;
           width: calc(100% - 32px) !important;
@@ -139,7 +170,7 @@
 
     banner.innerHTML = `
       <div class="dino-pwa-header">
-        <img class="dino-pwa-icon" src="icons/apple-touch-icon.png" alt="Dino_food">
+        <img class="dino-pwa-icon" src="icons/apple-touch-icon.png" alt="Dino_food" onerror="this.style.display='none'">
         <h3 class="dino-pwa-title">${title}</h3>
       </div>
       <p class="dino-pwa-text">${text}</p>
@@ -167,10 +198,12 @@
     });
   }
 
-  function dismissBanner() {
+  function dismissBanner(callback) {
     if (!bannerElement) return;
     bannerElement.classList.remove('dino-pwa-visible');
-    setDismissed();
+    if (typeof callback === 'function') {
+      callback();
+    }
     setTimeout(() => {
       if (bannerElement && bannerElement.parentNode) {
         bannerElement.parentNode.removeChild(bannerElement);
@@ -179,21 +212,22 @@
     }, 400);
   }
 
-  // Android / Chromium beforeinstallprompt handling
+  // Android / Windows / Chromium beforeinstallprompt handling (preserved untouched)
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
 
-    if (!isStandalone() && !isDismissed()) {
+    if (!isStandalone() && !isAndroidDismissed()) {
       createBanner({
         title: '🦕 Dino_food als App installieren',
         text: 'Öffne Dino_food direkt von deinem Startbildschirm.',
+        onDismiss: setAndroidDismissed,
         buttons: [
           {
             label: 'Später',
             primary: false,
             onClick: () => {
-              dismissBanner();
+              dismissBanner(setAndroidDismissed);
             },
           },
           {
@@ -204,10 +238,10 @@
                 deferredPrompt.prompt();
                 deferredPrompt.userChoice.finally(() => {
                   deferredPrompt = null;
-                  dismissBanner();
+                  dismissBanner(setAndroidDismissed);
                 });
               } else {
-                dismissBanner();
+                dismissBanner(setAndroidDismissed);
               }
             },
           },
@@ -216,32 +250,45 @@
     }
   });
 
-  // iOS Safari guidance
+  // iPhone / iPadOS Safari guidance
   function checkIOSGuidance() {
-    if (isIOS() && !isStandalone() && !isDismissed()) {
-      setTimeout(() => {
-        if (!isStandalone() && !isDismissed()) {
-          createBanner({
-            title: '🦕 Dino_food zum Home-Bildschirm hinzufügen',
-            text: 'Tippe auf Teilen und anschließend auf „Zum Home-Bildschirm“. Danach kannst du Dino_food wie eine App öffnen.',
-            buttons: [
-              {
-                label: 'Verstanden',
-                primary: true,
-                onClick: () => {
-                  dismissBanner();
-                },
-              },
-            ],
-          });
-        }
-      }, 1200);
+    if (!isIOS()) return;
+    if (isStandalone()) return;
+    if (isIOSDismissed()) return;
+
+    if (!document.body) {
+      setTimeout(checkIOSGuidance, 500);
+      return;
+    }
+
+    createBanner({
+      title: '🦕 Dino_food als App hinzufügen',
+      text: 'Tippe auf das Teilen-Symbol und anschließend auf „Zum Home-Bildschirm“. Danach kannst du Dino_food direkt vom Startbildschirm öffnen.',
+      onDismiss: setIOSDismissed,
+      buttons: [
+        {
+          label: 'Verstanden',
+          primary: true,
+          onClick: () => {
+            dismissBanner(setIOSDismissed);
+          },
+        },
+      ],
+    });
+  }
+
+  function init() {
+    if (document.readyState === 'complete') {
+      setTimeout(checkIOSGuidance, 800);
+    } else {
+      window.addEventListener('load', () => {
+        setTimeout(checkIOSGuidance, 800);
+      });
+      document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(checkIOSGuidance, 800);
+      });
     }
   }
 
-  if (document.readyState === 'complete' || document.readyState === 'interactive') {
-    checkIOSGuidance();
-  } else {
-    window.addEventListener('DOMContentLoaded', checkIOSGuidance);
-  }
+  init();
 })();
