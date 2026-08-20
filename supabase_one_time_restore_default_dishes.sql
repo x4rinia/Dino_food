@@ -14,13 +14,7 @@ DO $$
 DECLARE
     hh RECORD;
     v_dish_id UUID;
-    v_food_id UUID;
     v_dish_exists BOOLEAN;
-    v_missing_food_count INT;
-    v_missing_food_names TEXT;
-    
-    -- Template structure
-    TYPE t_ingredient IS RECORD (name TEXT, qty NUMERIC);
 BEGIN
     RAISE NOTICE '=== STARTE EINMALIGE PRODUKTIV-REPARATUR DER STANDARDGERICHTE ===';
 
