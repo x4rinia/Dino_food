@@ -206,7 +206,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Confirmation dialog appears with exact text
-      expect(find.text('„Einmaliger Artikel“ wirklich dauerhaft aus der Lebensmittel-Liste löschen?'), findsOneWidget);
+      expect(find.text('„Einmaliger Artikel“ wirklich vollständig aus der Lebensmittel-Liste löschen?'), findsOneWidget);
 
       // Confirm delete
       await tester.tap(find.widgetWithText(ElevatedButton, 'Löschen'));

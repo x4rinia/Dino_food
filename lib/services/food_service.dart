@@ -420,12 +420,54 @@ class FoodService {
     }
   }
 
-  Future<void> deleteFood(String foodId) async {
+  Future<void> deleteFood(String foodId, {String? foodName}) async {
     if (!SupabaseConfig.isConfigured) {
       defaultFoods.removeWhere((f) => f.id == foodId);
       return;
     }
 
-    await _client.from('foods').delete().eq('id', foodId);
+    try {
+      // 1. Preserve shopping items: copy food name to custom_name if empty/null
+      if (foodName != null && foodName.trim().isNotEmpty) {
+        try {
+          await _client
+              .from('shopping_items')
+              .update({'custom_name': foodName.trim()})
+              .eq('food_id', foodId)
+              .or('custom_name.is.null,custom_name.eq.');
+        } catch (_) {}
+      }
+
+      // Set shopping_items.food_id to null
+      try {
+        await _client
+            .from('shopping_items')
+            .update({'food_id': null})
+            .eq('food_id', foodId);
+      } catch (_) {}
+
+      // 2. Delete dish_items for this food (keeps the rest of the dish intact)
+      try {
+        await _client
+            .from('dish_items')
+            .delete()
+            .eq('food_id', foodId);
+      } catch (_) {}
+
+      // 3. Delete household_stock entries for this food
+      try {
+        await _client
+            .from('household_stock')
+            .delete()
+            .eq('food_id', foodId);
+      } catch (_) {}
+
+      // 4. Delete the food record completely from foods table
+      await _client.from('foods').delete().eq('id', foodId);
+    } catch (e) {
+      debugPrint('Error deleting food: $e');
+      // Direct fallback
+      await _client.from('foods').delete().eq('id', foodId);
+    }
   }
 }

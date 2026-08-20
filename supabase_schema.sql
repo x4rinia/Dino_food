@@ -164,6 +164,16 @@ CREATE POLICY "Authenticated users can add custom foods"
     TO authenticated
     WITH CHECK (true);
 
+CREATE POLICY "Authenticated users can update foods"
+    ON public.foods FOR UPDATE
+    TO authenticated
+    USING (true);
+
+CREATE POLICY "Authenticated users can delete foods"
+    ON public.foods FOR DELETE
+    TO authenticated
+    USING (true);
+
 
 -- ------------------------------------------------------------------------------
 -- 5. SHOPPING ITEMS (Gemeinsame Einkaufsliste mit Notizen)

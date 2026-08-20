@@ -65,17 +65,17 @@ void main() {
       );
     });
 
-    test('Deletes food if not in use and throws error if in use', () async {
+    test('Deletes food completely from foods catalog', () async {
       final foodProvider = FoodProvider();
       await foodProvider.loadFoods();
 
-      final tempFood = await foodProvider.addCustomFood(name: 'Unbenutzter Snack', category: 'Snacks');
-      expect(foodProvider.foodExists('Unbenutzter Snack'), isTrue);
+      final tempFood = await foodProvider.addCustomFood(name: 'Avocadooo', category: 'Gemüse');
+      expect(foodProvider.foodExists('Avocadooo'), isTrue);
 
-      // Delete should succeed
-      final deleted = await foodProvider.deleteFood(tempFood.id);
+      // Delete should completely remove it
+      final deleted = await foodProvider.deleteFood(tempFood.id, foodName: tempFood.name);
       expect(deleted, isTrue);
-      expect(foodProvider.foodExists('Unbenutzter Snack'), isFalse);
+      expect(foodProvider.foodExists('Avocadooo'), isFalse);
     });
   });
 

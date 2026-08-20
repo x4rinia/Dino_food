@@ -155,13 +155,9 @@ class FoodProvider extends ChangeNotifier {
     return await _foodService.isFoodInUse(foodId);
   }
 
-  Future<bool> deleteFood(String foodId) async {
-    final inUse = await isFoodInUse(foodId);
-    if (inUse) {
-      throw Exception('Dieses Lebensmittel wird noch verwendet und kann nicht gelöscht werden.');
-    }
-
-    await _foodService.deleteFood(foodId);
+  Future<bool> deleteFood(String foodId, {String? foodName}) async {
+    final name = foodName ?? _foods.where((f) => f.id == foodId).firstOrNull?.name;
+    await _foodService.deleteFood(foodId, foodName: name);
     _foods.removeWhere((f) => f.id == foodId);
     notifyListeners();
     return true;

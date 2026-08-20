@@ -377,13 +377,20 @@ class _FoodsScreenState extends State<FoodsScreen> {
     );
   }
 
-  void _confirmDeleteFood(BuildContext context, Food food, FoodProvider foodProvider) {
+  void _confirmDeleteFood(BuildContext context, Food food, FoodProvider foodProvider) async {
+    final inUse = await foodProvider.isFoodInUse(food.id);
+    if (!context.mounted) return;
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Lebensmittel löschen?'),
-        content: Text('„${food.name}“ wirklich dauerhaft aus der Lebensmittel-Liste löschen?'),
+        content: Text(
+          inUse
+              ? '„${food.name}“ wirklich vollständig aus der Lebensmittel-Liste löschen?\n\nHinweis: Dieses Lebensmittel wird derzeit noch in anderen Bereichen verwendet. Die zugehörigen Verknüpfungen werden beim Löschen bereinigt.'
+              : '„${food.name}“ wirklich vollständig aus der Lebensmittel-Liste löschen?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -394,11 +401,11 @@ class _FoodsScreenState extends State<FoodsScreen> {
             onPressed: () async {
               Navigator.pop(ctx);
               try {
-                await foodProvider.deleteFood(food.id);
+                await foodProvider.deleteFood(food.id, foodName: food.name);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('„${food.name}“ gelöscht.'),
+                      content: Text('„${food.name}“ vollständig gelöscht.'),
                       duration: const Duration(seconds: 2),
                     ),
                   );
