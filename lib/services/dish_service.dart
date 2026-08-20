@@ -339,7 +339,7 @@ class DishService {
       return list;
     } catch (e) {
       debugPrint('Error fetching dishes: $e');
-      return _getOrInitMockDishes(householdId);
+      return [];
     }
   }
 

@@ -3,7 +3,6 @@ import '../models/dish.dart';
 import '../models/dish_item.dart';
 import '../models/food.dart';
 import '../services/dish_service.dart';
-import '../services/food_service.dart';
 
 class HungerDishMatch {
   final Dish dish;
@@ -147,8 +146,6 @@ class DishProvider extends ChangeNotifier {
     return matches;
   }
 
-  static final Set<String> _checkedHouseholdRepairs = {};
-
   Future<void> loadDishes(String householdId) async {
     if (_currentHouseholdId != householdId) {
       _selectedHungerFood = null;
@@ -160,33 +157,12 @@ class DishProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      var list = await _dishService.fetchDishes(householdId);
-
-      // Case 1: Fresh household with 0 dishes -> Seed full standard dishes
-      if (list.isEmpty) {
-        final foods = await FoodService().fetchFoods(householdId);
-        final foodMap = <String, String>{for (final f in foods) f.name.trim().toLowerCase(): f.id};
-        list = await _dishService.seedDefaultDishesForHousehold(householdId, foodMap);
-        _checkedHouseholdRepairs.add(householdId);
-      } else if (!_checkedHouseholdRepairs.contains(householdId)) {
-        // Case 2: Targeted one-time repair ONLY for households affected by the previous seed crash:
-        // Specifically: Household has exactly 1 dish ("Spaghetti Bolognese") and missing the other 9 standard dishes.
-        final isOnlySpaghettiBolognese = list.length == 1 &&
-            list.first.name.trim().toLowerCase() == 'spaghetti bolognese';
-
-        if (isOnlySpaghettiBolognese) {
-          debugPrint('Targeted one-time repair triggered for bugged household $householdId (only Spaghetti Bolognese found)');
-          final foods = await FoodService().fetchFoods(householdId);
-          final foodMap = <String, String>{for (final f in foods) f.name.trim().toLowerCase(): f.id};
-          list = await _dishService.seedDefaultDishesForHousehold(householdId, foodMap);
-        }
-        _checkedHouseholdRepairs.add(householdId);
-      }
-
+      final list = await _dishService.fetchDishes(householdId);
       _dishes = list;
     } catch (e) {
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
       debugPrint('Error loading dishes: $e');
+      _dishes = [];
     } finally {
       _isLoading = false;
       notifyListeners();

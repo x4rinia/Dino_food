@@ -368,10 +368,12 @@ class FoodService {
   Future<List<Food>> fetchFoods([String? householdId]) async {
     if (!SupabaseConfig.isConfigured) {
       if (householdId != null && householdId.isNotEmpty) {
-        return _householdMockFoods.putIfAbsent(
-          householdId,
-          () => _createDefaultFoodsForHousehold(householdId),
-        );
+        if (_householdMockFoods.containsKey(householdId)) {
+          return List<Food>.from(_householdMockFoods[householdId]!);
+        }
+        final initial = _createDefaultFoodsForHousehold(householdId);
+        _householdMockFoods[householdId] = initial;
+        return List<Food>.from(initial);
       }
       return List<Food>.from(defaultFoods);
     }
@@ -412,38 +414,20 @@ class FoodService {
           return result;
         }
 
-        // 3. If no foods exist at all for this household, seed standard foods
-        await seedDefaultFoodsForHousehold(householdId);
-        final seededData = await _client
-            .from('foods')
-            .select()
-            .eq('household_id', householdId)
-            .order('name', ascending: true);
-
-        final List<Food> seededItems = (seededData as List).map((f) => Food.fromJson(f)).toList();
-        if (seededItems.isNotEmpty) return seededItems;
+        // If no foods exist for this household, return empty list (never auto-seed on normal load)
+        return [];
       }
 
-      // Fallback query
+      // Fallback query if no householdId specified
       final data = await _client
           .from('foods')
           .select()
           .order('name', ascending: true);
 
-      final List<Food> items = (data as List).map((f) => Food.fromJson(f)).toList();
-      if (items.isEmpty) {
-        return List<Food>.from(defaultFoods);
-      }
-      return items;
+      return (data as List).map((f) => Food.fromJson(f)).toList();
     } catch (e) {
       debugPrint('Error fetching foods: $e');
-      if (householdId != null && householdId.isNotEmpty) {
-        return _householdMockFoods.putIfAbsent(
-          householdId,
-          () => _createDefaultFoodsForHousehold(householdId),
-        );
-      }
-      return List<Food>.from(defaultFoods);
+      return [];
     }
   }
 

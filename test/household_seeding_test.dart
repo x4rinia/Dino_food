@@ -236,5 +236,83 @@ void main() {
       final reloadedBolognese = dishProvider.dishes.firstWhere((d) => d.name == 'Spaghetti Bolognese');
       expect(reloadedBolognese.items.length, 5);
     });
+
+    test('Deleting ALL dishes keeps list at 0 and allows creating only custom dishes', () async {
+      await householdProvider.loadHouseholds();
+      final hh = householdProvider.currentHousehold!;
+
+      await dishProvider.loadDishes(hh.id);
+      expect(dishProvider.dishes.length, 10);
+
+      // Delete all 10 dishes
+      final allDishIds = dishProvider.dishes.map((d) => d.id).toList();
+      for (final id in allDishIds) {
+        await dishProvider.deleteDish(id);
+      }
+
+      expect(dishProvider.dishes.isEmpty, isTrue);
+
+      // Reload dishes -> MUST STAY 0 dishes!
+      await dishProvider.loadDishes(hh.id);
+      expect(dishProvider.dishes.isEmpty, isTrue);
+
+      // Create 2 custom dishes
+      await dishProvider.createDish(
+        householdId: hh.id,
+        name: 'Pizza Margherita',
+        items: [
+          {'name': 'Mehl', 'quantity': 1.0},
+          {'name': 'Mozzarella', 'quantity': 1.0},
+        ],
+      );
+      await dishProvider.createDish(
+        householdId: hh.id,
+        name: 'Dino-Nudeln',
+        items: [
+          {'name': 'Nudeln', 'quantity': 1.0},
+        ],
+      );
+
+      expect(dishProvider.dishes.length, 2);
+      final names = dishProvider.dishes.map((d) => d.name).toSet();
+      expect(names.contains('Pizza Margherita'), isTrue);
+      expect(names.contains('Dino-Nudeln'), isTrue);
+      expect(names.contains('Spaghetti Bolognese'), isFalse);
+
+      // Reload -> only the 2 custom dishes exist
+      await dishProvider.loadDishes(hh.id);
+      expect(dishProvider.dishes.length, 2);
+    });
+
+    test('Deleting ALL foods keeps list at 0 and allows creating only custom foods', () async {
+      await householdProvider.loadHouseholds();
+      final hh = householdProvider.currentHousehold!;
+
+      foodProvider.bindToHousehold(hh.id);
+      await foodProvider.loadFoods();
+      expect(foodProvider.foods.isNotEmpty, isTrue);
+
+      // Delete all foods
+      final allFoodIds = foodProvider.foods.map((f) => f.id).toList();
+      for (final id in allFoodIds) {
+        await foodProvider.deleteFood(id);
+      }
+
+      expect(foodProvider.foods.isEmpty, isTrue);
+
+      // Reload foods -> MUST STAY 0 foods!
+      await foodProvider.loadFoods(force: true);
+      expect(foodProvider.foods.isEmpty, isTrue);
+
+      // Create 1 custom food
+      await foodProvider.addCustomFood(name: 'Dino-Snack', category: 'Snacks');
+      expect(foodProvider.foods.length, 1);
+      expect(foodProvider.foods.first.name, 'Dino-Snack');
+
+      // Reload -> only the 1 custom food exists
+      await foodProvider.loadFoods(force: true);
+      expect(foodProvider.foods.length, 1);
+      expect(foodProvider.foods.first.name, 'Dino-Snack');
+    });
   });
 }
