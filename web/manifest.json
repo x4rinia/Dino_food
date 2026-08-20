@@ -1,7 +1,8 @@
 {
-    "name": "Dino_food 🦕",
+    "name": "Dino_food",
     "short_name": "Dino_food",
-    "start_url": "./",
+    "start_url": ".",
+    "scope": ".",
     "display": "standalone",
     "background_color": "#F6FBF7",
     "theme_color": "#3E9B4F",
