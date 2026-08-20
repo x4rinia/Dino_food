@@ -6,7 +6,6 @@ import '../../models/food.dart';
 import '../../providers/dish_provider.dart';
 import '../../providers/food_provider.dart';
 import '../../providers/household_provider.dart';
-import '../../utils/string_extensions.dart';
 import '../foods/add_food_dialog.dart';
 
 class AddDishDialog extends StatefulWidget {

@@ -383,7 +383,7 @@ class _FoodsScreenState extends State<FoodsScreen> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Lebensmittel löschen?'),
-        content: Text('„${food.name}“ wirklich aus der Lebensmittelliste entfernen?'),
+        content: Text('„${food.name}“ wirklich dauerhaft aus der Lebensmittel-Liste löschen?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),

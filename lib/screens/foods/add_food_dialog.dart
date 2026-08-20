@@ -147,13 +147,19 @@ class _AddFoodDialogState extends State<AddFoodDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
                     child: const Text('Abbrechen', style: TextStyle(color: AppTheme.textMuted)),
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton(
-                    onPressed: _submit,
-                    child: const Text('Speichern'),
+                    onPressed: _isSaving ? null : _submit,
+                    child: _isSaving
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Text('Speichern'),
                   ),
                 ],
               ),

@@ -132,7 +132,7 @@ class _EditFoodDialogState extends State<EditFoodDialog> {
 
               // Category
               DropdownButtonFormField<String>(
-                value: _selectedCategory,
+                initialValue: _selectedCategory,
                 decoration: const InputDecoration(
                   labelText: 'Kategorie',
                   prefixIcon: Icon(Icons.category_outlined, color: AppTheme.textMuted),

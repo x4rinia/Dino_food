@@ -6,6 +6,7 @@ import '../../models/shopping_item.dart';
 import '../../providers/food_provider.dart';
 import '../../providers/shopping_provider.dart';
 import '../../utils/string_extensions.dart';
+import '../../widgets/add_to_foods_prompt_dialog.dart';
 import '../foods/add_food_dialog.dart';
 
 class AddEditItemDialog extends StatefulWidget {
@@ -68,18 +69,18 @@ class _AddEditItemDialogState extends State<AddEditItemDialog> {
     }
   }
 
-  void _submit() {
+  void _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
     final foodProvider = Provider.of<FoodProvider>(context, listen: false);
     final shoppingProvider = Provider.of<ShoppingProvider>(context, listen: false);
-    final name = _nameController.text.trim();
+    final name = _nameController.text.trim().toCapitalized();
     final note = _noteController.text.trim().toCapitalized();
 
     final rawQty = _quantityController.text.trim().replaceAll(',', '.');
     final quantity = double.tryParse(rawQty) ?? 1.0;
 
-    // Check if the food exists in catalog
+    // 1. Check if the food exists in catalog (case-insensitive)
     Food? matchedFood;
     if (_selectedFood != null && _selectedFood!.name.toLowerCase().trim() == name.toLowerCase()) {
       matchedFood = _selectedFood;
@@ -89,44 +90,53 @@ class _AddEditItemDialogState extends State<AddEditItemDialog> {
       }).firstOrNull;
     }
 
-    if (matchedFood == null && widget.itemToEdit?.foodId == null && widget.itemToEdit?.customName != null) {
-      // Legacy item without food_id being edited
-      shoppingProvider.updateItem(
-        itemId: widget.itemToEdit!.id,
-        customName: name,
-        quantity: quantity,
-        note: note.isNotEmpty ? note : null,
-      );
-      Navigator.of(context).pop();
-      return;
-    }
+    String? finalFoodId = matchedFood?.id;
+    String finalCustomName = matchedFood?.name ?? name;
 
-    if (matchedFood == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Bitte wähle ein Lebensmittel aus der Liste oder lege es neu an.'),
-          backgroundColor: AppTheme.accentOrange,
-          action: SnackBarAction(
-            label: 'Neu anlegen',
-            textColor: Colors.white,
-            onPressed: () => _openCreateNewFood(context, name),
-          ),
-        ),
-      );
-      return;
+    // 2. If new item and NOT in foods catalog -> Prompt user (Nur Einkaufsliste vs Lebensmittel hinzufügen)
+    if (matchedFood == null && widget.itemToEdit == null) {
+      final decision = await AddToFoodsPromptDialog.show(context, name);
+      if (!mounted) return;
+
+      if (decision == null || decision.isCanceled) {
+        return; // Stay in dialog
+      }
+
+      if (decision.isAddToFoods) {
+        final newFood = await foodProvider.addCustomFood(
+          name: name,
+          category: decision.category,
+        );
+        finalFoodId = newFood.id;
+        finalCustomName = newFood.name;
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('$name zu den Lebensmitteln hinzugefügt! 🥦'),
+              backgroundColor: AppTheme.primaryGreen,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      } else if (decision.isOnlyShoppingList) {
+        // Pure free-text entry on shopping list only
+        finalFoodId = null;
+        finalCustomName = name;
+      }
     }
 
     if (widget.itemToEdit != null) {
       shoppingProvider.updateItem(
         itemId: widget.itemToEdit!.id,
-        customName: matchedFood.name,
+        customName: finalCustomName,
         quantity: quantity,
         note: note.isNotEmpty ? note : null,
       );
     } else {
       shoppingProvider.addItem(
-        foodId: matchedFood.id,
-        customName: matchedFood.name,
+        foodId: finalFoodId,
+        customName: finalCustomName,
         quantity: quantity,
         note: note.isNotEmpty ? note : null,
       );

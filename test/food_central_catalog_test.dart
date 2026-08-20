@@ -7,7 +7,6 @@ import 'package:dino_food/providers/shopping_provider.dart';
 import 'package:dino_food/providers/stock_provider.dart';
 import 'package:dino_food/providers/dish_provider.dart';
 import 'package:dino_food/screens/foods/foods_screen.dart';
-import 'package:dino_food/screens/foods/add_food_dialog.dart';
 import 'package:dino_food/screens/foods/edit_food_dialog.dart';
 import 'package:dino_food/screens/shopping_list/add_edit_item_dialog.dart';
 import 'package:dino_food/screens/dishes/add_dish_dialog.dart';
