@@ -1,14 +1,6 @@
 -- ==============================================================================
 -- Dino_food: Reparatur- & Synchronisations-Migration für bestehende Datenbanken
 -- Dateiname: supabase_repair_household_food_links.sql
---
--- SICHERHEITSGARANTIE:
--- - Entfernt alte globale UNIQUE-Constraints auf Lebensmittelnamen (z. B. "foods_name_unique"),
---   damit jeder Haushalt seine eigenen "Eier", "Milch", etc. besitzen darf.
--- - Keine Tabellen werden gelöscht (kein DROP TABLE).
--- - Keine bestehenden Vorrats- oder Einkaufsdaten werden gelöscht.
--- - Bestehende globale Lebensmittel werden pro Haushalt dupliziert.
--- - Alle Foreign Keys (Vorrat, Einkaufsliste, Gerichte) werden sauber remappt.
 -- ==============================================================================
 
 -- ------------------------------------------------------------------------------
@@ -31,14 +23,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 -- ------------------------------------------------------------------------------
 -- 2. ALTE GLOBALE UNIQUE-CONSTRAINTS ENTFERNEN (ERMÖGLICHT HAUSHALTSTRENNUNG)
 -- ------------------------------------------------------------------------------
--- Früher durfte ein Lebensmittelname systemweit nur einmal existieren.
--- Für die echte Haushaltstrennung muss jeder Haushalt eigene Lebensmittel besitzen dürfen.
 ALTER TABLE public.foods DROP CONSTRAINT IF EXISTS foods_name_unique;
 ALTER TABLE public.foods DROP CONSTRAINT IF EXISTS foods_name_key;
 DROP INDEX IF EXISTS public.foods_name_unique;
 DROP INDEX IF EXISTS public.foods_name_key;
 
--- Gleiches vorsorglich für Gerichte prüfen
 ALTER TABLE public.dishes DROP CONSTRAINT IF EXISTS dishes_name_unique;
 ALTER TABLE public.dishes DROP CONSTRAINT IF EXISTS dishes_name_key;
 DROP INDEX IF EXISTS public.dishes_name_unique;
@@ -101,10 +90,10 @@ WHERE g.household_id IS NULL
 -- ------------------------------------------------------------------------------
 UPDATE public.household_stock hs
 SET food_id = f_new.id
-FROM public.foods f_old
-JOIN public.foods f_new 
-  ON lower(trim(f_new.name)) = lower(trim(f_old.name))
+FROM public.foods f_old,
+     public.foods f_new
 WHERE f_old.id = hs.food_id
+  AND lower(trim(f_new.name)) = lower(trim(f_old.name))
   AND f_new.household_id = hs.household_id
   AND (f_old.household_id IS NULL OR f_old.household_id != hs.household_id);
 
@@ -114,10 +103,10 @@ WHERE f_old.id = hs.food_id
 -- ------------------------------------------------------------------------------
 UPDATE public.shopping_items si
 SET food_id = f_new.id
-FROM public.foods f_old
-JOIN public.foods f_new 
-  ON lower(trim(f_new.name)) = lower(trim(f_old.name))
+FROM public.foods f_old,
+     public.foods f_new
 WHERE f_old.id = si.food_id
+  AND lower(trim(f_new.name)) = lower(trim(f_old.name))
   AND f_new.household_id = si.household_id
   AND (f_old.household_id IS NULL OR f_old.household_id != si.household_id);
 
@@ -127,12 +116,13 @@ WHERE f_old.id = si.food_id
 -- ------------------------------------------------------------------------------
 UPDATE public.dish_items di
 SET food_id = f_new.id
-FROM public.dishes d
-JOIN public.foods f_old ON f_old.id = di.food_id
-JOIN public.foods f_new 
-  ON lower(trim(f_new.name)) = lower(trim(f_old.name))
- AND f_new.household_id = d.household_id
+FROM public.dishes d,
+     public.foods f_old,
+     public.foods f_new
 WHERE d.id = di.dish_id
+  AND f_old.id = di.food_id
+  AND lower(trim(f_new.name)) = lower(trim(f_old.name))
+  AND f_new.household_id = d.household_id
   AND d.household_id IS NOT NULL
   AND (f_old.household_id IS NULL OR f_old.household_id != d.household_id);
 
@@ -148,7 +138,6 @@ CREATE INDEX IF NOT EXISTS idx_household_stock_hh_food ON public.household_stock
 CREATE INDEX IF NOT EXISTS idx_shopping_items_household_id ON public.shopping_items(household_id);
 CREATE INDEX IF NOT EXISTS idx_household_members_user_id ON public.household_members(user_id);
 
--- Eindeutigkeit pro Haushalt (nicht mehr global)
 CREATE UNIQUE INDEX IF NOT EXISTS idx_foods_household_name 
 ON public.foods(household_id, lower(trim(name))) 
 WHERE household_id IS NOT NULL;
