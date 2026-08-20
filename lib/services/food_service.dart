@@ -305,11 +305,26 @@ class FoodService {
     }
 
     try {
-      var query = _client.from('foods').select();
       if (householdId != null && householdId.isNotEmpty) {
-        query = query.or('household_id.eq.$householdId,household_id.is.null');
+        try {
+          final data = await _client
+              .from('foods')
+              .select()
+              .or('household_id.eq.$householdId,household_id.is.null')
+              .order('name', ascending: true);
+
+          final List<Food> items = (data as List).map((f) => Food.fromJson(f)).toList();
+          if (items.isNotEmpty) return items;
+        } catch (e) {
+          debugPrint('Household-scoped fetch fallback: $e');
+        }
       }
-      final data = await query.order('name', ascending: true);
+
+      // Fallback query without household_id filter
+      final data = await _client
+          .from('foods')
+          .select()
+          .order('name', ascending: true);
 
       final List<Food> items = (data as List).map((f) => Food.fromJson(f)).toList();
       if (items.isEmpty) {
@@ -341,22 +356,46 @@ class FoodService {
       return newFood;
     }
 
-    final insertData = <String, dynamic>{
-      'name': name,
-      'category': category,
-      'default_unit': '',
-    };
     if (householdId != null && householdId.isNotEmpty) {
-      insertData['household_id'] = householdId;
+      try {
+        final data = await _client
+            .from('foods')
+            .insert({
+              'name': name,
+              'category': category,
+              'default_unit': '',
+              'household_id': householdId,
+            })
+            .select()
+            .single();
+
+        return Food.fromJson(data);
+      } catch (e) {
+        debugPrint('Insert with household_id failed, attempting standard insert: $e');
+      }
     }
 
-    final data = await _client
-        .from('foods')
-        .insert(insertData)
-        .select()
-        .single();
+    // Standard insert without household_id
+    try {
+      final data = await _client
+          .from('foods')
+          .insert({
+            'name': name,
+            'category': category,
+            'default_unit': '',
+          })
+          .select()
+          .single();
 
-    return Food.fromJson(data);
+      return Food.fromJson(data);
+    } catch (innerError) {
+      debugPrint('Food insert error: $innerError');
+      final raw = innerError.toString().replaceFirst('Exception: ', '');
+      if (raw.contains('duplicate') || raw.contains('23505') || raw.contains('already exists')) {
+        throw Exception('Dieses Lebensmittel gibt es bereits.');
+      }
+      throw Exception('Fehler beim Speichern: $raw');
+    }
   }
 
   Future<Food> updateFood({
