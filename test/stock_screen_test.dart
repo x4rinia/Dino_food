@@ -42,11 +42,14 @@ void main() {
     // Should show '2 Lebensmittel zuhause im Vorrat'
     expect(find.text('2 Lebensmittel zuhause im Vorrat'), findsOneWidget);
 
-    // Search for Zwiebeln
-    await tester.enterText(find.byType(TextField), 'Zwiebel');
-    await tester.pump();
+    // Verify toggle button is present
+    expect(find.text('Zuhause'), findsNWidgets(2));
 
-    expect(find.text('Zwiebeln'), findsOneWidget);
-    expect(find.text('Milch'), findsNothing);
+    // Tap toggle button for Zwiebeln
+    await tester.tap(find.text('Zuhause').first);
+    await tester.pumpAndSettle();
+
+    // Now only 1 item in stock
+    expect(stockProvider.isInStock('f1'), isFalse);
   });
 }

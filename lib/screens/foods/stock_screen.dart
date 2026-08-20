@@ -5,7 +5,6 @@ import '../../providers/food_provider.dart';
 import '../../providers/stock_provider.dart';
 import '../../widgets/dino_card.dart';
 import '../../widgets/empty_state.dart';
-import '../shopping_list/add_edit_item_dialog.dart';
 
 class StockScreen extends StatefulWidget {
   const StockScreen({super.key});
@@ -234,22 +233,39 @@ class _StockScreenState extends State<StockScreen> {
                                       ),
                                     ),
 
-                                    // Quick Add to shopping list
-                                    IconButton.filledTonal(
-                                      style: IconButton.styleFrom(
-                                        backgroundColor: AppTheme.primarySoft,
-                                        foregroundColor: AppTheme.primaryDark,
-                                        padding: const EdgeInsets.all(8),
-                                        minimumSize: const Size(36, 36),
-                                      ),
-                                      icon: const Icon(Icons.add_shopping_cart, size: 18),
-                                      tooltip: 'Auf Einkaufsliste setzen',
-                                      onPressed: () {
-                                        showDialog(
-                                          context: context,
-                                          builder: (_) => AddEditItemDialog(preselectedFood: food),
-                                        );
+                                    // Stock Toggle Button (identical to FoodsScreen)
+                                    InkWell(
+                                      onTap: () {
+                                        stockProvider.toggleStock(food.id);
                                       },
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.primaryGreen,
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(color: AppTheme.primaryGreen),
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.check_circle,
+                                              size: 15,
+                                              color: Colors.white,
+                                            ),
+                                            SizedBox(width: 4),
+                                            Text(
+                                              'Zuhause',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 ),
