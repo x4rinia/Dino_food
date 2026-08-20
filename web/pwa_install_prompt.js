@@ -63,7 +63,7 @@
   let deferredPrompt = null;
   let bannerElement = null;
 
-  function createBanner({ title, text, buttons }) {
+  function createBanner({ title, text, imageSrc, steps, buttons }) {
     if (bannerElement || isStandalone() || isSessionDismissed()) return;
 
     const styleId = 'dino-pwa-banner-style';
@@ -73,14 +73,17 @@
       style.textContent = `
         .dino-pwa-overlay {
           position: fixed !important;
-          bottom: calc(20px + env(safe-area-inset-bottom, 0px)) !important;
+          bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
           left: 50% !important;
           transform: translateX(-50%) translateY(140%) !important;
-          width: calc(100% - 32px) !important;
-          max-width: 440px !important;
+          width: calc(100% - 28px) !important;
+          max-width: 420px !important;
+          max-height: calc(100vh - 40px) !important;
+          overflow-y: auto !important;
+          -webkit-overflow-scrolling: touch !important;
           background: #ffffff !important;
-          border-radius: 18px !important;
-          box-shadow: 0 12px 36px rgba(0, 0, 0, 0.2), 0 2px 6px rgba(0, 0, 0, 0.08) !important;
+          border-radius: 20px !important;
+          box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22), 0 2px 8px rgba(0, 0, 0, 0.08) !important;
           border: 1px solid rgba(62, 155, 79, 0.25) !important;
           padding: 16px 18px !important;
           z-index: 2147483647 !important;
@@ -100,9 +103,9 @@
           margin-bottom: 8px !important;
         }
         .dino-pwa-icon {
-          width: 38px !important;
-          height: 38px !important;
-          border-radius: 10px !important;
+          width: 36px !important;
+          height: 36px !important;
+          border-radius: 9px !important;
           box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12) !important;
           flex-shrink: 0 !important;
         }
@@ -116,8 +119,35 @@
         .dino-pwa-text {
           font-size: 13.5px !important;
           color: #435447 !important;
-          margin: 0 0 14px 0 !important;
+          margin: 0 0 12px 0 !important;
           line-height: 1.45 !important;
+        }
+        .dino-pwa-image-container {
+          display: flex !important;
+          justify-content: center !important;
+          align-items: center !important;
+          margin: 0 0 12px 0 !important;
+        }
+        .dino-pwa-guide-image {
+          max-width: 90% !important;
+          max-height: 190px !important;
+          width: auto !important;
+          height: auto !important;
+          object-fit: contain !important;
+          border-radius: 12px !important;
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12) !important;
+          border: 1px solid rgba(0, 0, 0, 0.08) !important;
+          display: block !important;
+        }
+        .dino-pwa-steps {
+          margin: 0 0 14px 0 !important;
+          padding-left: 20px !important;
+          font-size: 13px !important;
+          color: #2b3d2f !important;
+          line-height: 1.55 !important;
+        }
+        .dino-pwa-steps li {
+          margin-bottom: 3px !important;
         }
         .dino-pwa-actions {
           display: flex !important;
@@ -162,12 +192,22 @@
       buttonsHtml += `<button class="dino-pwa-btn ${btnClass}" id="dino-pwa-btn-${idx}">${btn.label}</button>`;
     });
 
+    const imageHtml = imageSrc
+      ? `<div class="dino-pwa-image-container"><img class="dino-pwa-guide-image" src="${imageSrc}" alt="Anleitung Home-Bildschirm" onerror="this.parentElement.style.display='none'"></div>`
+      : '';
+
+    const stepsHtml = steps && steps.length > 0
+      ? `<ol class="dino-pwa-steps">${steps.map((s) => `<li>${s}</li>`).join('')}</ol>`
+      : '';
+
     banner.innerHTML = `
       <div class="dino-pwa-header">
         <img class="dino-pwa-icon" src="icons/apple-touch-icon.png" alt="Dino_food" onerror="this.style.display='none'">
         <h3 class="dino-pwa-title">${title}</h3>
       </div>
       <p class="dino-pwa-text">${text}</p>
+      ${imageHtml}
+      ${stepsHtml}
       <div class="dino-pwa-actions">${buttonsHtml}</div>
     `;
 
@@ -254,7 +294,13 @@
 
     createBanner({
       title: '🦕 Dino_food als App hinzufügen',
-      text: 'Öffne das Teilen-Menü deines Browsers und wähle „Zum Home-Bildschirm“ bzw. „Zu Home-Bildschirm hinzufügen“. Aktiviere, falls angeboten, „Als Web-App öffnen“ und tippe anschließend auf „Hinzufügen“.',
+      text: 'Du kannst Dino_food direkt auf deinem Home-Bildschirm speichern und wie eine App öffnen.',
+      imageSrc: 'images/ios-home-screen-help.png',
+      steps: [
+        'Öffne im Browser „Zum Home-Bildschirm“.',
+        'Lass „Als Web-App öffnen“ aktiviert.',
+        'Tippe oben rechts auf „Hinzufügen“.',
+      ],
       buttons: [
         {
           label: 'Verstanden',
