@@ -177,5 +177,26 @@ void main() {
         expect(dishProvider.dishes.any((d) => d.name == expected), isTrue, reason: '$expected should exist');
       }
     });
+
+    test('Deliberately deleted standard dish is NOT restored on loadDishes', () async {
+      await householdProvider.loadHouseholds();
+      final hh = householdProvider.currentHousehold!;
+
+      await dishProvider.loadDishes(hh.id);
+      expect(dishProvider.dishes.length, 10);
+
+      // User deletes "Kartoffelsuppe"
+      final kartoffelsuppe = dishProvider.dishes.firstWhere((d) => d.name == 'Kartoffelsuppe');
+      await dishProvider.deleteDish(kartoffelsuppe.id);
+      expect(dishProvider.dishes.length, 9);
+      expect(dishProvider.dishes.any((d) => d.name == 'Kartoffelsuppe'), isFalse);
+
+      // App reloads dishes (e.g. navigation or app restart)
+      await dishProvider.loadDishes(hh.id);
+
+      // Must STAY 9 dishes, Kartoffelsuppe must NOT be re-created!
+      expect(dishProvider.dishes.length, 9);
+      expect(dishProvider.dishes.any((d) => d.name == 'Kartoffelsuppe'), isFalse);
+    });
   });
 }

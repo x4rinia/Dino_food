@@ -160,11 +160,8 @@ class DishProvider extends ChangeNotifier {
     try {
       var list = await _dishService.fetchDishes(householdId);
 
-      // Auto-complete missing default dishes for new or partially initialized households
-      if (list.isEmpty ||
-          (list.length < 10 &&
-              list.every((d) => DishService.defaultDishesTemplate
-                  .any((t) => (t['name'] as String).toLowerCase() == d.name.toLowerCase())))) {
+      // Only seed default dishes if household has NO dishes at all (fresh household initialization)
+      if (list.isEmpty) {
         final foods = await FoodService().fetchFoods(householdId);
         final foodMap = <String, String>{for (final f in foods) f.name.trim().toLowerCase(): f.id};
         list = await _dishService.seedDefaultDishesForHousehold(householdId, foodMap);

@@ -168,7 +168,8 @@ class DishService {
 
   /// Seeds default dishes for a newly created household with exact food IDs.
   /// Seeds or completes missing default dishes for a household.
-  /// Idempotent: Skips dishes that already exist for this household.
+  /// Idempotent: Skips dishes that already exist with items for this household.
+  /// Rollback: Deletes dish header if dish_items insert fails.
   Future<List<Dish>> seedDefaultDishesForHousehold(
     String householdId,
     Map<String, String> foodNameToIdMap, {
@@ -193,25 +194,40 @@ class DishService {
         resolvedFoodMap.putIfAbsent(k, () => v);
       });
 
-      // 2. Fetch already existing dishes for this household to prevent duplicates
+      // 2. Fetch already existing dishes with items for this household
       final existingData = await _client
           .from('dishes')
-          .select('id, name')
+          .select('id, name, dish_items(id)')
           .eq('household_id', householdId);
 
-      final existingNames = (existingData as List)
-          .map((d) => (d['name'] as String).trim().toLowerCase())
-          .toSet();
+      final Map<String, Map<String, dynamic>> existingDishesByName = {};
+      for (final d in existingData as List) {
+        final dName = (d['name'] as String).trim().toLowerCase();
+        final items = d['dish_items'] as List?;
+        existingDishesByName[dName] = {
+          'id': d['id'] as String,
+          'item_count': items?.length ?? 0,
+        };
+      }
 
       for (final template in defaultDishesTemplate) {
         final dishName = template['name'] as String;
+        final normalizedName = dishName.trim().toLowerCase();
         final rawItems = template['items'] as List<Map<String, dynamic>>;
 
-        // If dish already exists, do not duplicate!
-        if (existingNames.contains(dishName.trim().toLowerCase())) {
-          continue;
+        // If dish already exists with items, it is complete -> skip!
+        if (existingDishesByName.containsKey(normalizedName)) {
+          final existing = existingDishesByName[normalizedName]!;
+          if ((existing['item_count'] as int) > 0) {
+            continue;
+          }
+          // If it exists as an empty shell with 0 items, clean it up before re-creating
+          try {
+            await _client.from('dishes').delete().eq('id', existing['id'] as String);
+          } catch (_) {}
         }
 
+        String? createdDishId;
         try {
           final dishMap = <String, dynamic>{
             'household_id': householdId,
@@ -222,7 +238,7 @@ class DishService {
           }
 
           final dishData = await _client.from('dishes').insert(dishMap).select().single();
-          final dishId = dishData['id'] as String;
+          createdDishId = dishData['id'] as String;
 
           final itemsToInsert = rawItems.map((raw) {
             final itemName = raw['name'] as String;
@@ -233,7 +249,7 @@ class DishService {
                     .hasMatch(rawFoodId);
 
             return {
-              'dish_id': dishId,
+              'dish_id': createdDishId,
               'food_id': isUuid ? rawFoodId : null,
               'custom_name': isUuid ? null : itemName,
               'quantity': qty,
@@ -245,6 +261,12 @@ class DishService {
           }
         } catch (singleDishError) {
           debugPrint('Error inserting single dish "$dishName" for household $householdId: $singleDishError');
+          // Rollback: Clean up empty dish if items failed
+          if (createdDishId != null) {
+            try {
+              await _client.from('dishes').delete().eq('id', createdDishId);
+            } catch (_) {}
+          }
         }
       }
 
