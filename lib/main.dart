@@ -57,6 +57,7 @@ class _AuthGateState extends State<AuthGate> {
     final householdProvider = Provider.of<HouseholdProvider>(context);
     final shoppingProvider = Provider.of<ShoppingProvider>(context, listen: false);
     final stockProvider = Provider.of<StockProvider>(context, listen: false);
+    final foodProvider = Provider.of<FoodProvider>(context, listen: false);
     final dishProvider = Provider.of<DishProvider>(context, listen: false);
 
     // 1. Initializing Auth -> Splash / Loading screen
@@ -101,6 +102,7 @@ class _AuthGateState extends State<AuthGate> {
           if (current != null) {
             shoppingProvider.bindToHousehold(current.id);
             stockProvider.bindToHousehold(current.id);
+            foodProvider.bindToHousehold(current.id);
             dishProvider.loadDishes(current.id);
           }
         });

@@ -296,16 +296,20 @@ class FoodService {
     Food(id: 'f_245', name: 'Spülmittel', category: 'Sonstiges', createdAt: DateTime.now()),
   ];
 
-  Future<List<Food>> fetchFoods() async {
+  Future<List<Food>> fetchFoods([String? householdId]) async {
     if (!SupabaseConfig.isConfigured) {
+      if (householdId != null && householdId.isNotEmpty) {
+        return defaultFoods.where((f) => f.householdId == null || f.householdId == householdId).toList();
+      }
       return List<Food>.from(defaultFoods);
     }
 
     try {
-      final data = await _client
-          .from('foods')
-          .select()
-          .order('name', ascending: true);
+      var query = _client.from('foods').select();
+      if (householdId != null && householdId.isNotEmpty) {
+        query = query.or('household_id.eq.$householdId,household_id.is.null');
+      }
+      final data = await query.order('name', ascending: true);
 
       final List<Food> items = (data as List).map((f) => Food.fromJson(f)).toList();
       if (items.isEmpty) {
@@ -322,10 +326,12 @@ class FoodService {
     required String name,
     String category = 'Sonstiges',
     String defaultUnit = '',
+    String? householdId,
   }) async {
     if (!SupabaseConfig.isConfigured) {
       final newFood = Food(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
+        householdId: householdId,
         name: name,
         category: category,
         defaultUnit: '',
@@ -335,13 +341,18 @@ class FoodService {
       return newFood;
     }
 
+    final insertData = <String, dynamic>{
+      'name': name,
+      'category': category,
+      'default_unit': '',
+    };
+    if (householdId != null && householdId.isNotEmpty) {
+      insertData['household_id'] = householdId;
+    }
+
     final data = await _client
         .from('foods')
-        .insert({
-          'name': name,
-          'category': category,
-          'default_unit': '',
-        })
+        .insert(insertData)
         .select()
         .single();
 

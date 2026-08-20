@@ -8,6 +8,7 @@ class FoodProvider extends ChangeNotifier {
   List<Food> _foods = [];
   String _searchQuery = '';
   String _selectedCategory = 'Alle';
+  String? _currentHouseholdId;
   bool _isLoading = false;
   bool _hasLoaded = false;
 
@@ -70,6 +71,26 @@ class FoodProvider extends ChangeNotifier {
     }).toList();
   }
 
+  String? get currentHouseholdId => _currentHouseholdId;
+
+  void bindToHousehold(String? householdId) {
+    if (householdId == null || householdId.isEmpty) {
+      _currentHouseholdId = null;
+      _foods = [];
+      _hasLoaded = false;
+      notifyListeners();
+      return;
+    }
+
+    if (_currentHouseholdId == householdId && _hasLoaded) {
+      return;
+    }
+
+    _currentHouseholdId = householdId;
+    _hasLoaded = false;
+    loadFoods(force: true);
+  }
+
   Future<void> loadFoods({bool force = false}) async {
     if (_hasLoaded && !force && _foods.isNotEmpty) return;
 
@@ -77,7 +98,7 @@ class FoodProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _foods = await _foodService.fetchFoods();
+      _foods = await _foodService.fetchFoods(_currentHouseholdId);
       _hasLoaded = true;
     } catch (e) {
       debugPrint('Error loading foods: $e');
@@ -119,6 +140,7 @@ class FoodProvider extends ChangeNotifier {
       name: trimmedName,
       category: category,
       defaultUnit: defaultUnit,
+      householdId: _currentHouseholdId,
     );
     if (!_foods.contains(food)) {
       _foods.insert(0, food);

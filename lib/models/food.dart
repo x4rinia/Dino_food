@@ -1,5 +1,6 @@
 class Food {
   final String id;
+  final String? householdId;
   final String name;
   final String category;
   final String defaultUnit;
@@ -7,6 +8,7 @@ class Food {
 
   Food({
     required this.id,
+    this.householdId,
     required this.name,
     this.category = 'Sonstiges',
     this.defaultUnit = 'Stück',
@@ -16,6 +18,7 @@ class Food {
   factory Food.fromJson(Map<String, dynamic> json) {
     return Food(
       id: json['id'] as String,
+      householdId: json['household_id'] as String?,
       name: json['name'] as String? ?? '',
       category: json['category'] as String? ?? 'Sonstiges',
       defaultUnit: json['default_unit'] as String? ?? 'Stück',
@@ -28,6 +31,7 @@ class Food {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      if (householdId != null) 'household_id': householdId,
       'name': name,
       'category': category,
       'default_unit': defaultUnit,

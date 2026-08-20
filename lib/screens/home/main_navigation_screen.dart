@@ -46,9 +46,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     if (current != null) {
       shoppingProvider.bindToHousehold(current.id);
       stockProvider.bindToHousehold(current.id);
+      foodProvider.bindToHousehold(current.id);
       dishProvider.loadDishes(current.id);
+    } else {
+      await foodProvider.loadFoods();
     }
-    await foodProvider.loadFoods();
   }
 
   @override

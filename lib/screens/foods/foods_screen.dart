@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../config/app_theme.dart';
 import '../../models/food.dart';
 import '../../providers/food_provider.dart';
+import '../../providers/household_provider.dart';
 import '../../providers/shopping_provider.dart';
 import '../../providers/stock_provider.dart';
 import '../../widgets/dino_card.dart';
@@ -26,7 +27,16 @@ class _FoodsScreenState extends State<FoodsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<FoodProvider>(context, listen: false).loadFoods();
+      String? hhId;
+      try {
+        hhId = Provider.of<HouseholdProvider>(context, listen: false).currentHousehold?.id;
+      } catch (_) {}
+      final fp = Provider.of<FoodProvider>(context, listen: false);
+      if (hhId != null) {
+        fp.bindToHousehold(hhId);
+      } else {
+        fp.loadFoods();
+      }
     });
   }
 

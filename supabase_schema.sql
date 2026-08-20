@@ -142,10 +142,11 @@ CREATE POLICY "Members can leave or owners remove"
 
 
 -- ------------------------------------------------------------------------------
--- 4. FOODS (Lebensmittel-Katalog)
+-- 4. FOODS (Lebensmittel-Katalog pro Haushalt)
 -- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.foods (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    household_id UUID REFERENCES public.households(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     category TEXT NOT NULL DEFAULT 'Sonstiges',
     default_unit TEXT NOT NULL DEFAULT '',
@@ -154,25 +155,25 @@ CREATE TABLE IF NOT EXISTS public.foods (
 
 ALTER TABLE public.foods ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Foods are viewable by authenticated users"
+CREATE POLICY "Household members can view foods"
     ON public.foods FOR SELECT
     TO authenticated
-    USING (true);
+    USING (household_id IS NULL OR public.is_household_member(household_id));
 
-CREATE POLICY "Authenticated users can add custom foods"
+CREATE POLICY "Household members can add foods"
     ON public.foods FOR INSERT
     TO authenticated
-    WITH CHECK (true);
+    WITH CHECK (household_id IS NULL OR public.is_household_member(household_id));
 
-CREATE POLICY "Authenticated users can update foods"
+CREATE POLICY "Household members can update foods"
     ON public.foods FOR UPDATE
     TO authenticated
-    USING (true);
+    USING (household_id IS NULL OR public.is_household_member(household_id));
 
-CREATE POLICY "Authenticated users can delete foods"
+CREATE POLICY "Household members can delete foods"
     ON public.foods FOR DELETE
     TO authenticated
-    USING (true);
+    USING (household_id IS NULL OR public.is_household_member(household_id));
 
 
 -- ------------------------------------------------------------------------------
