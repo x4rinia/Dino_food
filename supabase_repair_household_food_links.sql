@@ -2,12 +2,13 @@
 -- Dino_food: Reparatur- & Synchronisations-Migration für bestehende Datenbanken
 -- Dateiname: supabase_repair_household_food_links.sql
 --
--- ZWECK DIESER MIGRATION:
--- 1. Bestehende globale/legacy Lebensmittel (household_id IS NULL) für jeden
---    existierenden Haushalt sicher als haushaltseigene Lebensmittel duplizieren.
--- 2. Alle bestehenden Referenzen (household_stock, shopping_items, dish_items)
---    auf die korrekten haushaltsspezifischen food_id-Werte umstellen.
--- 3. Keine Daten löschen! Vorrat, Einkaufsliste und Gerichte bleiben vollständig erhalten.
+-- SICHERHEITSGARANTIE:
+-- - Entfernt alte globale UNIQUE-Constraints auf Lebensmittelnamen (z. B. "foods_name_unique"),
+--   damit jeder Haushalt seine eigenen "Eier", "Milch", etc. besitzen darf.
+-- - Keine Tabellen werden gelöscht (kein DROP TABLE).
+-- - Keine bestehenden Vorrats- oder Einkaufsdaten werden gelöscht.
+-- - Bestehende globale Lebensmittel werden pro Haushalt dupliziert.
+-- - Alle Foreign Keys (Vorrat, Einkaufsliste, Gerichte) werden sauber remappt.
 -- ==============================================================================
 
 -- ------------------------------------------------------------------------------
@@ -28,7 +29,24 @@ $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
 
 -- ------------------------------------------------------------------------------
--- 2. TABELLENSPALTEN SICHERSTELLEN
+-- 2. ALTE GLOBALE UNIQUE-CONSTRAINTS ENTFERNEN (ERMÖGLICHT HAUSHALTSTRENNUNG)
+-- ------------------------------------------------------------------------------
+-- Früher durfte ein Lebensmittelname systemweit nur einmal existieren.
+-- Für die echte Haushaltstrennung muss jeder Haushalt eigene Lebensmittel besitzen dürfen.
+ALTER TABLE public.foods DROP CONSTRAINT IF EXISTS foods_name_unique;
+ALTER TABLE public.foods DROP CONSTRAINT IF EXISTS foods_name_key;
+DROP INDEX IF EXISTS public.foods_name_unique;
+DROP INDEX IF EXISTS public.foods_name_key;
+
+-- Gleiches vorsorglich für Gerichte prüfen
+ALTER TABLE public.dishes DROP CONSTRAINT IF EXISTS dishes_name_unique;
+ALTER TABLE public.dishes DROP CONSTRAINT IF EXISTS dishes_name_key;
+DROP INDEX IF EXISTS public.dishes_name_unique;
+DROP INDEX IF EXISTS public.dishes_name_key;
+
+
+-- ------------------------------------------------------------------------------
+-- 3. TABELLENSPALTEN SICHERSTELLEN
 -- ------------------------------------------------------------------------------
 ALTER TABLE public.foods 
 ADD COLUMN IF NOT EXISTS household_id UUID REFERENCES public.households(id) ON DELETE CASCADE;
@@ -44,7 +62,7 @@ ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES auth.users(id) ON DELETE SET
 
 
 -- ------------------------------------------------------------------------------
--- 3. DISHES OHNE HOUSEHOLD_ID DEM ERSTELLER-HAUSHALT ZUORDNEN
+-- 4. DISHES OHNE HOUSEHOLD_ID DEM ERSTELLER-HAUSHALT ZUORDNEN
 -- ------------------------------------------------------------------------------
 UPDATE public.dishes d
 SET household_id = (
@@ -58,10 +76,8 @@ WHERE d.household_id IS NULL AND d.created_by IS NOT NULL;
 
 
 -- ------------------------------------------------------------------------------
--- 4. GLOBALE / ALTE LEBENSMITTEL (household_id IS NULL) FÜR JEDEN HAUSHALT KOPIEREN
+-- 5. GLOBALE / ALTE LEBENSMITTEL (household_id IS NULL) FÜR JEDEN HAUSHALT KOPIEREN
 -- ------------------------------------------------------------------------------
--- Erstellt für jeden bestehenden Haushalt eine eigene Kopie aller globalen Lebensmittel,
--- falls der Haushalt nicht bereits ein Lebensmittel mit demselben Namen besitzt.
 INSERT INTO public.foods (id, household_id, name, category, default_unit, created_at)
 SELECT 
     gen_random_uuid(),
@@ -81,10 +97,8 @@ WHERE g.household_id IS NULL
 
 
 -- ------------------------------------------------------------------------------
--- 5. VORRAT (household_stock) AUF HAUSHALTSSPEZIFISCHE FOOD-IDS REMAPPEN
+-- 6. VORRAT (household_stock) AUF HAUSHALTSSPEZIFISCHE FOOD-IDS REMAPPEN
 -- ------------------------------------------------------------------------------
--- Falls Einträge im Vorrat noch auf alte/globale food_ids zeigen:
--- Aktualisiere sie auf die neue food_id desselben Haushalts mit demselben Namen.
 UPDATE public.household_stock hs
 SET food_id = f_new.id
 FROM public.foods f_old
@@ -96,7 +110,7 @@ WHERE f_old.id = hs.food_id
 
 
 -- ------------------------------------------------------------------------------
--- 6. EINKAUFSLISTE (shopping_items) AUF HAUSHALTSSPEZIFISCHE FOOD-IDS REMAPPEN
+-- 7. EINKAUFSLISTE (shopping_items) AUF HAUSHALTSSPEZIFISCHE FOOD-IDS REMAPPEN
 -- ------------------------------------------------------------------------------
 UPDATE public.shopping_items si
 SET food_id = f_new.id
@@ -109,7 +123,7 @@ WHERE f_old.id = si.food_id
 
 
 -- ------------------------------------------------------------------------------
--- 7. GERICHTE-ZUTATEN (dish_items) AUF HAUSHALTSSPEZIFISCHE FOOD-IDS REMAPPEN
+-- 8. GERICHTE-ZUTATEN (dish_items) AUF HAUSHALTSSPEZIFISCHE FOOD-IDS REMAPPEN
 -- ------------------------------------------------------------------------------
 UPDATE public.dish_items di
 SET food_id = f_new.id
@@ -124,7 +138,7 @@ WHERE d.id = di.dish_id
 
 
 -- ------------------------------------------------------------------------------
--- 8. PERFORMANCE-INDIZES
+-- 9. PERFORMANCE-INDIZES & HAUSHALTSBEZOGENER UNIQUE-INDEX
 -- ------------------------------------------------------------------------------
 CREATE INDEX IF NOT EXISTS idx_foods_household_id ON public.foods(household_id);
 CREATE INDEX IF NOT EXISTS idx_dishes_household_id ON public.dishes(household_id);
@@ -134,9 +148,14 @@ CREATE INDEX IF NOT EXISTS idx_household_stock_hh_food ON public.household_stock
 CREATE INDEX IF NOT EXISTS idx_shopping_items_household_id ON public.shopping_items(household_id);
 CREATE INDEX IF NOT EXISTS idx_household_members_user_id ON public.household_members(user_id);
 
+-- Eindeutigkeit pro Haushalt (nicht mehr global)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_foods_household_name 
+ON public.foods(household_id, lower(trim(name))) 
+WHERE household_id IS NOT NULL;
+
 
 -- ------------------------------------------------------------------------------
--- 9. ROW LEVEL SECURITY (RLS) POLICIES AKTUALISIEREN
+-- 10. ROW LEVEL SECURITY (RLS) POLICIES AKTUALISIEREN
 -- ------------------------------------------------------------------------------
 ALTER TABLE public.foods ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.dishes ENABLE ROW LEVEL SECURITY;
@@ -144,7 +163,7 @@ ALTER TABLE public.dish_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.household_stock ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.shopping_items ENABLE ROW LEVEL SECURITY;
 
--- 9a. FOODS POLICIES
+-- 10a. FOODS POLICIES
 DROP POLICY IF EXISTS "Foods are viewable by authenticated users" ON public.foods;
 DROP POLICY IF EXISTS "Authenticated users can add custom foods" ON public.foods;
 DROP POLICY IF EXISTS "Authenticated users can update foods" ON public.foods;
@@ -175,7 +194,7 @@ CREATE POLICY "Household members can delete foods"
     USING (household_id IS NULL OR public.is_household_member(household_id));
 
 
--- 9b. DISHES POLICIES
+-- 10b. DISHES POLICIES
 DROP POLICY IF EXISTS "Dishes are viewable by authenticated users" ON public.dishes;
 DROP POLICY IF EXISTS "Authenticated users can create dishes" ON public.dishes;
 DROP POLICY IF EXISTS "Authenticated users can update dishes" ON public.dishes;
@@ -206,7 +225,7 @@ CREATE POLICY "Household members can delete dishes"
     USING (household_id IS NOT NULL AND public.is_household_member(household_id));
 
 
--- 9c. DISH ITEMS POLICIES
+-- 10c. DISH ITEMS POLICIES
 DROP POLICY IF EXISTS "Dish items are viewable by authenticated users" ON public.dish_items;
 DROP POLICY IF EXISTS "Authenticated users can insert dish items" ON public.dish_items;
 DROP POLICY IF EXISTS "Authenticated users can update dish items" ON public.dish_items;
@@ -257,7 +276,7 @@ CREATE POLICY "Household members can delete dish items"
     );
 
 
--- 9d. HOUSEHOLD STOCK POLICIES
+-- 10d. HOUSEHOLD STOCK POLICIES
 DROP POLICY IF EXISTS "Members can view household stock" ON public.household_stock;
 DROP POLICY IF EXISTS "Members can insert household stock" ON public.household_stock;
 DROP POLICY IF EXISTS "Members can delete household stock" ON public.household_stock;
@@ -278,7 +297,7 @@ CREATE POLICY "Members can delete household stock"
     USING (public.is_household_member(household_id));
 
 
--- 9e. SHOPPING ITEMS POLICIES
+-- 10e. SHOPPING ITEMS POLICIES
 DROP POLICY IF EXISTS "Members can view shopping items" ON public.shopping_items;
 DROP POLICY IF EXISTS "Members can add shopping items" ON public.shopping_items;
 DROP POLICY IF EXISTS "Members can update shopping items" ON public.shopping_items;
@@ -306,7 +325,7 @@ CREATE POLICY "Members can delete shopping items"
 
 
 -- ------------------------------------------------------------------------------
--- 10. REALTIME AKTIVIERUNG
+-- 11. REALTIME AKTIVIERUNG
 -- ------------------------------------------------------------------------------
 DO $$
 BEGIN
@@ -328,7 +347,7 @@ END $$;
 
 
 -- ------------------------------------------------------------------------------
--- 11. ALTE / UNVOLLSTÄNDIGE SEED-FUNKTION ENTFERNEN
+-- 12. ALTE / UNVOLLSTÄNDIGE SEED-FUNKTION ENTFERNEN
 -- ------------------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public.seed_household_defaults(UUID, UUID);
 DROP FUNCTION IF EXISTS public.seed_household_defaults(UUID);
