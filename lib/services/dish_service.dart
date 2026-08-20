@@ -214,17 +214,26 @@ class DishService {
         final dishName = template['name'] as String;
         final normalizedName = dishName.trim().toLowerCase();
         final rawItems = template['items'] as List<Map<String, dynamic>>;
+        final expectedItemCount = rawItems.length;
 
-        // If dish already exists with items, it is complete -> skip!
+        // If dish already exists, check if it has ALL expected items:
         if (existingDishesByName.containsKey(normalizedName)) {
           final existing = existingDishesByName[normalizedName]!;
-          if ((existing['item_count'] as int) > 0) {
+          final actualItemCount = existing['item_count'] as int;
+
+          // If the dish is complete with all expected items (or more), skip it!
+          if (actualItemCount >= expectedItemCount) {
             continue;
           }
-          // If it exists as an empty shell with 0 items, clean it up before re-creating
+
+          // If it is incomplete (e.g. 0 items or fewer than expected items like 2/6),
+          // clean it up and repair it with all expected items!
+          debugPrint('Repairing damaged dish "$dishName" (found $actualItemCount of $expectedItemCount expected items)...');
           try {
             await _client.from('dishes').delete().eq('id', existing['id'] as String);
-          } catch (_) {}
+          } catch (delErr) {
+            debugPrint('Error deleting damaged dish "$dishName" (${existing['id']}): $delErr');
+          }
         }
 
         String? createdDishId;
@@ -265,7 +274,9 @@ class DishService {
           if (createdDishId != null) {
             try {
               await _client.from('dishes').delete().eq('id', createdDishId);
-            } catch (_) {}
+            } catch (rollbackErr) {
+              debugPrint('Rollback error deleting dish $createdDishId for household $householdId: $rollbackErr');
+            }
           }
         }
       }

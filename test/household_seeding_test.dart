@@ -178,6 +178,18 @@ void main() {
       }
     });
 
+    test('Damaged standard dish with missing ingredients is detected and repaired with full items', () async {
+      await householdProvider.loadHouseholds();
+      final hh = householdProvider.currentHousehold!;
+
+      await dishProvider.loadDishes(hh.id);
+      expect(dishProvider.dishes.length, 10);
+
+      // Verify Spaghetti Bolognese has all 6 items
+      final bolognese = dishProvider.dishes.firstWhere((d) => d.name == 'Spaghetti Bolognese');
+      expect(bolognese.items.length, 6);
+    });
+
     test('Deliberately deleted standard dish is NOT restored on loadDishes', () async {
       await householdProvider.loadHouseholds();
       final hh = householdProvider.currentHousehold!;
