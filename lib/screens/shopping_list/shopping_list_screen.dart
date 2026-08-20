@@ -4,6 +4,8 @@ import '../../config/app_theme.dart';
 import '../../models/shopping_item.dart';
 import '../../providers/household_provider.dart';
 import '../../providers/shopping_provider.dart';
+import '../../providers/stock_provider.dart';
+import '../../providers/food_provider.dart';
 import '../../widgets/dino_card.dart';
 import '../../widgets/empty_state.dart';
 import 'add_edit_item_dialog.dart';
@@ -331,23 +333,34 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
   }
 
   void _showClearCheckedDialog(BuildContext context, ShoppingProvider provider) {
+    final stockProvider = Provider.of<StockProvider>(context, listen: false);
+    final foodProvider = Provider.of<FoodProvider>(context, listen: false);
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Erledigte Artikel entfernen?'),
-        content: const Text('Möchtest du alle abgehakten Artikel von der Einkaufsliste löschen?'),
+        title: const Text('In den Vorrat übernehmen?'),
+        content: const Text(
+          'Möchtest du alle abgehakten Artikel in deinen Vorrat übertragen und von der Einkaufsliste entfernen?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Abbrechen'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorRed),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryGreen,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () {
               Navigator.pop(ctx);
-              provider.clearCheckedItems();
+              provider.clearCheckedItems(
+                stockProvider: stockProvider,
+                foodProvider: foodProvider,
+              );
             },
-            child: const Text('Löschen'),
+            child: const Text('Übernehmen'),
           ),
         ],
       ),

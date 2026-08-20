@@ -3,6 +3,10 @@ import 'package:flutter/foundation.dart';
 import '../config/supabase_config.dart';
 import '../models/shopping_item.dart';
 import '../services/shopping_service.dart';
+import '../services/stock_service.dart';
+import '../services/food_service.dart';
+import 'stock_provider.dart';
+import 'food_provider.dart';
 
 class ShoppingProvider extends ChangeNotifier {
   final ShoppingService _shoppingService = ShoppingService();
@@ -49,25 +53,24 @@ class ShoppingProvider extends ChangeNotifier {
     }
 
     _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
 
-    // Initial fetch to get relational data like foods and profiles
+    // Initial fetch to get relational data
     _shoppingService.fetchShoppingItems(householdId).then((initialList) {
       _items = initialList;
       _isLoading = false;
       notifyListeners();
     });
 
-    // Realtime stream subscription
     _streamSubscription = _shoppingService.streamShoppingItems(householdId).listen(
-      (streamedList) {
-        _items = streamedList;
+      (items) {
+        _items = items;
         _isLoading = false;
         notifyListeners();
       },
-      onError: (error) {
-        debugPrint('Shopping stream error: $error');
-        _errorMessage = error.toString();
+      onError: (e) {
+        _errorMessage = 'Fehler beim Laden der Einkaufsliste: $e';
         _isLoading = false;
         notifyListeners();
       },
@@ -83,20 +86,18 @@ class ShoppingProvider extends ChangeNotifier {
     if (_currentHouseholdId == null) return false;
 
     if (!SupabaseConfig.isConfigured) {
-      _items.insert(
-        0,
-        ShoppingItem(
-          id: 'mock_${DateTime.now().millisecondsSinceEpoch}',
-          householdId: _currentHouseholdId!,
-          foodId: foodId,
-          customName: customName,
-          quantity: quantity,
-          note: note,
-          checked: false,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        ),
+      final newItem = ShoppingItem(
+        id: 'mock_${DateTime.now().microsecondsSinceEpoch}_${_items.length + 1}',
+        householdId: _currentHouseholdId!,
+        foodId: foodId,
+        customName: customName,
+        quantity: quantity > 0 ? quantity : 1.0,
+        note: note,
+        checked: false,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
       );
+      _items.insert(0, newItem);
       _householdMockItems[_currentHouseholdId!] = _items;
       notifyListeners();
       return true;
@@ -122,6 +123,9 @@ class ShoppingProvider extends ChangeNotifier {
     final index = _items.indexWhere((i) => i.id == itemId);
     if (index != -1) {
       _items[index] = _items[index].copyWith(checked: checked);
+      if (!SupabaseConfig.isConfigured && _currentHouseholdId != null) {
+        _householdMockItems[_currentHouseholdId!] = _items;
+      }
       notifyListeners();
     }
 
@@ -132,6 +136,12 @@ class ShoppingProvider extends ChangeNotifier {
         debugPrint('Error toggling item: $e');
       }
     }
+  }
+
+  Future<void> toggleItemChecked(String itemId) async {
+    final index = _items.indexWhere((i) => i.id == itemId);
+    if (index == -1) return;
+    await toggleItem(itemId, !_items[index].checked);
   }
 
   Future<void> updateItem({
@@ -147,6 +157,9 @@ class ShoppingProvider extends ChangeNotifier {
         quantity: quantity,
         note: note,
       );
+      if (!SupabaseConfig.isConfigured && _currentHouseholdId != null) {
+        _householdMockItems[_currentHouseholdId!] = _items;
+      }
       notifyListeners();
     }
 
@@ -166,6 +179,9 @@ class ShoppingProvider extends ChangeNotifier {
 
   Future<void> deleteItem(String itemId) async {
     _items.removeWhere((i) => i.id == itemId);
+    if (!SupabaseConfig.isConfigured && _currentHouseholdId != null) {
+      _householdMockItems[_currentHouseholdId!] = _items;
+    }
     notifyListeners();
 
     if (SupabaseConfig.isConfigured) {
@@ -178,18 +194,107 @@ class ShoppingProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> clearCheckedItems() async {
+  Future<void> clearCheckedItems({
+    StockProvider? stockProvider,
+    FoodProvider? foodProvider,
+  }) async {
     if (_currentHouseholdId == null) return;
 
-    _items.removeWhere((i) => i.checked);
-    notifyListeners();
+    final checked = _items.where((i) => i.checked).toList();
+    if (checked.isEmpty) return;
 
-    if (SupabaseConfig.isConfigured) {
+    final stockSvc = StockService();
+    final foodSvc = FoodService();
+
+    final successfullyHandledIds = <String>[];
+
+    for (final item in checked) {
       try {
-        await _shoppingService.clearCheckedItems(_currentHouseholdId!);
+        String? targetFoodId = item.foodId;
+
+        // 1. If foodId is missing, resolve by customName
+        if (targetFoodId == null && item.customName != null && item.customName!.trim().isNotEmpty) {
+          final trimmed = item.customName!.trim();
+          final normalized = trimmed.toLowerCase();
+
+          // Search in loaded foods or fetch from service
+          final existingFoods = foodProvider?.foods ?? await foodSvc.fetchFoods(_currentHouseholdId);
+          final match = existingFoods.where((f) => f.name.trim().toLowerCase() == normalized).firstOrNull;
+
+          if (match != null) {
+            targetFoodId = match.id;
+          } else {
+            // Create new food in active household
+            if (foodProvider != null) {
+              try {
+                final newFood = await foodProvider.addCustomFood(
+                  name: trimmed,
+                  category: 'Sonstiges',
+                );
+                targetFoodId = newFood.id;
+              } catch (e) {
+                // If it already exists or was created concurrently
+                final retryMatch = foodProvider.foods.where((f) => f.name.trim().toLowerCase() == normalized).firstOrNull;
+                targetFoodId = retryMatch?.id;
+              }
+            } else {
+              final newFood = await foodSvc.addCustomFood(
+                name: trimmed,
+                category: 'Sonstiges',
+                householdId: _currentHouseholdId,
+              );
+              targetFoodId = newFood.id;
+            }
+          }
+        }
+
+        // 2. Add to stock
+        if (targetFoodId != null && targetFoodId.isNotEmpty) {
+          bool stockSuccess = false;
+          if (stockProvider != null) {
+            stockSuccess = await stockProvider.addToStock(targetFoodId);
+          } else {
+            try {
+              if (SupabaseConfig.isConfigured) {
+                await stockSvc.setInStock(
+                  householdId: _currentHouseholdId!,
+                  foodId: targetFoodId,
+                  inStock: true,
+                );
+              }
+              stockSuccess = true;
+            } catch (stockErr) {
+              debugPrint('Error setting stock in clearCheckedItems: $stockErr');
+              stockSuccess = false;
+            }
+          }
+
+          // 3. Only delete shopping item if stock addition was successful
+          if (stockSuccess) {
+            if (SupabaseConfig.isConfigured) {
+              await _shoppingService.deleteItem(item.id);
+            }
+            successfullyHandledIds.add(item.id);
+          } else {
+            debugPrint('Could not transfer item ${item.id} to stock. Preserving on shopping list.');
+          }
+        } else {
+          debugPrint('Could not resolve foodId for item ${item.id} (${item.customName}). Preserving on shopping list.');
+        }
+      } catch (err, stackTrace) {
+        debugPrint('Error processing checked item ${item.id}: $err\n$stackTrace');
+      }
+    }
+
+    if (successfullyHandledIds.isNotEmpty) {
+      _items.removeWhere((i) => successfullyHandledIds.contains(i.id));
+      if (!SupabaseConfig.isConfigured) {
+        _householdMockItems[_currentHouseholdId!] = _items;
+      }
+      notifyListeners();
+
+      if (SupabaseConfig.isConfigured) {
         _forceRefresh();
-      } catch (e) {
-        debugPrint('Error clearing checked items: $e');
       }
     }
   }
@@ -197,9 +302,7 @@ class ShoppingProvider extends ChangeNotifier {
   void _forceRefresh() {
     if (_currentHouseholdId == null || !SupabaseConfig.isConfigured) return;
     
-    // Workaround for missing REPLICA IDENTITY FULL in Supabase:
     // Force a fresh fetch from DB so the local stream cache is reset
-    // without the deleted items, preventing them from reappearing on next update.
     final currentId = _currentHouseholdId;
     _currentHouseholdId = null;
     _streamSubscription?.cancel();

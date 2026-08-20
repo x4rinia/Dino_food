@@ -191,7 +191,7 @@ class HouseholdProvider extends ChangeNotifier {
     try {
       if (!SupabaseConfig.isConfigured) {
         final newH = Household(
-          id: 'h_${DateTime.now().millisecondsSinceEpoch}',
+          id: 'h_${DateTime.now().microsecondsSinceEpoch}_${_households.length + 1}',
           name: name,
           color: color,
           inviteCode: 'DINO-8888',

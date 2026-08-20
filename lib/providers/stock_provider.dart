@@ -60,6 +60,38 @@ class StockProvider extends ChangeNotifier {
     });
   }
 
+  Future<bool> addToStock(String foodId) async {
+    if (_currentHouseholdId == null || foodId.isEmpty) return false;
+
+    if (_inStockFoodIds.contains(foodId)) {
+      return true;
+    }
+
+    _inStockFoodIds.add(foodId);
+    if (!SupabaseConfig.isConfigured) {
+      _householdMockStock[_currentHouseholdId!] = _inStockFoodIds;
+    }
+    notifyListeners();
+
+    if (SupabaseConfig.isConfigured) {
+      try {
+        await _stockService.setInStock(
+          householdId: _currentHouseholdId!,
+          foodId: foodId,
+          inStock: true,
+        );
+        return true;
+      } catch (e) {
+        debugPrint('Error adding food $foodId to stock: $e');
+        _inStockFoodIds.remove(foodId);
+        notifyListeners();
+        return false;
+      }
+    }
+
+    return true;
+  }
+
   Future<void> toggleStock(String foodId) async {
     if (_currentHouseholdId == null || foodId.isEmpty) return;
 
