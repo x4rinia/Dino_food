@@ -50,6 +50,10 @@ class _DishesScreenState extends State<DishesScreen> {
     final foodProvider = Provider.of<FoodProvider>(context);
     final household = householdProvider.currentHousehold;
 
+    final foodMap = {
+      for (final f in foodProvider.foods) f.name.trim().toLowerCase(): f.id,
+    };
+
     final selectedHunger = dishProvider.selectedHungerFood;
     List<HungerDishMatch>? rankedMatches;
 
@@ -57,6 +61,7 @@ class _DishesScreenState extends State<DishesScreen> {
       rankedMatches = dishProvider.getRankedDishesForHunger(
         hungerFood: selectedHunger,
         inStockFoodIds: stockProvider.inStockFoodIds,
+        foodNameToIdMap: foodMap,
       );
     }
 
@@ -85,8 +90,15 @@ class _DishesScreenState extends State<DishesScreen> {
                 // --- Dish List ---
                 Expanded(
                   child: selectedHunger != null
-                      ? _buildHungerResultsView(context, dishProvider, stockProvider, rankedMatches!, selectedHunger)
-                      : _buildStandardDishesView(context, dishProvider, stockProvider),
+                      ? _buildHungerResultsView(
+                          context,
+                          dishProvider,
+                          stockProvider,
+                          rankedMatches!,
+                          selectedHunger,
+                          foodMap,
+                        )
+                      : _buildStandardDishesView(context, dishProvider, stockProvider, foodMap),
                 ),
               ],
             ),
@@ -388,6 +400,7 @@ class _DishesScreenState extends State<DishesScreen> {
     StockProvider stockProvider,
     List<HungerDishMatch> matches,
     Food hungerFood,
+    Map<String, String> foodMap,
   ) {
     if (matches.isEmpty) {
       return EmptyState(
@@ -404,7 +417,7 @@ class _DishesScreenState extends State<DishesScreen> {
       itemCount: matches.length,
       itemBuilder: (context, index) {
         final match = matches[index];
-        return _buildHungerDishCard(context, match, dishProvider, stockProvider, hungerFood);
+        return _buildHungerDishCard(context, match, dishProvider, stockProvider, hungerFood, foodMap);
       },
     );
   }
@@ -416,6 +429,7 @@ class _DishesScreenState extends State<DishesScreen> {
     DishProvider dishProvider,
     StockProvider stockProvider,
     Food hungerFood,
+    Map<String, String> foodMap,
   ) {
     final dish = match.dish;
     final inStockFoodIds = stockProvider.inStockFoodIds;
@@ -491,7 +505,7 @@ class _DishesScreenState extends State<DishesScreen> {
                           border: Border.all(color: scoreTextColor.withValues(alpha: 0.2)),
                         ),
                         child: Text(
-                          'Vorrat: ${match.inStockCount}/${match.totalCount} (${match.scorePercentageText})',
+                          '${match.inStockCount} von ${match.totalCount} Zutaten vorhanden (${match.scorePercentageText})',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
@@ -551,10 +565,10 @@ class _DishesScreenState extends State<DishesScreen> {
                   if (mainItem != null) ...[
                     _buildIngredientRow(
                       iconText: '★',
-                      iconColor: const Color(0xFFD97706),
+                      iconColor: match.isMainInStock ? const Color(0xFF166534) : const Color(0xFFD97706),
                       nameText: match.isMainInStock
                           ? '${mainItem.displayName} · vorhanden'
-                          : mainItem.displayName,
+                          : '${mainItem.displayName} · fehlt',
                       isBold: true,
                       textColor: match.isMainInStock ? const Color(0xFF166534) : const Color(0xFFB45309),
                       qtyStr: mainItem.formattedQuantity,
@@ -570,7 +584,9 @@ class _DishesScreenState extends State<DishesScreen> {
                   // 2. Weitere Zutaten (✓ oder ○)
                   ...otherItems.map((item) {
                     final fId = item.foodId ?? item.food?.id;
-                    final isInStock = fId != null && inStockFoodIds.contains(fId);
+                    final resolvedByName = foodMap[item.displayName.trim().toLowerCase()];
+                    final isInStock = (fId != null && inStockFoodIds.contains(fId)) ||
+                        (resolvedByName != null && inStockFoodIds.contains(resolvedByName));
 
                     return _buildIngredientRow(
                       iconText: isInStock ? '✓' : '○',
@@ -618,7 +634,7 @@ class _DishesScreenState extends State<DishesScreen> {
                     icon: const Icon(Icons.add_shopping_cart, size: 16),
                     label: const Text(
                       'Auf Einkaufsliste',
-                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
                     ),
                     onPressed: () {
                       showDialog(
@@ -695,6 +711,7 @@ class _DishesScreenState extends State<DishesScreen> {
     BuildContext context,
     DishProvider dishProvider,
     StockProvider stockProvider,
+    Map<String, String> foodMap,
   ) {
     if (dishProvider.dishes.isEmpty) {
       return EmptyState(
@@ -712,7 +729,7 @@ class _DishesScreenState extends State<DishesScreen> {
       itemCount: dishProvider.dishes.length,
       itemBuilder: (context, index) {
         final dish = dishProvider.dishes[index];
-        return _buildStandardDishCard(context, dish, dishProvider, stockProvider);
+        return _buildStandardDishCard(context, dish, dishProvider, stockProvider, foodMap);
       },
     );
   }
@@ -722,8 +739,19 @@ class _DishesScreenState extends State<DishesScreen> {
     Dish dish,
     DishProvider dishProvider,
     StockProvider stockProvider,
+    Map<String, String> foodMap,
   ) {
     final inStockFoodIds = stockProvider.inStockFoodIds;
+
+    var inStockCount = 0;
+    for (final item in dish.items) {
+      final fId = item.foodId ?? item.food?.id;
+      final resolvedByName = foodMap[item.displayName.trim().toLowerCase()];
+      if ((fId != null && inStockFoodIds.contains(fId)) ||
+          (resolvedByName != null && inStockFoodIds.contains(resolvedByName))) {
+        inStockCount++;
+      }
+    }
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
@@ -758,7 +786,7 @@ class _DishesScreenState extends State<DishesScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${dish.items.length} Zutaten',
+                        '${dish.items.length} Zutaten · $inStockCount im Vorrat',
                         style: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
                       ),
                     ],
@@ -811,14 +839,16 @@ class _DishesScreenState extends State<DishesScreen> {
                   children: dish.items.map((item) {
                     final qtyStr = item.formattedQuantity;
                     final fId = item.foodId ?? item.food?.id;
-                    final isInStock = fId != null && inStockFoodIds.contains(fId);
+                    final resolvedByName = foodMap[item.displayName.trim().toLowerCase()];
+                    final isInStock = (fId != null && inStockFoodIds.contains(fId)) ||
+                        (resolvedByName != null && inStockFoodIds.contains(resolvedByName));
 
                     return _buildIngredientRow(
-                      iconText: isInStock ? '✓' : '•',
-                      iconColor: isInStock ? AppTheme.primaryGreen : AppTheme.primaryGreen,
+                      iconText: isInStock ? '✓' : '○',
+                      iconColor: isInStock ? AppTheme.primaryGreen : AppTheme.textMuted,
                       nameText: item.displayName,
                       isBold: isInStock,
-                      textColor: AppTheme.textDark,
+                      textColor: isInStock ? AppTheme.textDark : AppTheme.textMuted,
                       qtyStr: qtyStr,
                     );
                   }).toList(),

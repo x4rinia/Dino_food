@@ -167,6 +167,8 @@ class DishService {
   }
 
   /// Seeds default dishes for a newly created household with exact food IDs.
+  /// Seeds or completes missing default dishes for a household.
+  /// Idempotent: Skips dishes that already exist for this household.
   Future<List<Dish>> seedDefaultDishesForHousehold(
     String householdId,
     Map<String, String> foodNameToIdMap, {
@@ -181,57 +183,76 @@ class DishService {
     }
 
     try {
-      final List<Dish> createdDishes = [];
+      // 1. Ensure we have real food IDs for this household
+      final foods = await FoodService().fetchFoods(householdId);
+      final resolvedFoodMap = <String, String>{};
+      for (final f in foods) {
+        resolvedFoodMap[f.name.trim().toLowerCase()] = f.id;
+      }
+      foodNameToIdMap.forEach((k, v) {
+        resolvedFoodMap.putIfAbsent(k, () => v);
+      });
+
+      // 2. Fetch already existing dishes for this household to prevent duplicates
+      final existingData = await _client
+          .from('dishes')
+          .select('id, name')
+          .eq('household_id', householdId);
+
+      final existingNames = (existingData as List)
+          .map((d) => (d['name'] as String).trim().toLowerCase())
+          .toSet();
 
       for (final template in defaultDishesTemplate) {
         final dishName = template['name'] as String;
         final rawItems = template['items'] as List<Map<String, dynamic>>;
 
-        final dishMap = <String, dynamic>{
-          'household_id': householdId,
-          'name': dishName,
-        };
-        if (userId != null) {
-          dishMap['created_by'] = userId;
+        // If dish already exists, do not duplicate!
+        if (existingNames.contains(dishName.trim().toLowerCase())) {
+          continue;
         }
 
-        final dishData = await _client.from('dishes').insert(dishMap).select().single();
-        final dishId = dishData['id'] as String;
-
-        final itemsToInsert = rawItems.map((raw) {
-          final itemName = raw['name'] as String;
-          final qty = (raw['quantity'] as num).toDouble();
-          final foodId = foodNameToIdMap[itemName.trim().toLowerCase()];
-
-          return {
-            'dish_id': dishId,
-            'food_id': foodId,
-            'custom_name': foodId == null ? itemName : null,
-            'quantity': qty,
+        try {
+          final dishMap = <String, dynamic>{
+            'household_id': householdId,
+            'name': dishName,
           };
-        }).toList();
+          if (userId != null) {
+            dishMap['created_by'] = userId;
+          }
 
-        if (itemsToInsert.isNotEmpty) {
-          await _client.from('dish_items').insert(itemsToInsert);
+          final dishData = await _client.from('dishes').insert(dishMap).select().single();
+          final dishId = dishData['id'] as String;
+
+          final itemsToInsert = rawItems.map((raw) {
+            final itemName = raw['name'] as String;
+            final qty = (raw['quantity'] as num).toDouble();
+            final rawFoodId = resolvedFoodMap[itemName.trim().toLowerCase()];
+            final isUuid = rawFoodId != null &&
+                RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
+                    .hasMatch(rawFoodId);
+
+            return {
+              'dish_id': dishId,
+              'food_id': isUuid ? rawFoodId : null,
+              'custom_name': isUuid ? null : itemName,
+              'quantity': qty,
+            };
+          }).toList();
+
+          if (itemsToInsert.isNotEmpty) {
+            await _client.from('dish_items').insert(itemsToInsert);
+          }
+        } catch (singleDishError) {
+          debugPrint('Error inserting single dish "$dishName" for household $householdId: $singleDishError');
         }
-
-        final completeData = await _client
-            .from('dishes')
-            .select('*, dish_items(*, foods(*))')
-            .eq('id', dishId)
-            .single();
-
-        createdDishes.add(Dish.fromJson(completeData, isFavorite: false));
       }
 
-      return createdDishes;
+      // Re-fetch all complete dishes for this household
+      return await fetchDishes(householdId);
     } catch (e) {
       debugPrint('Error seeding default dishes for household $householdId: $e');
-      final foods = await FoodService().fetchFoods(householdId);
-      final foodsById = {for (final f in foods) f.id: f};
-      final dishes = _createDefaultDishesForHousehold(householdId, foodNameToIdMap, foodsById: foodsById);
-      _householdMockDishes[householdId] = dishes;
-      return dishes;
+      return await fetchDishes(householdId);
     }
   }
 
@@ -273,10 +294,6 @@ class DishService {
         final isFav = favoriteDishIds.contains(dId);
         return Dish.fromJson(d, isFavorite: isFav);
       }).toList();
-
-      if (list.isEmpty) {
-        return _getOrInitMockDishes(householdId);
-      }
 
       return list;
     } catch (e) {

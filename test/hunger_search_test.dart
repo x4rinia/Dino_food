@@ -174,5 +174,51 @@ void main() {
       await dishProvider.loadDishes('household_b');
       expect(dishProvider.selectedHungerFood, isNull);
     });
+
+    test('Every ingredient in dish is verified against stock individually and matches foodMap fallback', () {
+      final hackfleisch = Food(
+        id: 'f_71_demo-household-id',
+        name: 'Hackfleisch',
+        category: 'Fleisch',
+        createdAt: DateTime.now(),
+      );
+
+      // Suppose Vorrat has: Hackfleisch, Zwiebeln, Paprika, Tomaten, Käse
+      final inStockIds = {
+        'f_71_demo-household-id', // Hackfleisch
+        'f_5_demo-household-id',  // Zwiebeln
+        'f_60_demo-household-id', // Paprika
+        'f_1_demo-household-id',  // Tomaten
+        'f_116_demo-household-id', // Käse
+      };
+
+      final foodMap = {
+        'hackfleisch': 'f_71_demo-household-id',
+        'zwiebeln': 'f_5_demo-household-id',
+        'paprika': 'f_60_demo-household-id',
+        'tomaten': 'f_1_demo-household-id',
+        'käse': 'f_116_demo-household-id',
+        'reibekäse': 'f_124_demo-household-id',
+      };
+
+      final matches = dishProvider.getRankedDishesForHunger(
+        hungerFood: hackfleisch,
+        inStockFoodIds: inStockIds,
+        foodNameToIdMap: foodMap,
+      );
+
+      final chiliMatch = matches.firstWhere((m) => m.dish.name == 'Chili con Carne');
+      // Chili has 6 items: Hackfleisch (in stock), Kidneybohnen, Mais, Gehackte Tomaten, Zwiebeln (in stock), Paprika (in stock)
+      expect(chiliMatch.inStockCount, 3);
+      expect(chiliMatch.totalCount, 6);
+      expect(chiliMatch.scorePercentageText, '50%');
+      expect(chiliMatch.isMainInStock, isTrue);
+
+      // Wraps has 6 items: Wraps, Hackfleisch (in stock), Tomaten (in stock), Gurke, Eisbergsalat, Reibekäse
+      final wrapsMatch = matches.firstWhere((m) => m.dish.name == 'Wraps');
+      expect(wrapsMatch.inStockCount, 2);
+      expect(wrapsMatch.totalCount, 6);
+      expect(wrapsMatch.isMainInStock, isTrue);
+    });
   });
 }

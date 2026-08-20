@@ -3,6 +3,7 @@ import '../models/dish.dart';
 import '../models/dish_item.dart';
 import '../models/food.dart';
 import '../services/dish_service.dart';
+import '../services/food_service.dart';
 
 class HungerDishMatch {
   final Dish dish;
@@ -66,6 +67,7 @@ class DishProvider extends ChangeNotifier {
   List<HungerDishMatch> getRankedDishesForHunger({
     required Food hungerFood,
     required Set<String> inStockFoodIds,
+    Map<String, String>? foodNameToIdMap,
   }) {
     final normalizedSearchName = hungerFood.name.trim().toLowerCase();
     final List<HungerDishMatch> matches = [];
@@ -96,8 +98,12 @@ class DishProvider extends ChangeNotifier {
 
       for (final item in dish.items) {
         final fId = item.foodId ?? item.food?.id;
+        final resolvedByNameId = foodNameToIdMap?[item.displayName.trim().toLowerCase()];
+
         final isInStock = (fId != null && inStockFoodIds.contains(fId)) ||
-            (item.displayName.trim().toLowerCase() == normalizedSearchName && inStockFoodIds.contains(hungerFood.id));
+            (resolvedByNameId != null && inStockFoodIds.contains(resolvedByNameId)) ||
+            (item.displayName.trim().toLowerCase() == normalizedSearchName &&
+                inStockFoodIds.contains(hungerFood.id));
 
         if (isInStock) {
           inStockCount++;
@@ -105,7 +111,10 @@ class DishProvider extends ChangeNotifier {
       }
 
       final mainFId = matchingItem.foodId ?? matchingItem.food?.id;
+      final mainResolvedByNameId = foodNameToIdMap?[matchingItem.displayName.trim().toLowerCase()];
+
       final isMainInStock = (mainFId != null && inStockFoodIds.contains(mainFId)) ||
+          (mainResolvedByNameId != null && inStockFoodIds.contains(mainResolvedByNameId)) ||
           inStockFoodIds.contains(hungerFood.id);
 
       final score = totalCount > 0 ? (inStockCount / totalCount) : 0.0;
@@ -149,7 +158,19 @@ class DishProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _dishes = await _dishService.fetchDishes(householdId);
+      var list = await _dishService.fetchDishes(householdId);
+
+      // Auto-complete missing default dishes for new or partially initialized households
+      if (list.isEmpty ||
+          (list.length < 10 &&
+              list.every((d) => DishService.defaultDishesTemplate
+                  .any((t) => (t['name'] as String).toLowerCase() == d.name.toLowerCase())))) {
+        final foods = await FoodService().fetchFoods(householdId);
+        final foodMap = <String, String>{for (final f in foods) f.name.trim().toLowerCase(): f.id};
+        list = await _dishService.seedDefaultDishesForHousehold(householdId, foodMap);
+      }
+
+      _dishes = list;
     } catch (e) {
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
       debugPrint('Error loading dishes: $e');

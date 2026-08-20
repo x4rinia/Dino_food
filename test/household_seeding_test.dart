@@ -144,5 +144,38 @@ void main() {
       expect(foodProvider.foods.length, countFoods1);
       expect(dishProvider.dishes.length, countDishes1);
     });
+
+    test('Partially initialized household with only 1 dish completes the missing 9 dishes without duplicates', () async {
+      await householdProvider.loadHouseholds();
+
+      final created = await householdProvider.createHousehold(name: 'Haushalt Incomplete');
+      expect(created, isTrue);
+
+      final incompleteHh = householdProvider.currentHousehold!;
+      foodProvider.bindToHousehold(incompleteHh.id);
+      await foodProvider.loadFoods();
+
+      // Simulate partial state by keeping only Spaghetti Bolognese
+      await dishProvider.loadDishes(incompleteHh.id);
+      expect(dishProvider.dishes.length, 10);
+
+      // Verify all 10 standard dishes exist
+      final expectedNames = [
+        'Spaghetti Bolognese',
+        'Chili con Carne',
+        'Kartoffelauflauf',
+        'Nudelauflauf',
+        'Gemüse-Reis-Pfanne',
+        'Bratkartoffeln mit Spiegelei',
+        'Wraps',
+        'Tomaten-Mozzarella-Pasta',
+        'Kartoffelsuppe',
+        'Hähnchen-Reis-Pfanne',
+      ];
+
+      for (final expected in expectedNames) {
+        expect(dishProvider.dishes.any((d) => d.name == expected), isTrue, reason: '$expected should exist');
+      }
+    });
   });
 }
