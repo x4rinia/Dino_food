@@ -250,7 +250,7 @@
     }
   });
 
-  // iPhone / iPadOS Safari guidance
+  // iPhone / iPadOS browser guidance
   function checkIOSGuidance() {
     if (!isIOS()) return;
     if (isStandalone()) return;
@@ -263,7 +263,7 @@
 
     createBanner({
       title: '🦕 Dino_food als App hinzufügen',
-      text: 'Tippe auf das Teilen-Symbol und anschließend auf „Zum Home-Bildschirm“. Danach kannst du Dino_food direkt vom Startbildschirm öffnen.',
+      text: 'Öffne das Teilen-Menü deines Browsers und wähle „Zum Home-Bildschirm“ bzw. „Zu Home-Bildschirm hinzufügen“. Aktiviere, falls angeboten, „Als Web-App öffnen“ und tippe anschließend auf „Hinzufügen“.',
       onDismiss: setIOSDismissed,
       buttons: [
         {
