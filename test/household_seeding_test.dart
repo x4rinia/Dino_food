@@ -145,19 +145,19 @@ void main() {
       expect(dishProvider.dishes.length, countDishes1);
     });
 
-    test('Partially initialized household with only 1 dish completes the missing 9 dishes without duplicates', () async {
+    test('Newly created household receives complete 10 standard dishes and standard foods', () async {
       await householdProvider.loadHouseholds();
 
-      final created = await householdProvider.createHousehold(name: 'Haushalt Incomplete');
+      final created = await householdProvider.createHousehold(name: 'Haushalt Frisch');
       expect(created, isTrue);
 
-      final incompleteHh = householdProvider.currentHousehold!;
-      foodProvider.bindToHousehold(incompleteHh.id);
+      final freshHh = householdProvider.currentHousehold!;
+      foodProvider.bindToHousehold(freshHh.id);
       await foodProvider.loadFoods();
 
-      // Simulate partial state by keeping only Spaghetti Bolognese
-      await dishProvider.loadDishes(incompleteHh.id);
+      await dishProvider.loadDishes(freshHh.id);
       expect(dishProvider.dishes.length, 10);
+      expect(foodProvider.foods.length, greaterThanOrEqualTo(100));
 
       // Verify all 10 standard dishes exist
       final expectedNames = [

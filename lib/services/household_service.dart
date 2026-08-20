@@ -17,6 +17,35 @@ class UserHouseholdsResult {
 class HouseholdService {
   SupabaseClient get _client => SupabaseConfig.client;
 
+  static final Set<String> _checkedLegacyRepairs = {};
+
+  /// One-time repair specifically for existing households that suffered from the historical seed crash
+  /// (having only 'Spaghetti Bolognese' and 0 other dishes).
+  /// Once checked/repaired, this household is flagged and never checked again.
+  Future<void> checkAndRepairLegacyBugHousehold(String householdId) async {
+    if (_checkedLegacyRepairs.contains(householdId) || householdId.isEmpty) return;
+    _checkedLegacyRepairs.add(householdId);
+
+    if (!SupabaseConfig.isConfigured) return;
+
+    try {
+      final dishesData = await _client
+          .from('dishes')
+          .select('id, name')
+          .eq('household_id', householdId);
+
+      final list = dishesData as List;
+      if (list.length == 1 && (list.first['name'] as String).trim().toLowerCase() == 'spaghetti bolognese') {
+        debugPrint('One-time legacy repair triggered for bugged household $householdId (only Spaghetti Bolognese found)');
+        final foods = await FoodService().fetchFoods(householdId);
+        final foodMap = <String, String>{for (final f in foods) f.name.trim().toLowerCase(): f.id};
+        await DishService().seedDefaultDishesForHousehold(householdId, foodMap);
+      }
+    } catch (e) {
+      debugPrint('Legacy repair check info for household $householdId: $e');
+    }
+  }
+
   Future<UserHouseholdsResult> fetchUserHouseholdsWithRoles() async {
     if (!SupabaseConfig.isConfigured || SupabaseConfig.currentUserId == null) {
       return UserHouseholdsResult(households: [], roles: {});
@@ -127,13 +156,39 @@ class HouseholdService {
       // Seed standard food catalogue and dishes for this newly created household
       try {
         final foodMap = await FoodService().seedDefaultFoodsForHousehold(household.id);
-        await DishService().seedDefaultDishesForHousehold(household.id, foodMap, userId: userId);
+        final dishes = await DishService().seedDefaultDishesForHousehold(household.id, foodMap, userId: userId);
+
+        // Validation: verify all 10 standard dishes exist and have all expected ingredients
+        if (dishes.length < 10) {
+          throw Exception('Nicht alle Standardgerichte konnten erstellt werden (${dishes.length} von 10).');
+        }
+
+        for (final dish in dishes) {
+          final template = DishService.defaultDishesTemplate.firstWhere(
+            (t) => (t['name'] as String).toLowerCase() == dish.name.toLowerCase(),
+            orElse: () => {},
+          );
+          final expectedCount = (template['items'] as List?)?.length ?? 0;
+          if (expectedCount > 0 && dish.items.length < expectedCount) {
+            throw Exception('Gericht "${dish.name}" ist unvollständig (${dish.items.length} von $expectedCount Zutaten).');
+          }
+        }
       } catch (seedErr) {
-        debugPrint('Seeding defaults warning: $seedErr');
+        debugPrint('Household initial seeding failed: $seedErr. Rolling back household ${household.id}...');
+        try {
+          await deleteHousehold(household.id);
+        } catch (rollbackErr) {
+          debugPrint('Error rolling back household ${household.id}: $rollbackErr');
+        }
+        throw Exception('Haushalt konnte nicht vollständig initialisiert werden ($seedErr). Bitte versuche es erneut.');
       }
 
       return household;
     } catch (e) {
+      if (e.toString().contains('Haushalt konnte nicht vollständig initialisiert werden')) {
+        rethrow;
+      }
+
       debugPrint('RPC create_household_and_join failed: $e. Falling back to direct insert.');
       final userId = SupabaseConfig.currentUserId!;
       final householdData = await _client
@@ -157,9 +212,30 @@ class HouseholdService {
       // Seed standard food catalogue and dishes for this newly created household
       try {
         final foodMap = await FoodService().seedDefaultFoodsForHousehold(household.id);
-        await DishService().seedDefaultDishesForHousehold(household.id, foodMap, userId: userId);
+        final dishes = await DishService().seedDefaultDishesForHousehold(household.id, foodMap, userId: userId);
+
+        if (dishes.length < 10) {
+          throw Exception('Nicht alle Standardgerichte konnten erstellt werden (${dishes.length} von 10).');
+        }
+
+        for (final dish in dishes) {
+          final template = DishService.defaultDishesTemplate.firstWhere(
+            (t) => (t['name'] as String).toLowerCase() == dish.name.toLowerCase(),
+            orElse: () => {},
+          );
+          final expectedCount = (template['items'] as List?)?.length ?? 0;
+          if (expectedCount > 0 && dish.items.length < expectedCount) {
+            throw Exception('Gericht "${dish.name}" ist unvollständig (${dish.items.length} von $expectedCount Zutaten).');
+          }
+        }
       } catch (seedErr) {
-        debugPrint('Seeding defaults warning: $seedErr');
+        debugPrint('Household direct initial seeding failed: $seedErr. Rolling back household ${household.id}...');
+        try {
+          await deleteHousehold(household.id);
+        } catch (rollbackErr) {
+          debugPrint('Error rolling back household ${household.id}: $rollbackErr');
+        }
+        throw Exception('Haushalt konnte nicht vollständig initialisiert werden ($seedErr). Bitte versuche es erneut.');
       }
 
       return household;

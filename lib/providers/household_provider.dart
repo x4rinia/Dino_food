@@ -122,6 +122,11 @@ class HouseholdProvider extends ChangeNotifier {
         } catch (e) {
           debugPrint('Members load info: $e');
         }
+
+        // Run one-time legacy repair check for existing households
+        for (final h in _households) {
+          _householdService.checkAndRepairLegacyBugHousehold(h.id);
+        }
       } else {
         _currentHousehold = null;
         _defaultHouseholdId = null;
@@ -197,15 +202,21 @@ class HouseholdProvider extends ChangeNotifier {
           inviteCode: 'DINO-8888',
           createdAt: DateTime.now(),
         );
+
+        // Seed default foods & dishes for new mock household
+        final foodMap = await _foodService.seedDefaultFoodsForHousehold(newH.id);
+        final dishes = await _dishService.seedDefaultDishesForHousehold(newH.id, foodMap);
+
+        if (dishes.length < 10) {
+          throw Exception('Nicht alle Standardgerichte konnten initialisiert werden.');
+        }
+
         _households.add(newH);
         _userRoles[newH.id] = 'owner';
         _currentHousehold = newH;
         if (_defaultHouseholdId == null || _households.length == 1) {
           _defaultHouseholdId = newH.id;
         }
-        // Seed default foods & dishes for new mock household
-        final foodMap = await _foodService.seedDefaultFoodsForHousehold(newH.id);
-        await _dishService.seedDefaultDishesForHousehold(newH.id, foodMap);
 
         _state = HouseholdState.loaded;
         notifyListeners();
