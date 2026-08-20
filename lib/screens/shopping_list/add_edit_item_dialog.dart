@@ -6,7 +6,7 @@ import '../../models/shopping_item.dart';
 import '../../providers/food_provider.dart';
 import '../../providers/shopping_provider.dart';
 import '../../utils/string_extensions.dart';
-import '../../widgets/add_to_catalog_dialog.dart';
+import '../foods/add_food_dialog.dart';
 
 class AddEditItemDialog extends StatefulWidget {
   final ShoppingItem? itemToEdit;
@@ -28,12 +28,13 @@ class _AddEditItemDialogState extends State<AddEditItemDialog> {
   final _quantityController = TextEditingController(text: '1');
   final _noteController = TextEditingController();
   Food? _selectedFood;
+  TextEditingController? _autocompleteController;
 
   @override
   void initState() {
     super.initState();
     if (widget.itemToEdit != null) {
-      _nameController.text = widget.itemToEdit!.customName ?? widget.itemToEdit!.displayName;
+      _nameController.text = widget.itemToEdit!.displayName;
       _quantityController.text = widget.itemToEdit!.formattedQuantity;
       _noteController.text = widget.itemToEdit!.note ?? '';
       _selectedFood = widget.itemToEdit!.food;
@@ -52,12 +53,27 @@ class _AddEditItemDialogState extends State<AddEditItemDialog> {
     super.dispose();
   }
 
-  void _submit() async {
+  Future<void> _openCreateNewFood(BuildContext context, [String? initialName]) async {
+    final newFood = await showDialog<Food>(
+      context: context,
+      builder: (_) => AddFoodDialog(initialName: initialName),
+    );
+
+    if (newFood != null && mounted) {
+      setState(() {
+        _selectedFood = newFood;
+        _nameController.text = newFood.name;
+        _autocompleteController?.text = newFood.name;
+      });
+    }
+  }
+
+  void _submit() {
     if (!_formKey.currentState!.validate()) return;
 
     final foodProvider = Provider.of<FoodProvider>(context, listen: false);
     final shoppingProvider = Provider.of<ShoppingProvider>(context, listen: false);
-    final name = _nameController.text.trim().toCapitalized();
+    final name = _nameController.text.trim();
     final note = _noteController.text.trim().toCapitalized();
 
     final rawQty = _quantityController.text.trim().replaceAll(',', '.');
@@ -73,49 +89,44 @@ class _AddEditItemDialogState extends State<AddEditItemDialog> {
       }).firstOrNull;
     }
 
-    String? finalFoodId = matchedFood?.id;
-    String? finalCustomName = name;
-
-    // If new item (or name changed to an unknown item) and not in catalog, ask user
-    if (matchedFood == null && widget.itemToEdit == null) {
-      final decision = await AddToCatalogDialog.show(context, name);
-      if (!mounted) return;
-
-      if (decision == null || decision.isCanceled) {
-        return; // Stay in dialog
-      }
-
-      if (decision.shouldAddToCatalog) {
-        final newFood = await foodProvider.addCustomFood(
-          name: name,
-          category: decision.category,
-        );
-        finalFoodId = newFood.id;
-        finalCustomName = name;
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('$name zum Katalog hinzugefügt! 🥦'),
-              backgroundColor: AppTheme.primaryGreen,
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
-      }
-    }
-
-    if (widget.itemToEdit != null) {
+    if (matchedFood == null && widget.itemToEdit?.foodId == null && widget.itemToEdit?.customName != null) {
+      // Legacy item without food_id being edited
       shoppingProvider.updateItem(
         itemId: widget.itemToEdit!.id,
         customName: name,
         quantity: quantity,
         note: note.isNotEmpty ? note : null,
       );
+      Navigator.of(context).pop();
+      return;
+    }
+
+    if (matchedFood == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Bitte wähle ein Lebensmittel aus der Liste oder lege es neu an.'),
+          backgroundColor: AppTheme.accentOrange,
+          action: SnackBarAction(
+            label: 'Neu anlegen',
+            textColor: Colors.white,
+            onPressed: () => _openCreateNewFood(context, name),
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (widget.itemToEdit != null) {
+      shoppingProvider.updateItem(
+        itemId: widget.itemToEdit!.id,
+        customName: matchedFood.name,
+        quantity: quantity,
+        note: note.isNotEmpty ? note : null,
+      );
     } else {
       shoppingProvider.addItem(
-        foodId: finalFoodId,
-        customName: finalCustomName,
+        foodId: matchedFood.id,
+        customName: matchedFood.name,
         quantity: quantity,
         note: note.isNotEmpty ? note : null,
       );
@@ -189,6 +200,7 @@ class _AddEditItemDialogState extends State<AddEditItemDialog> {
                   });
                 },
                 fieldViewBuilder: (context, fieldTextEditingController, fieldFocusNode, onFieldSubmitted) {
+                  _autocompleteController = fieldTextEditingController;
                   fieldTextEditingController.addListener(() {
                     _nameController.text = fieldTextEditingController.text;
                   });
@@ -197,28 +209,45 @@ class _AddEditItemDialogState extends State<AddEditItemDialog> {
                     controller: fieldTextEditingController,
                     focusNode: fieldFocusNode,
                     decoration: const InputDecoration(
-                      labelText: 'Artikelname *',
-                      hintText: 'z. B. Milch oder Katzenfutter',
-                      prefixIcon: Icon(Icons.shopping_bag_outlined, color: AppTheme.textMuted),
+                      labelText: 'Lebensmittel suchen *',
+                      hintText: 'z. B. Milch, Butter, Tomaten...',
+                      prefixIcon: Icon(Icons.search, color: AppTheme.textMuted),
                     ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'Bitte Name eingeben';
+                        return 'Bitte Lebensmittel eingeben oder auswählen';
                       }
                       return null;
                     },
                   );
                 },
               ),
-              const SizedBox(height: 14),
+
+              // Create new food button if not in list
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  icon: const Icon(Icons.add, size: 16, color: AppTheme.primaryGreen),
+                  label: const Text(
+                    '+ Neues Lebensmittel anlegen',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryGreen),
+                  ),
+                  onPressed: () => _openCreateNewFood(context, _nameController.text.trim()),
+                ),
+              ),
+              const SizedBox(height: 8),
 
               // 2. Quantity (optional number)
               TextFormField(
                 controller: _quantityController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(
-                  labelText: 'Menge (optional)',
-                  hintText: 'z. B. 2 oder 4',
+                  labelText: 'Anzahl (optional)',
+                  hintText: 'z. B. 4',
                   prefixIcon: Icon(Icons.format_list_numbered, color: AppTheme.textMuted),
                 ),
               ),
@@ -229,7 +258,7 @@ class _AddEditItemDialogState extends State<AddEditItemDialog> {
                 controller: _noteController,
                 decoration: const InputDecoration(
                   labelText: 'Notiz (optional)',
-                  hintText: 'z. B. laktosefrei oder Cherrytomaten',
+                  hintText: 'z. B. Cherrytomaten oder laktosefrei',
                   prefixIcon: Icon(Icons.note_alt_outlined, color: AppTheme.textMuted),
                 ),
               ),

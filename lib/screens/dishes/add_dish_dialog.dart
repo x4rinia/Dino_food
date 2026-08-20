@@ -7,7 +7,7 @@ import '../../providers/dish_provider.dart';
 import '../../providers/food_provider.dart';
 import '../../providers/household_provider.dart';
 import '../../utils/string_extensions.dart';
-import '../../widgets/add_to_catalog_dialog.dart';
+import '../foods/add_food_dialog.dart';
 
 class AddDishDialog extends StatefulWidget {
   final Dish? dishToEdit;
@@ -35,7 +35,6 @@ class _AddDishDialogState extends State<AddDishDialog> {
         _selectedIngredients.add({
           'food_id': item.foodId,
           'food_name': item.displayName,
-          'custom_name': item.customName,
           'quantity': item.quantity,
         });
       }
@@ -49,9 +48,23 @@ class _AddDishDialogState extends State<AddDishDialog> {
     super.dispose();
   }
 
-  void _addIngredient() async {
+  Future<void> _openCreateNewFood(BuildContext context, [String? initialName]) async {
+    final newFood = await showDialog<Food>(
+      context: context,
+      builder: (_) => AddFoodDialog(initialName: initialName),
+    );
+
+    if (newFood != null && mounted) {
+      setState(() {
+        _tempSelectedFood = newFood;
+        _autocompleteTextController?.text = newFood.name;
+      });
+    }
+  }
+
+  void _addIngredient() {
     final rawName = _autocompleteTextController?.text.trim() ?? '';
-    final name = rawName.isNotEmpty ? rawName.toCapitalized() : (_tempSelectedFood?.name ?? '');
+    final name = rawName.isNotEmpty ? rawName : (_tempSelectedFood?.name ?? '');
     if (name.isEmpty) return;
 
     final foodProvider = Provider.of<FoodProvider>(context, listen: false);
@@ -69,67 +82,31 @@ class _AddDishDialogState extends State<AddDishDialog> {
       }).firstOrNull;
     }
 
-    if (matchedFood != null) {
-      setState(() {
-        _selectedIngredients.add({
-          'food_id': matchedFood!.id,
-          'food_name': matchedFood.name,
-          'quantity': finalQty,
-        });
-        _tempSelectedFood = null;
-        _autocompleteTextController?.clear();
-        _tempQuantityController.text = '1';
-      });
+    if (matchedFood == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Bitte wähle ein Lebensmittel aus der Liste oder lege es neu an.'),
+          backgroundColor: AppTheme.accentOrange,
+          action: SnackBarAction(
+            label: 'Neu anlegen',
+            textColor: Colors.white,
+            onPressed: () => _openCreateNewFood(context, name),
+          ),
+        ),
+      );
       return;
     }
 
-    // Food is not in catalog -> Ask user with AddToCatalogDialog
-    final decision = await AddToCatalogDialog.show(context, name);
-    if (!mounted) return;
-
-    if (decision == null || decision.isCanceled) {
-      return; // Stay in dialog
-    }
-
-    if (decision.shouldAddToCatalog) {
-      final newFood = await foodProvider.addCustomFood(
-        name: name,
-        category: decision.category,
-      );
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$name zum Katalog hinzugefügt! 🥦'),
-            backgroundColor: AppTheme.primaryGreen,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-
-      setState(() {
-        _selectedIngredients.add({
-          'food_id': newFood.id,
-          'food_name': newFood.name,
-          'quantity': finalQty,
-        });
-        _tempSelectedFood = null;
-        _autocompleteTextController?.clear();
-        _tempQuantityController.text = '1';
+    setState(() {
+      _selectedIngredients.add({
+        'food_id': matchedFood!.id,
+        'food_name': matchedFood.name,
+        'quantity': finalQty,
       });
-    } else if (decision.shouldUseOnce) {
-      setState(() {
-        _selectedIngredients.add({
-          'food_id': null,
-          'food_name': name,
-          'custom_name': name,
-          'quantity': finalQty,
-        });
-        _tempSelectedFood = null;
-        _autocompleteTextController?.clear();
-        _tempQuantityController.text = '1';
-      });
-    }
+      _tempSelectedFood = null;
+      _autocompleteTextController?.clear();
+      _tempQuantityController.text = '1';
+    });
   }
 
   void _submit() async {
@@ -279,7 +256,22 @@ class _AddDishDialogState extends State<AddDishDialog> {
                       );
                     },
                   ),
-                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      icon: const Icon(Icons.add, size: 16, color: AppTheme.primaryGreen),
+                      label: const Text(
+                        '+ Neues Lebensmittel anlegen',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryGreen),
+                      ),
+                      onPressed: () => _openCreateNewFood(context, _autocompleteTextController?.text.trim()),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
                   Row(
                     children: [
                       // Quantity input

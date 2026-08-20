@@ -1,22 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/app_theme.dart';
+import '../../models/food.dart';
 import '../../providers/food_provider.dart';
 import '../../utils/string_extensions.dart';
 
-class AddFoodDialog extends StatefulWidget {
-  final String? initialName;
+class EditFoodDialog extends StatefulWidget {
+  final Food food;
 
-  const AddFoodDialog({super.key, this.initialName});
+  const EditFoodDialog({super.key, required this.food});
 
   @override
-  State<AddFoodDialog> createState() => _AddFoodDialogState();
+  State<EditFoodDialog> createState() => _EditFoodDialogState();
 }
 
-class _AddFoodDialogState extends State<AddFoodDialog> {
+class _EditFoodDialogState extends State<EditFoodDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
-  String _selectedCategory = 'Gemüse';
+  late String _selectedCategory;
   bool _isSaving = false;
 
   final List<String> _categories = FoodProvider.standardCategories
@@ -26,7 +27,10 @@ class _AddFoodDialogState extends State<AddFoodDialog> {
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.initialName ?? '');
+    _nameController = TextEditingController(text: widget.food.name);
+    _selectedCategory = widget.food.category.isNotEmpty && _categories.contains(widget.food.category)
+        ? widget.food.category
+        : 'Sonstiges';
   }
 
   @override
@@ -44,21 +48,21 @@ class _AddFoodDialogState extends State<AddFoodDialog> {
     setState(() => _isSaving = true);
 
     try {
-      final newFood = await foodProvider.addCustomFood(
+      final updated = await foodProvider.updateFood(
+        id: widget.food.id,
         name: name,
         category: _selectedCategory,
-        defaultUnit: '',
       );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('$name zu den Lebensmitteln hinzugefügt! 🥕'),
+            content: Text('„$name“ erfolgreich aktualisiert!'),
             backgroundColor: AppTheme.primaryGreen,
             duration: const Duration(seconds: 2),
           ),
         );
-        Navigator.of(context).pop(newFood);
+        Navigator.of(context).pop(updated);
       }
     } catch (e) {
       if (mounted) {
@@ -94,11 +98,11 @@ class _AddFoodDialogState extends State<AddFoodDialog> {
                       color: AppTheme.primarySoft,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Text('🥦', style: TextStyle(fontSize: 20)),
+                    child: const Text('✏️', style: TextStyle(fontSize: 20)),
                   ),
                   const SizedBox(width: 12),
                   const Text(
-                    'Neues Lebensmittel',
+                    'Lebensmittel bearbeiten',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -114,7 +118,7 @@ class _AddFoodDialogState extends State<AddFoodDialog> {
                 controller: _nameController,
                 decoration: const InputDecoration(
                   labelText: 'Name des Lebensmittels *',
-                  hintText: 'z. B. Paprika rot',
+                  hintText: 'z. B. H-Milch',
                   prefixIcon: Icon(Icons.fastfood_outlined, color: AppTheme.textMuted),
                 ),
                 validator: (value) {
@@ -128,7 +132,7 @@ class _AddFoodDialogState extends State<AddFoodDialog> {
 
               // Category
               DropdownButtonFormField<String>(
-                initialValue: _selectedCategory,
+                value: _selectedCategory,
                 decoration: const InputDecoration(
                   labelText: 'Kategorie',
                   prefixIcon: Icon(Icons.category_outlined, color: AppTheme.textMuted),
@@ -147,13 +151,19 @@ class _AddFoodDialogState extends State<AddFoodDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
                     child: const Text('Abbrechen', style: TextStyle(color: AppTheme.textMuted)),
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton(
-                    onPressed: _submit,
-                    child: const Text('Speichern'),
+                    onPressed: _isSaving ? null : _submit,
+                    child: _isSaving
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Text('Speichern'),
                   ),
                 ],
               ),

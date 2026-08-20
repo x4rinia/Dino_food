@@ -347,4 +347,85 @@ class FoodService {
 
     return Food.fromJson(data);
   }
+
+  Future<Food> updateFood({
+    required String id,
+    required String name,
+    required String category,
+  }) async {
+    if (!SupabaseConfig.isConfigured) {
+      final index = defaultFoods.indexWhere((f) => f.id == id);
+      final updated = Food(
+        id: id,
+        name: name,
+        category: category,
+        defaultUnit: '',
+        createdAt: index != -1 ? defaultFoods[index].createdAt : DateTime.now(),
+      );
+      if (index != -1) {
+        defaultFoods[index] = updated;
+      } else {
+        defaultFoods.insert(0, updated);
+      }
+      return updated;
+    }
+
+    final data = await _client
+        .from('foods')
+        .update({
+          'name': name,
+          'category': category,
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+    return Food.fromJson(data);
+  }
+
+  Future<bool> isFoodInUse(String foodId) async {
+    if (!SupabaseConfig.isConfigured) {
+      return false;
+    }
+
+    try {
+      // 1. Check shopping_items
+      final shoppingData = await _client
+          .from('shopping_items')
+          .select('id')
+          .eq('food_id', foodId)
+          .limit(1);
+      if ((shoppingData as List).isNotEmpty) return true;
+
+      // 2. Check dish_items
+      final dishData = await _client
+          .from('dish_items')
+          .select('id')
+          .eq('food_id', foodId)
+          .limit(1);
+      if ((dishData as List).isNotEmpty) return true;
+
+      // 3. Check household_stock
+      final stockData = await _client
+          .from('household_stock')
+          .select('food_id')
+          .eq('food_id', foodId)
+          .limit(1);
+      if ((stockData as List).isNotEmpty) return true;
+
+      return false;
+    } catch (e) {
+      debugPrint('Error checking food usage: $e');
+      return true; // Fail safe
+    }
+  }
+
+  Future<void> deleteFood(String foodId) async {
+    if (!SupabaseConfig.isConfigured) {
+      defaultFoods.removeWhere((f) => f.id == foodId);
+      return;
+    }
+
+    await _client.from('foods').delete().eq('id', foodId);
+  }
 }

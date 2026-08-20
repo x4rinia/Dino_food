@@ -9,6 +9,7 @@ import '../../widgets/dino_card.dart';
 import '../../widgets/empty_state.dart';
 import '../shopping_list/add_edit_item_dialog.dart';
 import 'add_food_dialog.dart';
+import 'edit_food_dialog.dart';
 import 'stock_screen.dart';
 
 class FoodsScreen extends StatefulWidget {
@@ -276,7 +277,7 @@ class _FoodsScreenState extends State<FoodsScreen> {
                                     ),
                                   ),
 
-                                  const SizedBox(width: 8),
+                                  const SizedBox(width: 6),
 
                                   // Quick Add to shopping list
                                   IconButton.filledTonal(
@@ -291,6 +292,42 @@ class _FoodsScreenState extends State<FoodsScreen> {
                                     onPressed: () {
                                       _quickAddFoodToShopping(context, food, shoppingProvider);
                                     },
+                                  ),
+
+                                  // More menu: Edit / Delete
+                                  PopupMenuButton<String>(
+                                    icon: const Icon(Icons.more_vert, size: 20, color: AppTheme.textMuted),
+                                    padding: EdgeInsets.zero,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    onSelected: (value) {
+                                      if (value == 'edit') {
+                                        _openEditFoodDialog(context, food);
+                                      } else if (value == 'delete') {
+                                        _confirmDeleteFood(context, food, foodProvider);
+                                      }
+                                    },
+                                    itemBuilder: (ctx) => [
+                                      const PopupMenuItem(
+                                        value: 'edit',
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.edit_outlined, size: 18, color: AppTheme.primaryGreen),
+                                            SizedBox(width: 8),
+                                            Text('Bearbeiten', style: TextStyle(fontSize: 13)),
+                                          ],
+                                        ),
+                                      ),
+                                      const PopupMenuItem(
+                                        value: 'delete',
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.delete_outline, size: 18, color: AppTheme.errorRed),
+                                            SizedBox(width: 8),
+                                            Text('Löschen', style: TextStyle(fontSize: 13, color: AppTheme.errorRed)),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
@@ -330,6 +367,58 @@ class _FoodsScreenState extends State<FoodsScreen> {
     showDialog(
       context: context,
       builder: (_) => const AddFoodDialog(),
+    );
+  }
+
+  void _openEditFoodDialog(BuildContext context, Food food) {
+    showDialog(
+      context: context,
+      builder: (_) => EditFoodDialog(food: food),
+    );
+  }
+
+  void _confirmDeleteFood(BuildContext context, Food food, FoodProvider foodProvider) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Lebensmittel löschen?'),
+        content: Text('„${food.name}“ wirklich aus der Lebensmittelliste entfernen?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Abbrechen', style: TextStyle(color: AppTheme.textMuted)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorRed),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await foodProvider.deleteFood(food.id);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('„${food.name}“ gelöscht.'),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(e.toString().replaceFirst('Exception: ', '')),
+                      backgroundColor: AppTheme.errorRed,
+                      duration: const Duration(seconds: 4),
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Löschen'),
+          ),
+        ],
+      ),
     );
   }
 

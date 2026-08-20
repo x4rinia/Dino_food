@@ -97,13 +97,26 @@ class FoodProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool foodExists(String name, {String? excludeId}) {
+    final normalized = name.trim().toLowerCase();
+    return _foods.any((f) {
+      if (excludeId != null && f.id == excludeId) return false;
+      return f.name.trim().toLowerCase() == normalized;
+    });
+  }
+
   Future<Food> addCustomFood({
     required String name,
     String category = 'Sonstiges',
     String defaultUnit = '',
   }) async {
+    final trimmedName = name.trim();
+    if (foodExists(trimmedName)) {
+      throw Exception('Dieses Lebensmittel gibt es bereits.');
+    }
+
     final food = await _foodService.addCustomFood(
-      name: name,
+      name: trimmedName,
       category: category,
       defaultUnit: defaultUnit,
     );
@@ -112,5 +125,45 @@ class FoodProvider extends ChangeNotifier {
     }
     notifyListeners();
     return food;
+  }
+
+  Future<Food> updateFood({
+    required String id,
+    required String name,
+    required String category,
+  }) async {
+    final trimmedName = name.trim();
+    if (foodExists(trimmedName, excludeId: id)) {
+      throw Exception('Dieses Lebensmittel gibt es bereits.');
+    }
+
+    final updated = await _foodService.updateFood(
+      id: id,
+      name: trimmedName,
+      category: category,
+    );
+
+    final index = _foods.indexWhere((f) => f.id == id);
+    if (index != -1) {
+      _foods[index] = updated;
+    }
+    notifyListeners();
+    return updated;
+  }
+
+  Future<bool> isFoodInUse(String foodId) async {
+    return await _foodService.isFoodInUse(foodId);
+  }
+
+  Future<bool> deleteFood(String foodId) async {
+    final inUse = await isFoodInUse(foodId);
+    if (inUse) {
+      throw Exception('Dieses Lebensmittel wird noch verwendet und kann nicht gelöscht werden.');
+    }
+
+    await _foodService.deleteFood(foodId);
+    _foods.removeWhere((f) => f.id == foodId);
+    notifyListeners();
+    return true;
   }
 }
