@@ -210,5 +210,31 @@ void main() {
       expect(dishProvider.dishes.length, 9);
       expect(dishProvider.dishes.any((d) => d.name == 'Kartoffelsuppe'), isFalse);
     });
+
+    test('Deliberately edited standard dish with fewer ingredients is NOT overwritten on loadDishes', () async {
+      await householdProvider.loadHouseholds();
+      final hh = householdProvider.currentHousehold!;
+
+      await dishProvider.loadDishes(hh.id);
+      expect(dishProvider.dishes.length, 10);
+
+      // User customizes "Spaghetti Bolognese" to remove Knoblauch (so 5 items instead of 6)
+      final bolognese = dishProvider.dishes.firstWhere((d) => d.name == 'Spaghetti Bolognese');
+      final fiveItems = bolognese.items.take(5).map((i) => i.toJson()).toList();
+
+      await dishProvider.updateDish(
+        dishId: bolognese.id,
+        name: 'Spaghetti Bolognese',
+        items: fiveItems,
+      );
+
+      final updatedBolognese = dishProvider.dishes.firstWhere((d) => d.name == 'Spaghetti Bolognese');
+      expect(updatedBolognese.items.length, 5);
+
+      // App reloads dishes -> MUST keep the 5 items and NOT reset to 6!
+      await dishProvider.loadDishes(hh.id);
+      final reloadedBolognese = dishProvider.dishes.firstWhere((d) => d.name == 'Spaghetti Bolognese');
+      expect(reloadedBolognese.items.length, 5);
+    });
   });
 }

@@ -169,23 +169,13 @@ class DishProvider extends ChangeNotifier {
         list = await _dishService.seedDefaultDishesForHousehold(householdId, foodMap);
         _checkedHouseholdRepairs.add(householdId);
       } else if (!_checkedHouseholdRepairs.contains(householdId)) {
-        // Case 2: Targeted one-time repair for existing households affected by the previous seed crash:
-        // Specifically: Household has only 1 dish ("Spaghetti Bolognese") OR has damaged dishes with missing items.
+        // Case 2: Targeted one-time repair ONLY for households affected by the previous seed crash:
+        // Specifically: Household has exactly 1 dish ("Spaghetti Bolognese") and missing the other 9 standard dishes.
         final isOnlySpaghettiBolognese = list.length == 1 &&
             list.first.name.trim().toLowerCase() == 'spaghetti bolognese';
 
-        final hasDamagedDishes = list.any((dish) {
-          final template = DishService.defaultDishesTemplate.firstWhere(
-            (t) => (t['name'] as String).toLowerCase() == dish.name.toLowerCase(),
-            orElse: () => {},
-          );
-          if (template.isEmpty) return false;
-          final expectedCount = (template['items'] as List).length;
-          return dish.items.length < expectedCount;
-        });
-
-        if (isOnlySpaghettiBolognese || hasDamagedDishes) {
-          debugPrint('Targeted one-time repair triggered for household $householdId (isOnlySpaghetti: $isOnlySpaghettiBolognese, hasDamaged: $hasDamagedDishes)');
+        if (isOnlySpaghettiBolognese) {
+          debugPrint('Targeted one-time repair triggered for bugged household $householdId (only Spaghetti Bolognese found)');
           final foods = await FoodService().fetchFoods(householdId);
           final foodMap = <String, String>{for (final f in foods) f.name.trim().toLowerCase(): f.id};
           list = await _dishService.seedDefaultDishesForHousehold(householdId, foodMap);

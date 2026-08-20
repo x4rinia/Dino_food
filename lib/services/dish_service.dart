@@ -227,12 +227,20 @@ class DishService {
           }
 
           // If it is incomplete (e.g. 0 items or fewer than expected items like 2/6),
-          // clean it up and repair it with all expected items!
+          // attempt to clean it up before re-creating:
           debugPrint('Repairing damaged dish "$dishName" (found $actualItemCount of $expectedItemCount expected items)...');
+          var deleteSucceeded = false;
           try {
             await _client.from('dishes').delete().eq('id', existing['id'] as String);
+            deleteSucceeded = true;
           } catch (delErr) {
             debugPrint('Error deleting damaged dish "$dishName" (${existing['id']}): $delErr');
+          }
+
+          // If deletion failed, do NOT attempt to re-create to prevent duplicates!
+          if (!deleteSucceeded) {
+            debugPrint('Skipping re-creation of "$dishName" because deleting the existing record failed.');
+            continue;
           }
         }
 
