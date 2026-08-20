@@ -9,6 +9,7 @@ import '../../widgets/dino_card.dart';
 import '../../widgets/empty_state.dart';
 import '../shopping_list/add_edit_item_dialog.dart';
 import 'add_food_dialog.dart';
+import 'stock_screen.dart';
 
 class FoodsScreen extends StatefulWidget {
   const FoodsScreen({super.key});
@@ -43,21 +44,70 @@ class _FoodsScreenState extends State<FoodsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Lebensmittel & Vorrat 🥕'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12.0),
+            child: TextButton.icon(
+              style: TextButton.styleFrom(
+                backgroundColor: AppTheme.primarySoft,
+                foregroundColor: AppTheme.primaryDark,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const StockScreen()),
+                );
+              },
+              icon: const Text('📦', style: TextStyle(fontSize: 16)),
+              label: Text(
+                'Vorrat (${stockProvider.inStockFoodIds.length})',
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+              ),
+            ),
+          ),
+        ],
       ),
       body: Column(
         children: [
-          // Info banner for pantry/stock
+          // Info banner with link to stock overview
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             color: AppTheme.primarySoft.withValues(alpha: 0.5),
             child: Row(
               children: [
-                const Icon(Icons.home_outlined, size: 18, color: AppTheme.primaryGreen),
+                const Text('📦', style: TextStyle(fontSize: 16)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Tippe auf "Vorrat", um zu markieren, was bereits zuhause ist.',
-                    style: const TextStyle(fontSize: 12, color: AppTheme.primaryDark, fontWeight: FontWeight.w500),
+                    stockProvider.inStockFoodIds.isEmpty
+                        ? 'Tippe bei Artikeln auf „Vorrat?“, um sie als Zuhause zu markieren.'
+                        : '${stockProvider.inStockFoodIds.length} Artikel im Vorrat',
+                    style: const TextStyle(fontSize: 12, color: AppTheme.primaryDark, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const StockScreen()),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Vorrat ansehen',
+                          style: TextStyle(fontSize: 12, color: AppTheme.primaryGreen, fontWeight: FontWeight.w700),
+                        ),
+                        SizedBox(width: 2),
+                        Icon(Icons.arrow_forward_ios, size: 11, color: AppTheme.primaryGreen),
+                      ],
+                    ),
                   ),
                 ),
               ],
