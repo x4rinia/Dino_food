@@ -337,9 +337,9 @@ class DishService {
       }).toList();
 
       return list;
-    } catch (e) {
-      debugPrint('Error fetching dishes: $e');
-      return [];
+    } catch (e, stackTrace) {
+      debugPrint('CRITICAL: Error fetching dishes for household "$householdId": $e\n$stackTrace');
+      rethrow;
     }
   }
 

@@ -713,6 +713,20 @@ class _DishesScreenState extends State<DishesScreen> {
     StockProvider stockProvider,
     Map<String, String> foodMap,
   ) {
+    if (dishProvider.errorMessage != null && dishProvider.dishes.isEmpty) {
+      final householdProvider = Provider.of<HouseholdProvider>(context, listen: false);
+      return EmptyState(
+        emoji: '⚠️',
+        title: 'Fehler beim Laden',
+        message: 'Die Gerichte konnten nicht geladen werden: ${dishProvider.errorMessage}',
+        actionLabel: 'Erneut versuchen',
+        onAction: () {
+          final hhId = householdProvider.currentHousehold?.id;
+          if (hhId != null) dishProvider.loadDishes(hhId);
+        },
+      );
+    }
+
     if (dishProvider.dishes.isEmpty) {
       return EmptyState(
         emoji: '🍝',

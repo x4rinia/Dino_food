@@ -82,7 +82,7 @@ class _FoodsScreenState extends State<FoodsScreen> {
       ),
       body: Column(
         children: [
-          // Info banner with link to stock overview
+          // Info banner
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             color: AppTheme.primarySoft.withValues(alpha: 0.5),
@@ -96,29 +96,6 @@ class _FoodsScreenState extends State<FoodsScreen> {
                         ? 'Tippe bei Artikeln auf „Vorrat?“, um sie als Zuhause zu markieren.'
                         : '${stockProvider.inStockFoodIds.length} Artikel im Vorrat',
                     style: const TextStyle(fontSize: 12, color: AppTheme.primaryDark, fontWeight: FontWeight.w600),
-                  ),
-                ),
-                InkWell(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const StockScreen()),
-                    );
-                  },
-                  borderRadius: BorderRadius.circular(8),
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Vorrat ansehen',
-                          style: TextStyle(fontSize: 12, color: AppTheme.primaryGreen, fontWeight: FontWeight.w700),
-                        ),
-                        SizedBox(width: 2),
-                        Icon(Icons.arrow_forward_ios, size: 11, color: AppTheme.primaryGreen),
-                      ],
-                    ),
                   ),
                 ),
               ],
