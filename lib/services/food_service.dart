@@ -378,6 +378,7 @@ class FoodService {
 
     try {
       if (householdId != null && householdId.isNotEmpty) {
+        // 1. Fetch household-specific foods
         final data = await _client
             .from('foods')
             .select()
@@ -385,17 +386,42 @@ class FoodService {
             .order('name', ascending: true);
 
         final List<Food> items = (data as List).map((f) => Food.fromJson(f)).toList();
-        if (items.isNotEmpty) return items;
 
-        // Fallback for legacy households that might have null household_id
-        final legacyData = await _client
+        // 2. Fetch any legacy global foods (household_id IS NULL)
+        List<Food> legacyItems = [];
+        try {
+          final legacyData = await _client
+              .from('foods')
+              .select()
+              .filter('household_id', 'is', 'null')
+              .order('name', ascending: true);
+          legacyItems = (legacyData as List).map((f) => Food.fromJson(f)).toList();
+        } catch (_) {}
+
+        if (items.isNotEmpty || legacyItems.isNotEmpty) {
+          // Merge items with legacy items (household-specific foods take precedence by name)
+          final Map<String, Food> mergedByName = {};
+          for (final f in legacyItems) {
+            mergedByName[f.name.trim().toLowerCase()] = f;
+          }
+          for (final f in items) {
+            mergedByName[f.name.trim().toLowerCase()] = f;
+          }
+          final result = mergedByName.values.toList();
+          result.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+          return result;
+        }
+
+        // 3. If no foods exist at all for this household, seed standard foods
+        await seedDefaultFoodsForHousehold(householdId);
+        final seededData = await _client
             .from('foods')
             .select()
-            .or('household_id.eq.$householdId,household_id.is.null')
+            .eq('household_id', householdId)
             .order('name', ascending: true);
 
-        final List<Food> legacyItems = (legacyData as List).map((f) => Food.fromJson(f)).toList();
-        if (legacyItems.isNotEmpty) return legacyItems;
+        final List<Food> seededItems = (seededData as List).map((f) => Food.fromJson(f)).toList();
+        if (seededItems.isNotEmpty) return seededItems;
       }
 
       // Fallback query
