@@ -122,11 +122,6 @@ class HouseholdProvider extends ChangeNotifier {
         } catch (e) {
           debugPrint('Members load info: $e');
         }
-
-        // Run one-time legacy repair check for existing households
-        for (final h in _households) {
-          _householdService.checkAndRepairLegacyBugHousehold(h.id);
-        }
       } else {
         _currentHousehold = null;
         _defaultHouseholdId = null;

@@ -17,35 +17,6 @@ class UserHouseholdsResult {
 class HouseholdService {
   SupabaseClient get _client => SupabaseConfig.client;
 
-  static final Set<String> _checkedLegacyRepairs = {};
-
-  /// One-time repair specifically for existing households that suffered from the historical seed crash
-  /// (having only 'Spaghetti Bolognese' and 0 other dishes).
-  /// Once checked/repaired, this household is flagged and never checked again.
-  Future<void> checkAndRepairLegacyBugHousehold(String householdId) async {
-    if (_checkedLegacyRepairs.contains(householdId) || householdId.isEmpty) return;
-    _checkedLegacyRepairs.add(householdId);
-
-    if (!SupabaseConfig.isConfigured) return;
-
-    try {
-      final dishesData = await _client
-          .from('dishes')
-          .select('id, name')
-          .eq('household_id', householdId);
-
-      final list = dishesData as List;
-      if (list.length == 1 && (list.first['name'] as String).trim().toLowerCase() == 'spaghetti bolognese') {
-        debugPrint('One-time legacy repair triggered for bugged household $householdId (only Spaghetti Bolognese found)');
-        final foods = await FoodService().fetchFoods(householdId);
-        final foodMap = <String, String>{for (final f in foods) f.name.trim().toLowerCase(): f.id};
-        await DishService().seedDefaultDishesForHousehold(householdId, foodMap);
-      }
-    } catch (e) {
-      debugPrint('Legacy repair check info for household $householdId: $e');
-    }
-  }
-
   Future<UserHouseholdsResult> fetchUserHouseholdsWithRoles() async {
     if (!SupabaseConfig.isConfigured || SupabaseConfig.currentUserId == null) {
       return UserHouseholdsResult(households: [], roles: {});

@@ -728,13 +728,11 @@ class _DishesScreenState extends State<DishesScreen> {
     }
 
     if (dishProvider.dishes.isEmpty) {
-      return EmptyState(
+      return const EmptyState(
         emoji: '🍝',
         title: 'Noch keine Gerichte angelegt',
         message:
             'Erstelle gespeicherte Zusammenstellungen deiner Lieblingsgerichte (z. B. Spaghetti Bolognese) und setze alle Zutaten mit einem Klick auf die Einkaufsliste!',
-        actionLabel: 'Gericht hinzufügen',
-        onAction: () => _openAddDishDialog(context),
       );
     }
 
