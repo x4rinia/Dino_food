@@ -3,10 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../config/app_theme.dart';
+import '../../config/supabase_config.dart';
 import '../../models/household.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/dish_provider.dart';
 import '../../providers/household_provider.dart';
 import '../../providers/shopping_provider.dart';
+import '../../providers/stock_provider.dart';
 import '../../widgets/dino_card.dart';
 import 'create_or_join_household_dialog.dart';
 
@@ -70,11 +73,107 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
     }
   }
 
+  void _confirmDeleteHousehold(
+    BuildContext context,
+    Household household,
+    HouseholdProvider householdProvider,
+    ShoppingProvider shoppingProvider,
+    StockProvider stockProvider,
+    DishProvider dishProvider,
+  ) {
+    final currentUserId = SupabaseConfig.currentUserId;
+    final hasOtherMembers = householdProvider.members
+        .where((m) => m.householdId == household.id && m.userId != currentUserId)
+        .isNotEmpty;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppTheme.errorRed),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Haushalt wirklich löschen?',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Der Haushalt "${household.name}" und seine gemeinsamen Daten werden dauerhaft gelöscht.',
+              style: const TextStyle(fontSize: 14, height: 1.4),
+            ),
+            if (hasOtherMembers) ...[
+              const SizedBox(height: 12),
+              const Text(
+                'Dieser Haushalt wird auch für die anderen Mitglieder gelöscht.',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.errorRed,
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Abbrechen', style: TextStyle(color: AppTheme.textMuted)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.errorRed,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final success = await householdProvider.deleteHousehold(household.id);
+              if (context.mounted) {
+                if (success) {
+                  final active = householdProvider.currentHousehold;
+                  if (active != null) {
+                    shoppingProvider.bindToHousehold(active.id);
+                    stockProvider.bindToHousehold(active.id);
+                    dishProvider.loadDishes(active.id);
+                  }
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Haushalt wurde gelöscht.'),
+                      backgroundColor: AppTheme.primaryGreen,
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(householdProvider.errorMessage ?? 'Der Haushalt konnte nicht gelöscht werden.'),
+                      backgroundColor: AppTheme.errorRed,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Haushalt löschen'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final householdProvider = Provider.of<HouseholdProvider>(context);
     final shoppingProvider = Provider.of<ShoppingProvider>(context, listen: false);
+    final stockProvider = Provider.of<StockProvider>(context, listen: false);
+    final dishProvider = Provider.of<DishProvider>(context, listen: false);
     final currentHousehold = householdProvider.currentHousehold;
 
     return Scaffold(
@@ -88,52 +187,292 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Active Household Card
-                  DinoCard(
-                    padding: const EdgeInsets.all(18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 56,
-                              height: 56,
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: currentHousehold != null 
-                                    ? Color(int.parse(currentHousehold.color.replaceFirst('#', '0xFF')))
-                                    : AppTheme.primarySoft,
-                                borderRadius: BorderRadius.circular(12),
+                  // --- SECTION 1: MEINE HAUSHALTE ---
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Meine Haushalte',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textDark,
+                        ),
+                      ),
+                      Text(
+                        '${householdProvider.households.length} ${householdProvider.households.length == 1 ? 'Haushalt' : 'Haushalte'}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textMuted,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+
+                  ...householdProvider.households.map((household) {
+                    final isActive = householdProvider.isCurrentHousehold(household.id);
+                    final isDefault = householdProvider.isDefaultHousehold(household.id);
+                    final isOwner = householdProvider.isOwnerOf(household.id);
+                    final canDelete = isOwner && householdProvider.households.length > 1;
+                    final color = Color(int.parse(household.color.replaceFirst('#', '0xFF')));
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10.0),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () {
+                            if (!isActive) {
+                              householdProvider.setCurrentHousehold(household);
+                              shoppingProvider.bindToHousehold(household.id);
+                              stockProvider.bindToHousehold(household.id);
+                              dishProvider.loadDishes(household.id);
+                            }
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isActive ? AppTheme.primaryGreen : Colors.black.withValues(alpha: 0.06),
+                                width: isActive ? 2 : 1,
                               ),
-                              child: const Center(child: Text('🏠', style: TextStyle(fontSize: 24))),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.04),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Aktiver Haushalt',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppTheme.primaryGreen,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            child: Row(
+                              children: [
+                                // Favorite Star Button (★ / ☆)
+                                IconButton(
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  icon: Icon(
+                                    isDefault ? Icons.star : Icons.star_border,
+                                    color: isDefault ? const Color(0xFFF4A261) : AppTheme.textMuted.withValues(alpha: 0.45),
+                                    size: 26,
+                                  ),
+                                  tooltip: isDefault ? 'Standardhaushalt (Favorit)' : 'Als Standardhaushalt setzen',
+                                  onPressed: () async {
+                                    if (!isDefault) {
+                                      final success = await householdProvider.setDefaultHousehold(household.id);
+                                      if (context.mounted && !success) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text(householdProvider.errorMessage ?? 'Der Standardhaushalt konnte nicht geändert werden.'),
+                                            backgroundColor: AppTheme.errorRed,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  },
+                                ),
+                                const SizedBox(width: 12),
+
+                                // Color indicator icon
+                                Container(
+                                  width: 38,
+                                  height: 38,
+                                  decoration: BoxDecoration(
+                                    color: color,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Center(
+                                    child: Text('🏠', style: TextStyle(fontSize: 18)),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+
+                                // Household info: Name & Code / Role
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        household.name,
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
+                                          color: AppTheme.textDark,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Row(
+                                        children: [
+                                          if (household.inviteCode.isNotEmpty)
+                                            Text(
+                                              household.inviteCode.toUpperCase(),
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: AppTheme.textMuted,
+                                                fontWeight: FontWeight.w500,
+                                                letterSpacing: 0.5,
+                                              ),
+                                            ),
+                                          if (household.inviteCode.isNotEmpty && isOwner)
+                                            const Text(' • ', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+                                          if (isOwner)
+                                            const Text(
+                                              'Inhaber',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: AppTheme.primaryGreen,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+
+                                // Active indicator badge
+                                if (isActive) ...[
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primarySoft,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Text(
+                                      'Aktiv',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppTheme.primaryGreen,
+                                      ),
                                     ),
                                   ),
-                                  Row(
-                                    children: [
-                                      Flexible(
-                                        child: Text(
-                                          currentHousehold?.name ?? 'Kein Haushalt',
-                                          style: const TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.w700,
-                                            color: AppTheme.textDark,
+                                  const SizedBox(width: 6),
+                                ],
+
+                                // Delete button (only for owner and when user has > 1 household)
+                                if (canDelete)
+                                  IconButton(
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    icon: const Icon(Icons.delete_outline, size: 20, color: AppTheme.errorRed),
+                                    tooltip: 'Haushalt löschen',
+                                    onPressed: () {
+                                      _confirmDeleteHousehold(
+                                        context,
+                                        household,
+                                        householdProvider,
+                                        shoppingProvider,
+                                        stockProvider,
+                                        dishProvider,
+                                      );
+                                    },
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+
+                  const SizedBox(height: 8),
+
+                  // Action: Create or Join another household
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            final result = await showDialog<bool>(
+                              context: context,
+                              builder: (_) => const CreateOrJoinHouseholdDialog(isJoining: false),
+                            );
+                            if (result == true && householdProvider.currentHousehold != null) {
+                              final active = householdProvider.currentHousehold!;
+                              shoppingProvider.bindToHousehold(active.id);
+                              stockProvider.bindToHousehold(active.id);
+                              dishProvider.loadDishes(active.id);
+                            }
+                          },
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text('Neuer Haushalt'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            final result = await showDialog<bool>(
+                              context: context,
+                              builder: (_) => const CreateOrJoinHouseholdDialog(isJoining: true),
+                            );
+                            if (result == true && householdProvider.currentHousehold != null) {
+                              final active = householdProvider.currentHousehold!;
+                              shoppingProvider.bindToHousehold(active.id);
+                              stockProvider.bindToHousehold(active.id);
+                              dishProvider.loadDishes(active.id);
+                            }
+                          },
+                          icon: const Icon(Icons.group_add, size: 18),
+                          label: const Text('Code beitreten'),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // --- SECTION 2: AKTIVER HAUSHALT DETAILS ---
+                  if (currentHousehold != null) ...[
+                    DinoCard(
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 52,
+                                height: 52,
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Color(int.parse(currentHousehold.color.replaceFirst('#', '0xFF'))),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Center(child: Text('🏠', style: TextStyle(fontSize: 22))),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Aktiver Haushalt',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppTheme.primaryGreen,
+                                      ),
+                                    ),
+                                    Row(
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            currentHousehold.name,
+                                            style: const TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppTheme.textDark,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                      if (currentHousehold != null) ...[
                                         const SizedBox(width: 4),
                                         IconButton(
                                           icon: const Icon(Icons.edit_outlined, size: 18, color: AppTheme.primaryGreen),
@@ -149,125 +488,70 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                                           },
                                         ),
                                       ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (currentHousehold.inviteCode.isNotEmpty) ...[
+                            const SizedBox(height: 14),
+                            const Divider(height: 1),
+                            const SizedBox(height: 14),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primarySoft.withValues(alpha: 0.5),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: AppTheme.primaryLight.withValues(alpha: 0.3)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.group_add_outlined, color: AppTheme.primaryGreen, size: 20),
+                                  const SizedBox(width: 10),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Einladungscode für Mitbewohner:',
+                                        style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                                      ),
+                                      Text(
+                                        currentHousehold.inviteCode.toUpperCase(),
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w800,
+                                          color: AppTheme.primaryDark,
+                                          letterSpacing: 1.5,
+                                        ),
+                                      ),
                                     ],
+                                  ),
+                                  const Spacer(),
+                                  IconButton(
+                                    icon: const Icon(Icons.copy, size: 18, color: AppTheme.primaryGreen),
+                                    tooltip: 'Code kopieren',
+                                    onPressed: () {
+                                      Clipboard.setData(
+                                        ClipboardData(text: currentHousehold.inviteCode.toUpperCase()),
+                                      );
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Einladungscode in die Zwischenablage kopiert!'),
+                                          duration: Duration(seconds: 2),
+                                        ),
+                                      );
+                                    },
                                   ),
                                 ],
                               ),
                             ),
-                            if (householdProvider.households.length > 1)
-                              PopupMenuButton<Household>(
-                                icon: const Icon(Icons.swap_horiz, color: AppTheme.primaryGreen),
-                                tooltip: 'Haushalt wechseln',
-                                onSelected: (h) {
-                                  householdProvider.setCurrentHousehold(h);
-                                  shoppingProvider.bindToHousehold(h.id);
-                                },
-                                itemBuilder: (ctx) {
-                                  return householdProvider.households.map((h) {
-                                    return PopupMenuItem(
-                                      value: h,
-                                      child: Text(h.name),
-                                    );
-                                  }).toList();
-                                },
-                              ),
                           ],
-                        ),
-                        const SizedBox(height: 16),
-                        const Divider(height: 1),
-                        const SizedBox(height: 14),
-
-                        // Invite Code Section
-                        if (currentHousehold != null &&
-                            currentHousehold.inviteCode.isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primarySoft.withValues(alpha: 0.5),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: AppTheme.primaryLight.withValues(alpha: 0.3)),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.group_add_outlined, color: AppTheme.primaryGreen, size: 20),
-                                const SizedBox(width: 10),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Einladungscode für Mitbewohner:',
-                                      style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
-                                    ),
-                                    Text(
-                                      currentHousehold.inviteCode.toUpperCase(),
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w800,
-                                        color: AppTheme.primaryDark,
-                                        letterSpacing: 1.5,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const Spacer(),
-                                IconButton(
-                                  icon: const Icon(Icons.copy, size: 18, color: AppTheme.primaryGreen),
-                                  tooltip: 'Code kopieren',
-                                  onPressed: () {
-                                    Clipboard.setData(
-                                      ClipboardData(text: currentHousehold.inviteCode.toUpperCase()),
-                                    );
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Einladungscode in die Zwischenablage kopiert!'),
-                                        duration: Duration(seconds: 2),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  // Action: Create or Join another household
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (_) => const CreateOrJoinHouseholdDialog(isJoining: false),
-                            );
-                          },
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text('Neuer Haushalt'),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (_) => const CreateOrJoinHouseholdDialog(isJoining: true),
-                            );
-                          },
-                          icon: const Icon(Icons.group_add, size: 18),
-                          label: const Text('Code beitreten'),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 24),
+                  ],
 
                   // Members Section
                   const Text(

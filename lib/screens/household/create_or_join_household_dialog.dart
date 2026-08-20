@@ -57,7 +57,7 @@ class _CreateOrJoinHouseholdDialogState extends State<CreateOrJoinHouseholdDialo
     }
 
     if (success && mounted) {
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(true);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(_isJoining ? 'Haushalt beigetreten!' : 'Neuer Haushalt erstellt!'),

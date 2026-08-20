@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/app_theme.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/dish_provider.dart';
 import '../../providers/household_provider.dart';
 import '../../providers/shopping_provider.dart';
+import '../../providers/stock_provider.dart';
 import 'create_or_join_household_dialog.dart';
 
 class WelcomeHouseholdScreen extends StatelessWidget {
@@ -14,6 +16,8 @@ class WelcomeHouseholdScreen extends StatelessWidget {
     final authProvider = Provider.of<AuthProvider>(context);
     final householdProvider = Provider.of<HouseholdProvider>(context);
     final shoppingProvider = Provider.of<ShoppingProvider>(context, listen: false);
+    final stockProvider = Provider.of<StockProvider>(context, listen: false);
+    final dishProvider = Provider.of<DishProvider>(context, listen: false);
 
     final displayName = authProvider.profile?.displayName ??
         authProvider.currentUser?.email?.split('@').first ??
@@ -99,7 +103,10 @@ class WelcomeHouseholdScreen extends StatelessWidget {
                         builder: (_) => const CreateOrJoinHouseholdDialog(isJoining: false),
                       );
                       if (result == true && householdProvider.currentHousehold != null) {
-                        shoppingProvider.bindToHousehold(householdProvider.currentHousehold!.id);
+                        final active = householdProvider.currentHousehold!;
+                        shoppingProvider.bindToHousehold(active.id);
+                        stockProvider.bindToHousehold(active.id);
+                        dishProvider.loadDishes(active.id);
                       }
                     },
                     icon: const Icon(Icons.add_home_outlined),
@@ -137,7 +144,10 @@ class WelcomeHouseholdScreen extends StatelessWidget {
                         builder: (_) => const CreateOrJoinHouseholdDialog(isJoining: true),
                       );
                       if (result == true && householdProvider.currentHousehold != null) {
-                        shoppingProvider.bindToHousehold(householdProvider.currentHousehold!.id);
+                        final active = householdProvider.currentHousehold!;
+                        shoppingProvider.bindToHousehold(active.id);
+                        stockProvider.bindToHousehold(active.id);
+                        dishProvider.loadDishes(active.id);
                       }
                     },
                     icon: const Icon(Icons.group_add_outlined),

@@ -5,30 +5,96 @@ import '../models/household.dart';
 import '../models/household_member.dart';
 import '../models/profile.dart';
 
+class UserHouseholdsResult {
+  final List<Household> households;
+  final Map<String, String> roles; // householdId -> role ('owner' or 'member')
+
+  UserHouseholdsResult({required this.households, required this.roles});
+}
+
 class HouseholdService {
   SupabaseClient get _client => SupabaseConfig.client;
 
-  Future<List<Household>> fetchUserHouseholds() async {
+  Future<UserHouseholdsResult> fetchUserHouseholdsWithRoles() async {
     if (!SupabaseConfig.isConfigured || SupabaseConfig.currentUserId == null) {
-      return [];
+      return UserHouseholdsResult(households: [], roles: {});
     }
 
     final userId = SupabaseConfig.currentUserId!;
     try {
       final memberRows = await _client
           .from('household_members')
-          .select('household_id, households(*)')
+          .select('household_id, role, households(*)')
           .eq('user_id', userId);
 
       final List<Household> households = [];
+      final Map<String, String> roles = {};
+
       for (final row in memberRows) {
+        final householdId = row['household_id'] as String?;
+        final role = row['role'] as String? ?? 'member';
+        if (householdId != null) {
+          roles[householdId] = role;
+        }
         if (row['households'] != null) {
           households.add(Household.fromJson(row['households'] as Map<String, dynamic>));
         }
       }
-      return households;
+      return UserHouseholdsResult(households: households, roles: roles);
     } catch (e) {
-      debugPrint('Error fetching households: $e');
+      debugPrint('Error fetching households with roles: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<Household>> fetchUserHouseholds() async {
+    final result = await fetchUserHouseholdsWithRoles();
+    return result.households;
+  }
+
+  Future<String?> fetchDefaultHouseholdId() async {
+    if (!SupabaseConfig.isConfigured || SupabaseConfig.currentUserId == null) {
+      return null;
+    }
+
+    try {
+      final data = await _client
+          .from('profiles')
+          .select('default_household_id')
+          .eq('id', SupabaseConfig.currentUserId!)
+          .maybeSingle();
+
+      return data?['default_household_id'] as String?;
+    } catch (e) {
+      debugPrint('Error fetching default_household_id: $e');
+      return null;
+    }
+  }
+
+  Future<void> setDefaultHousehold(String householdId) async {
+    if (!SupabaseConfig.isConfigured || SupabaseConfig.currentUserId == null) {
+      return;
+    }
+
+    try {
+      await _client.from('profiles').update({
+        'default_household_id': householdId,
+      }).eq('id', SupabaseConfig.currentUserId!);
+    } catch (e) {
+      debugPrint('Error updating default_household_id in profile: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteHousehold(String householdId) async {
+    if (!SupabaseConfig.isConfigured || SupabaseConfig.currentUserId == null) {
+      return;
+    }
+
+    try {
+      await _client.from('households').delete().eq('id', householdId);
+    } catch (e) {
+      debugPrint('Error deleting household: $e');
       rethrow;
     }
   }
