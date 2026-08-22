@@ -317,22 +317,27 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
               // Shopping quantity stays compact and separate from the note.
               if (item.quantity != null) ...[
                 const SizedBox(width: 8),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(minWidth: 24),
-                  child: Text(
-                    '${item.quantity}',
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: isChecked ? AppTheme.textMuted : AppTheme.textDark,
-                      decoration: isChecked
-                          ? TextDecoration.lineThrough
-                          : TextDecoration.none,
+                SizedBox(
+                  width: 40,
+                  child: Center(
+                    child: Text(
+                      '${item.quantity}',
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: isChecked
+                            ? AppTheme.textMuted
+                            : AppTheme.textDark,
+                        decoration: isChecked
+                            ? TextDecoration.lineThrough
+                            : TextDecoration.none,
+                      ),
                     ),
                   ),
                 ),
+                const SizedBox(width: 4),
               ],
 
               // Edit / More button

@@ -21,7 +21,7 @@ void main() {
       expect(item.toJson()['quantity'], isNull);
     });
 
-    test('Displays quantity alone or together with a note', () {
+    test('Keeps quantity out of the optional note text', () {
       final now = DateTime(2026);
       final quantityOnly = ShoppingItem(
         id: 'milk',
@@ -41,8 +41,8 @@ void main() {
         updatedAt: now,
       );
 
-      expect(quantityOnly.detailsText, 'Anzahl: 2');
-      expect(noteAndQuantity.detailsText, 'Cherry · Anzahl: 4');
+      expect(quantityOnly.detailsText, isNull);
+      expect(noteAndQuantity.detailsText, 'Cherry');
     });
 
     test('Quantity survives reload, can be changed and removed', () async {
@@ -189,10 +189,16 @@ void main() {
         final nameCenter = tester.getCenter(find.text('Tomaten'));
         final quantityCenter = tester.getCenter(find.text('4'));
         final noteCenter = tester.getCenter(find.text('Cherry'));
-        final menuCenter = tester.getCenter(find.byIcon(Icons.more_vert).last);
+        final quantityRect = tester.getRect(find.text('4'));
+        final menuRect = tester.getRect(find.byIcon(Icons.more_vert).last);
         expect(quantityCenter.dx, greaterThan(nameCenter.dx));
-        expect(quantityCenter.dx, lessThan(menuCenter.dx));
+        expect(quantityRect.right, lessThan(menuRect.left));
+        expect(menuRect.left - quantityRect.right, greaterThanOrEqualTo(8));
         expect(noteCenter.dy, greaterThan(nameCenter.dy));
+        expect(
+          quantityCenter.dy,
+          closeTo((nameCenter.dy + noteCenter.dy) / 2, 4),
+        );
         expect(tester.takeException(), isNull);
       },
     );

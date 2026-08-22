@@ -37,11 +37,8 @@ class ShoppingItem {
   }
 
   String? get detailsText {
-    final parts = <String>[
-      if (note != null && note!.trim().isNotEmpty) note!.trim(),
-      if (quantity != null) 'Anzahl: $quantity',
-    ];
-    return parts.isEmpty ? null : parts.join(' · ');
+    final trimmedNote = note?.trim();
+    return trimmedNote == null || trimmedNote.isEmpty ? null : trimmedNote;
   }
 
   ShoppingItem copyWith({
