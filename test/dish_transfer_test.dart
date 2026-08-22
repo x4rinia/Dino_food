@@ -21,10 +21,34 @@ void main() {
       ];
 
       final catalogFoods = [
-        Food(id: 'food_zwiebeln', name: 'Zwiebeln', category: 'Gemüse', defaultUnit: '', createdAt: DateTime.now()),
-        Food(id: 'food_milch', name: 'Milch', category: 'Milchprodukte', defaultUnit: '', createdAt: DateTime.now()),
-        Food(id: 'food_brot', name: 'Brot', category: 'Backwaren', defaultUnit: '', createdAt: DateTime.now()),
-        Food(id: 'food_hackfleisch', name: 'Hackfleisch', category: 'Fleisch', defaultUnit: '', createdAt: DateTime.now()),
+        Food(
+          id: 'food_zwiebeln',
+          name: 'Zwiebeln',
+          note: 'Gemüse',
+          defaultUnit: '',
+          createdAt: DateTime.now(),
+        ),
+        Food(
+          id: 'food_milch',
+          name: 'Milch',
+          note: 'Milchprodukte',
+          defaultUnit: '',
+          createdAt: DateTime.now(),
+        ),
+        Food(
+          id: 'food_brot',
+          name: 'Brot',
+          note: 'Backwaren',
+          defaultUnit: '',
+          createdAt: DateTime.now(),
+        ),
+        Food(
+          id: 'food_hackfleisch',
+          name: 'Hackfleisch',
+          note: 'Fleisch',
+          defaultUnit: '',
+          createdAt: DateTime.now(),
+        ),
       ];
 
       final dish = Dish(
@@ -34,13 +58,28 @@ void main() {
         createdAt: DateTime.now(),
         items: [
           // 1. In stock by foodId
-          DishItem(id: 'd1', dishId: 'dish_1', foodId: 'food_zwiebeln', customName: 'Zwiebeln'),
+          DishItem(
+            id: 'd1',
+            dishId: 'dish_1',
+            foodId: 'food_zwiebeln',
+            customName: 'Zwiebeln',
+          ),
           // 2. In stock by matching name
           DishItem(id: 'd2', dishId: 'dish_1', customName: 'Milch'),
           // 3. Already on shopping list by foodId & name
-          DishItem(id: 'd3', dishId: 'dish_1', foodId: 'food_brot', customName: 'Brot'),
+          DishItem(
+            id: 'd3',
+            dishId: 'dish_1',
+            foodId: 'food_brot',
+            customName: 'Brot',
+          ),
           // 4. Neither in stock nor on list -> should be added
-          DishItem(id: 'd4', dishId: 'dish_1', foodId: 'food_hackfleisch', customName: 'Hackfleisch'),
+          DishItem(
+            id: 'd4',
+            dishId: 'dish_1',
+            foodId: 'food_hackfleisch',
+            customName: 'Hackfleisch',
+          ),
           // 5. Custom ingredient not in catalog, not in stock, not on list -> should be added
           DishItem(id: 'd5', dishId: 'dish_1', customName: 'Spezialsauce'),
         ],
@@ -56,7 +95,8 @@ void main() {
 
         final matchingFood = catalogFoods.where((f) {
           final fName = f.name.toLowerCase().trim();
-          return fName == itemName || (itemCustomName != null && fName == itemCustomName);
+          return fName == itemName ||
+              (itemCustomName != null && fName == itemCustomName);
         }).firstOrNull;
 
         final matchedFoodId = item.foodId ?? item.food?.id ?? matchingFood?.id;
@@ -64,9 +104,11 @@ void main() {
         bool isInStock = false;
         if (item.foodId != null && inStockFoodIds.contains(item.foodId!)) {
           isInStock = true;
-        } else if (item.food != null && inStockFoodIds.contains(item.food!.id)) {
+        } else if (item.food != null &&
+            inStockFoodIds.contains(item.food!.id)) {
           isInStock = true;
-        } else if (matchedFoodId != null && inStockFoodIds.contains(matchedFoodId)) {
+        } else if (matchedFoodId != null &&
+            inStockFoodIds.contains(matchedFoodId)) {
           isInStock = true;
         }
 
@@ -74,7 +116,9 @@ void main() {
         if (!isInStock) {
           isAlreadyOnList = openShoppingItems.any((openItem) {
             final openFoodId = openItem.foodId ?? openItem.food?.id;
-            if (matchedFoodId != null && openFoodId != null && matchedFoodId == openFoodId) {
+            if (matchedFoodId != null &&
+                openFoodId != null &&
+                matchedFoodId == openFoodId) {
               return true;
             }
             final openName = openItem.displayName.toLowerCase().trim();
@@ -82,7 +126,9 @@ void main() {
               return true;
             }
             final openCustomName = openItem.customName?.toLowerCase().trim();
-            if (openCustomName != null && itemCustomName != null && openCustomName == itemCustomName) {
+            if (openCustomName != null &&
+                itemCustomName != null &&
+                openCustomName == itemCustomName) {
               return true;
             }
             return false;
@@ -100,7 +146,10 @@ void main() {
 
       // Zwiebeln & Milch must be detected as in stock
       expect(inStockItems.length, 2);
-      expect(inStockItems.map((i) => i.displayName).toSet(), {'Zwiebeln', 'Milch'});
+      expect(inStockItems.map((i) => i.displayName).toSet(), {
+        'Zwiebeln',
+        'Milch',
+      });
 
       // Brot must be detected as already on shopping list
       expect(alreadyOnListItems.length, 1);
@@ -108,7 +157,10 @@ void main() {
 
       // Hackfleisch & Spezialsauce are the only ones to be added
       expect(itemsToAdd.length, 2);
-      expect(itemsToAdd.map((i) => i.displayName).toSet(), {'Hackfleisch', 'Spezialsauce'});
+      expect(itemsToAdd.map((i) => i.displayName).toSet(), {
+        'Hackfleisch',
+        'Spezialsauce',
+      });
     });
   });
 }

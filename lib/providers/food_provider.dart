@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+
 import '../models/food.dart';
 import '../services/food_service.dart';
 
@@ -7,67 +8,20 @@ class FoodProvider extends ChangeNotifier {
 
   List<Food> _foods = [];
   String _searchQuery = '';
-  String _selectedCategory = 'Alle';
   String? _currentHouseholdId;
   bool _isLoading = false;
   bool _hasLoaded = false;
 
-  static const List<String> standardCategories = [
-    'Alle',
-    'Gemüse',
-    'Obst',
-    'Kartoffeln',
-    'Fleisch',
-    'Wurst',
-    'Fisch',
-    'Milchprodukte',
-    'Käse',
-    'Eier',
-    'Brot & Backwaren',
-    'Nudeln & Reis',
-    'Konserven & Gläser',
-    'Tiefkühl',
-    'Gewürze',
-    'Saucen',
-    'Öle & Fette',
-    'Frühstück',
-    'Backen',
-    'Getränke',
-    'Snacks',
-    'Sonstiges',
-  ];
-
   List<Food> get foods => _foods;
   String get searchQuery => _searchQuery;
-  String get selectedCategory => _selectedCategory;
   bool get isLoading => _isLoading;
 
-  List<String> get categories {
-    final available = <String>{'Alle'};
-    for (final f in _foods) {
-      if (f.category.isNotEmpty) available.add(f.category);
-    }
-    // Return standard categories that exist, plus any extras
-    final ordered = <String>[];
-    for (final cat in standardCategories) {
-      if (cat == 'Alle' || available.contains(cat)) {
-        ordered.add(cat);
-      }
-    }
-    for (final cat in available) {
-      if (!ordered.contains(cat)) {
-        ordered.add(cat);
-      }
-    }
-    return ordered;
-  }
-
   List<Food> get filteredFoods {
-    final query = _searchQuery.trim().toLowerCase();
+    final query = normalizeForComparison(_searchQuery);
     return _foods.where((food) {
-      final matchesSearch = query.isEmpty || food.name.toLowerCase().contains(query);
-      final matchesCategory = _selectedCategory == 'Alle' || food.category == _selectedCategory;
-      return matchesSearch && matchesCategory;
+      return query.isEmpty ||
+          normalizeForComparison(food.name).contains(query) ||
+          normalizeForComparison(food.note ?? '').contains(query);
     }).toList();
   }
 
@@ -82,30 +36,36 @@ class FoodProvider extends ChangeNotifier {
       return;
     }
 
-    if (_currentHouseholdId == householdId && _hasLoaded) {
-      return;
-    }
+    if (_currentHouseholdId == householdId && _hasLoaded) return;
 
     _currentHouseholdId = householdId;
+    _foods = [];
     _hasLoaded = false;
     loadFoods(force: true);
   }
 
+  static String normalizeForComparison(String value) =>
+      value.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+
   static int compareFoodNames(String a, String b) {
     String normalize(String s) {
-      return s
-          .trim()
-          .toLowerCase()
+      return normalizeForComparison(s)
           .replaceAll('ä', 'ae')
           .replaceAll('ö', 'oe')
           .replaceAll('ü', 'ue')
           .replaceAll('ß', 'ss');
     }
+
     return normalize(a).compareTo(normalize(b));
   }
 
   void _sortFoods() {
-    _foods.sort((a, b) => compareFoodNames(a.name, b.name));
+    _foods.sort((a, b) {
+      final nameResult = compareFoodNames(a.name, b.name);
+      if (nameResult != 0) return nameResult;
+      return normalizeForComparison(a.note ?? '')
+          .compareTo(normalizeForComparison(b.note ?? ''));
+    });
   }
 
   Future<void> loadFoods({bool force = false}) async {
@@ -131,32 +91,30 @@ class FoodProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void selectCategory(String category) {
-    _selectedCategory = category;
-    notifyListeners();
-  }
-
-  bool foodExists(String name, {String? excludeId}) {
-    final normalized = name.trim().toLowerCase();
-    return _foods.any((f) {
-      if (excludeId != null && f.id == excludeId) return false;
-      return f.name.trim().toLowerCase() == normalized;
+  bool foodExists(String name, {String? note, String? excludeId}) {
+    final normalizedName = normalizeForComparison(name);
+    final normalizedNote = normalizeForComparison(note ?? '');
+    return _foods.any((food) {
+      if (excludeId != null && food.id == excludeId) return false;
+      return normalizeForComparison(food.name) == normalizedName &&
+          normalizeForComparison(food.note ?? '') == normalizedNote;
     });
   }
 
   Future<Food> addCustomFood({
     required String name,
-    String category = 'Sonstiges',
+    String? note,
     String defaultUnit = '',
   }) async {
     final trimmedName = name.trim();
-    if (foodExists(trimmedName)) {
-      throw Exception('Dieses Lebensmittel gibt es bereits.');
+    final trimmedNote = note?.trim();
+    if (foodExists(trimmedName, note: trimmedNote)) {
+      throw Exception('Dieses Lebensmittel mit dieser Notiz gibt es bereits.');
     }
 
     final food = await _foodService.addCustomFood(
       name: trimmedName,
-      category: category,
+      note: trimmedNote?.isEmpty == true ? null : trimmedNote,
       defaultUnit: defaultUnit,
       householdId: _currentHouseholdId,
     );
@@ -171,17 +129,18 @@ class FoodProvider extends ChangeNotifier {
   Future<Food> updateFood({
     required String id,
     required String name,
-    required String category,
+    String? note,
   }) async {
     final trimmedName = name.trim();
-    if (foodExists(trimmedName, excludeId: id)) {
-      throw Exception('Dieses Lebensmittel gibt es bereits.');
+    final trimmedNote = note?.trim();
+    if (foodExists(trimmedName, note: trimmedNote, excludeId: id)) {
+      throw Exception('Dieses Lebensmittel mit dieser Notiz gibt es bereits.');
     }
 
     final updated = await _foodService.updateFood(
       id: id,
       name: trimmedName,
-      category: category,
+      note: trimmedNote?.isEmpty == true ? null : trimmedNote,
       householdId: _currentHouseholdId,
     );
 
@@ -194,13 +153,16 @@ class FoodProvider extends ChangeNotifier {
     return updated;
   }
 
-  Future<bool> isFoodInUse(String foodId) async {
-    return await _foodService.isFoodInUse(foodId);
-  }
+  Future<bool> isFoodInUse(String foodId) => _foodService.isFoodInUse(foodId);
 
   Future<bool> deleteFood(String foodId, {String? foodName}) async {
-    final name = foodName ?? _foods.where((f) => f.id == foodId).firstOrNull?.name;
-    await _foodService.deleteFood(foodId, foodName: name, householdId: _currentHouseholdId);
+    final name =
+        foodName ?? _foods.where((f) => f.id == foodId).firstOrNull?.name;
+    await _foodService.deleteFood(
+      foodId,
+      foodName: name,
+      householdId: _currentHouseholdId,
+    );
     _foods.removeWhere((f) => f.id == foodId);
     notifyListeners();
     return true;

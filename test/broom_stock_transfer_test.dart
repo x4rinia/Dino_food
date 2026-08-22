@@ -40,13 +40,17 @@ void main() {
       final tomaten = foodProvider.foods.firstWhere((f) => f.name == 'Tomaten');
 
       // Add 3 items to shopping list
-      await shoppingProvider.addItem(foodId: milch.id, quantity: 1);
-      await shoppingProvider.addItem(foodId: nudeln.id, quantity: 1);
-      await shoppingProvider.addItem(foodId: tomaten.id, quantity: 1);
+      await shoppingProvider.addItem(foodId: milch.id);
+      await shoppingProvider.addItem(foodId: nudeln.id);
+      await shoppingProvider.addItem(foodId: tomaten.id);
 
       // Check Milch and Nudeln
-      final itemMilch = shoppingProvider.allItems.firstWhere((i) => i.foodId == milch.id);
-      final itemNudeln = shoppingProvider.allItems.firstWhere((i) => i.foodId == nudeln.id);
+      final itemMilch = shoppingProvider.allItems.firstWhere(
+        (i) => i.foodId == milch.id,
+      );
+      final itemNudeln = shoppingProvider.allItems.firstWhere(
+        (i) => i.foodId == nudeln.id,
+      );
       await shoppingProvider.toggleItemChecked(itemMilch.id);
       await shoppingProvider.toggleItemChecked(itemNudeln.id);
 
@@ -90,8 +94,10 @@ void main() {
       final initialStockSize = stockProvider.inStockFoodIds.length;
 
       // Add Milch to shopping list, check it, and run Besen
-      await shoppingProvider.addItem(foodId: milch.id, quantity: 2);
-      final item = shoppingProvider.allItems.firstWhere((i) => i.foodId == milch.id);
+      await shoppingProvider.addItem(foodId: milch.id);
+      final item = shoppingProvider.allItems.firstWhere(
+        (i) => i.foodId == milch.id,
+      );
       await shoppingProvider.toggleItemChecked(item.id);
 
       await shoppingProvider.clearCheckedItems(
@@ -117,14 +123,18 @@ void main() {
       await foodProvider.loadFoods();
 
       // Case A: Free-text matching existing food "Bananen"
-      await shoppingProvider.addItem(customName: 'bananen', quantity: 1);
-      final itemBananen = shoppingProvider.allItems.firstWhere((i) => i.customName == 'bananen');
+      await shoppingProvider.addItem(customName: 'bananen');
+      final itemBananen = shoppingProvider.allItems.firstWhere(
+        (i) => i.customName == 'bananen',
+      );
       await shoppingProvider.toggleItemChecked(itemBananen.id);
 
       // Case B: Free-text for non-existing food "Exotische Drachenfrucht"
       expect(foodProvider.foodExists('Exotische Drachenfrucht'), isFalse);
-      await shoppingProvider.addItem(customName: 'Exotische Drachenfrucht', quantity: 1);
-      final itemDrachen = shoppingProvider.allItems.firstWhere((i) => i.customName == 'Exotische Drachenfrucht');
+      await shoppingProvider.addItem(customName: 'Exotische Drachenfrucht');
+      final itemDrachen = shoppingProvider.allItems.firstWhere(
+        (i) => i.customName == 'Exotische Drachenfrucht',
+      );
       await shoppingProvider.toggleItemChecked(itemDrachen.id);
 
       // Run Besen
@@ -134,12 +144,16 @@ void main() {
       );
 
       // Bananen should be in stock
-      final bananen = foodProvider.foods.firstWhere((f) => f.name.toLowerCase() == 'bananen');
+      final bananen = foodProvider.foods.firstWhere(
+        (f) => f.name.toLowerCase() == 'bananen',
+      );
       expect(stockProvider.isInStock(bananen.id), isTrue);
 
       // Drachenfrucht was created and is in stock
       expect(foodProvider.foodExists('Exotische Drachenfrucht'), isTrue);
-      final drachenFood = foodProvider.foods.firstWhere((f) => f.name == 'Exotische Drachenfrucht');
+      final drachenFood = foodProvider.foods.firstWhere(
+        (f) => f.name == 'Exotische Drachenfrucht',
+      );
       expect(stockProvider.isInStock(drachenFood.id), isTrue);
 
       // Both items removed from shopping list
@@ -157,12 +171,13 @@ void main() {
       await foodProvider.loadFoods();
       final eier = foodProvider.foods.firstWhere((f) => f.name == 'Eier');
 
-      await shoppingProvider.addItem(foodId: eier.id, quantity: 1);
+      await shoppingProvider.addItem(foodId: eier.id);
       final item = shoppingProvider.allItems.first;
       await shoppingProvider.toggleItemChecked(item.id);
 
       // Mock a stock provider with un-bound household (cannot add to stock)
-      final unconfiguredStockProvider = StockProvider(); // currentHouseholdId is null
+      final unconfiguredStockProvider =
+          StockProvider(); // currentHouseholdId is null
 
       await shoppingProvider.clearCheckedItems(
         stockProvider: unconfiguredStockProvider,
@@ -190,7 +205,7 @@ void main() {
       await foodProvider.loadFoods();
       final butterA = foodProvider.foods.firstWhere((f) => f.name == 'Butter');
 
-      await shoppingProvider.addItem(foodId: butterA.id, quantity: 1);
+      await shoppingProvider.addItem(foodId: butterA.id);
       final itemA = shoppingProvider.allItems.first;
       await shoppingProvider.toggleItemChecked(itemA.id);
 
@@ -213,59 +228,78 @@ void main() {
       expect(stockProviderB.isInStock(butterB.id), isFalse);
     });
 
-    test('Test 6: Besen transfer automatically updates Kochbar dish state', () async {
-      await householdProvider.loadHouseholds();
-      await householdProvider.createHousehold(name: 'HH Test 6');
-      final hh = householdProvider.currentHousehold!;
+    test(
+      'Test 6: Besen transfer automatically updates Kochbar dish state',
+      () async {
+        await householdProvider.loadHouseholds();
+        await householdProvider.createHousehold(name: 'HH Test 6');
+        final hh = householdProvider.currentHousehold!;
 
-      shoppingProvider.bindToHousehold(hh.id);
-      foodProvider.bindToHousehold(hh.id);
-      stockProvider.bindToHousehold(hh.id);
+        shoppingProvider.bindToHousehold(hh.id);
+        foodProvider.bindToHousehold(hh.id);
+        stockProvider.bindToHousehold(hh.id);
 
-      await dishProvider.loadDishes(hh.id);
-      await foodProvider.loadFoods();
+        await dishProvider.loadDishes(hh.id);
+        await foodProvider.loadFoods();
 
-      final bolognese = dishProvider.dishes.firstWhere((d) => d.name == 'Spaghetti Bolognese');
+        final bolognese = dishProvider.dishes.firstWhere(
+          (d) => d.name == 'Spaghetti Bolognese',
+        );
 
-      // Put first 5 ingredients into stock
-      final first5 = bolognese.items.take(5).toList();
-      for (final it in first5) {
-        final fId = it.foodId ?? it.food?.id ?? foodProvider.foods.firstWhere((f) => f.name == it.displayName).id;
-        await stockProvider.addToStock(fId);
-      }
+        // Put first 5 ingredients into stock
+        final first5 = bolognese.items.take(5).toList();
+        for (final it in first5) {
+          final fId =
+              it.foodId ??
+              it.food?.id ??
+              foodProvider.foods.firstWhere((f) => f.name == it.displayName).id;
+          await stockProvider.addToStock(fId);
+        }
 
-      bool isCookable(Dish dish) {
-        final inStock = stockProvider.inStockFoodIds;
-        final foodMap = {for (final f in foodProvider.foods) f.name.trim().toLowerCase(): f.id};
-        if (dish.items.isEmpty) return false;
-        return dish.items.every((item) {
-          final fId = item.foodId ?? item.food?.id;
-          final resolvedByName = foodMap[item.displayName.trim().toLowerCase()];
-          return (fId != null && inStock.contains(fId)) ||
-              (resolvedByName != null && inStock.contains(resolvedByName));
-        });
-      }
+        bool isCookable(Dish dish) {
+          final inStock = stockProvider.inStockFoodIds;
+          final foodMap = {
+            for (final f in foodProvider.foods)
+              f.name.trim().toLowerCase(): f.id,
+          };
+          if (dish.items.isEmpty) return false;
+          return dish.items.every((item) {
+            final fId = item.foodId ?? item.food?.id;
+            final resolvedByName =
+                foodMap[item.displayName.trim().toLowerCase()];
+            return (fId != null && inStock.contains(fId)) ||
+                (resolvedByName != null && inStock.contains(resolvedByName));
+          });
+        }
 
-      // 5 of 6 -> NOT cookable
-      expect(isCookable(bolognese), isFalse);
+        // 5 of 6 -> NOT cookable
+        expect(isCookable(bolognese), isFalse);
 
-      // Buy the 6th ingredient via Shopping List
-      final lastItem = bolognese.items.last;
-      final lastFId = lastItem.foodId ?? lastItem.food?.id ?? foodProvider.foods.firstWhere((f) => f.name == lastItem.displayName).id;
+        // Buy the 6th ingredient via Shopping List
+        final lastItem = bolognese.items.last;
+        final lastFId =
+            lastItem.foodId ??
+            lastItem.food?.id ??
+            foodProvider.foods
+                .firstWhere((f) => f.name == lastItem.displayName)
+                .id;
 
-      await shoppingProvider.addItem(foodId: lastFId, quantity: 1);
-      final shopItem = shoppingProvider.allItems.firstWhere((i) => i.foodId == lastFId);
-      await shoppingProvider.toggleItemChecked(shopItem.id);
+        await shoppingProvider.addItem(foodId: lastFId);
+        final shopItem = shoppingProvider.allItems.firstWhere(
+          (i) => i.foodId == lastFId,
+        );
+        await shoppingProvider.toggleItemChecked(shopItem.id);
 
-      // Run Besen
-      await shoppingProvider.clearCheckedItems(
-        stockProvider: stockProvider,
-        foodProvider: foodProvider,
-      );
+        // Run Besen
+        await shoppingProvider.clearCheckedItems(
+          stockProvider: stockProvider,
+          foodProvider: foodProvider,
+        );
 
-      // Now Bolognese is 6 of 6 -> KOCHBAR!
-      expect(isCookable(bolognese), isTrue);
-    });
+        // Now Bolognese is 6 of 6 -> KOCHBAR!
+        expect(isCookable(bolognese), isTrue);
+      },
+    );
 
     test('Test 7: Shopping items with note are persisted, and Besen transfers food to stock without note in stock', () async {
       await householdProvider.loadHouseholds();
@@ -282,24 +316,25 @@ void main() {
       // Add item with note 'laktosefrei'
       final added = await shoppingProvider.addItem(
         foodId: milch.id,
-        quantity: 2,
         note: 'laktosefrei',
       );
       expect(added, isTrue);
 
-      final item = shoppingProvider.allItems.firstWhere((i) => i.foodId == milch.id);
+      final item = shoppingProvider.allItems.firstWhere(
+        (i) => i.foodId == milch.id,
+      );
       expect(item.note, 'laktosefrei');
 
       // Update note
       await shoppingProvider.updateItem(
         itemId: item.id,
-        quantity: 3,
         note: 'bio laktosefrei 1.5%',
       );
 
-      final updatedItem = shoppingProvider.allItems.firstWhere((i) => i.id == item.id);
+      final updatedItem = shoppingProvider.allItems.firstWhere(
+        (i) => i.id == item.id,
+      );
       expect(updatedItem.note, 'bio laktosefrei 1.5%');
-      expect(updatedItem.quantity, 3);
 
       // Check item and run Besen
       await shoppingProvider.toggleItemChecked(item.id);

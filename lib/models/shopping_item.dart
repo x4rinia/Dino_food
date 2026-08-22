@@ -6,8 +6,6 @@ class ShoppingItem {
   final String householdId;
   final String? foodId;
   final String? customName;
-  final double quantity;
-  final String unit;
   final String? note;
   final bool checked;
   final String? addedBy;
@@ -21,8 +19,6 @@ class ShoppingItem {
     required this.householdId,
     this.foodId,
     this.customName,
-    this.quantity = 1.0,
-    this.unit = '',
     this.note,
     this.checked = false,
     this.addedBy,
@@ -33,28 +29,9 @@ class ShoppingItem {
   });
 
   String get displayName {
-    if (customName != null && customName!.trim().isNotEmpty) {
-      return customName!;
-    }
-    if (food != null) {
-      return food!.name;
-    }
+    if (customName != null && customName!.trim().isNotEmpty) return customName!;
+    if (food != null) return food!.name;
     return 'Unbenannter Artikel';
-  }
-
-  String get category {
-    if (food != null) {
-      return food!.category;
-    }
-    return 'Sonstiges';
-  }
-
-  String get formattedQuantity {
-    if (quantity <= 0) return '';
-    if (quantity == quantity.roundToDouble()) {
-      return quantity.toInt().toString();
-    }
-    return quantity.toString().replaceAll('.', ',');
   }
 
   ShoppingItem copyWith({
@@ -62,8 +39,6 @@ class ShoppingItem {
     String? householdId,
     String? foodId,
     String? customName,
-    double? quantity,
-    String? unit,
     String? note,
     bool? checked,
     String? addedBy,
@@ -77,8 +52,6 @@ class ShoppingItem {
       householdId: householdId ?? this.householdId,
       foodId: foodId ?? this.foodId,
       customName: customName ?? this.customName,
-      quantity: quantity ?? this.quantity,
-      unit: unit ?? this.unit,
       note: note ?? this.note,
       checked: checked ?? this.checked,
       addedBy: addedBy ?? this.addedBy,
@@ -95,10 +68,6 @@ class ShoppingItem {
       householdId: json['household_id'] as String,
       foodId: json['food_id'] as String?,
       customName: json['custom_name'] as String?,
-      quantity: (json['quantity'] != null)
-          ? double.tryParse(json['quantity'].toString()) ?? 1.0
-          : 1.0,
-      unit: json['unit'] as String? ?? '',
       note: json['note'] as String?,
       checked: json['checked'] as bool? ?? false,
       addedBy: json['added_by'] as String?,
@@ -123,8 +92,6 @@ class ShoppingItem {
       'household_id': householdId,
       if (foodId != null) 'food_id': foodId,
       'custom_name': customName,
-      'quantity': quantity,
-      'unit': unit,
       'note': note,
       'checked': checked,
       if (addedBy != null) 'added_by': addedBy,

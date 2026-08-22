@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../config/app_theme.dart';
 import '../../models/dish.dart';
 import '../../models/dish_item.dart';
@@ -27,11 +28,23 @@ class _DishesScreenState extends State<DishesScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final household = Provider.of<HouseholdProvider>(context, listen: false).currentHousehold;
+      final household = Provider.of<HouseholdProvider>(
+        context,
+        listen: false,
+      ).currentHousehold;
       if (household != null) {
-        Provider.of<DishProvider>(context, listen: false).loadDishes(household.id);
-        Provider.of<FoodProvider>(context, listen: false).bindToHousehold(household.id);
-        Provider.of<StockProvider>(context, listen: false).bindToHousehold(household.id);
+        Provider.of<DishProvider>(
+          context,
+          listen: false,
+        ).loadDishes(household.id);
+        Provider.of<FoodProvider>(
+          context,
+          listen: false,
+        ).bindToHousehold(household.id);
+        Provider.of<StockProvider>(
+          context,
+          listen: false,
+        ).bindToHousehold(household.id);
       }
     });
   }
@@ -98,7 +111,12 @@ class _DishesScreenState extends State<DishesScreen> {
                           selectedHunger,
                           foodMap,
                         )
-                      : _buildStandardDishesView(context, dishProvider, stockProvider, foodMap),
+                      : _buildStandardDishesView(
+                          context,
+                          dishProvider,
+                          stockProvider,
+                          foodMap,
+                        ),
                 ),
               ],
             ),
@@ -113,7 +131,9 @@ class _DishesScreenState extends State<DishesScreen> {
               backgroundColor: AppTheme.primaryGreen,
               foregroundColor: Colors.white,
               elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
             onPressed: () => _openAddDishDialog(context),
             icon: const Icon(Icons.add, size: 22),
@@ -176,14 +196,20 @@ class _DishesScreenState extends State<DishesScreen> {
               if (selected != null)
                 TextButton.icon(
                   style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     foregroundColor: AppTheme.errorRed,
                   ),
                   onPressed: () => dishProvider.clearHungerSearch(),
                   icon: const Icon(Icons.close, size: 14),
-                  label: const Text('Alle Gerichte', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  label: const Text(
+                    'Alle Gerichte',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
                 ),
             ],
           ),
@@ -205,24 +231,38 @@ class _DishesScreenState extends State<DishesScreen> {
                   Expanded(
                     child: RichText(
                       text: TextSpan(
-                        style: const TextStyle(fontSize: 13, color: AppTheme.textDark),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textDark,
+                        ),
                         children: [
                           const TextSpan(text: 'Hauptzutat: '),
                           TextSpan(
                             text: selected.name,
-                            style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFFB45309)),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFFB45309),
+                            ),
                           ),
                         ],
                       ),
                     ),
                   ),
                   InkWell(
-                    onTap: () => _openFoodSearchModal(context, foodProvider, dishProvider),
+                    onTap: () => _openFoodSearchModal(
+                      context,
+                      foodProvider,
+                      dishProvider,
+                    ),
                     child: const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       child: Text(
                         'Ändern',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.primaryGreen),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.primaryGreen,
+                        ),
                       ),
                     ),
                   ),
@@ -238,15 +278,27 @@ class _DishesScreenState extends State<DishesScreen> {
                   Padding(
                     padding: const EdgeInsets.only(right: 6.0),
                     child: ActionChip(
-                      avatar: const Icon(Icons.search, size: 16, color: AppTheme.primaryGreen),
+                      avatar: const Icon(
+                        Icons.search,
+                        size: 16,
+                        color: AppTheme.primaryGreen,
+                      ),
                       label: const Text('Zutat suchen...'),
-                      labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryDark),
+                      labelStyle: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.primaryDark,
+                      ),
                       backgroundColor: AppTheme.primarySoft,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20),
                         side: const BorderSide(color: Colors.transparent),
                       ),
-                      onPressed: () => _openFoodSearchModal(context, foodProvider, dishProvider),
+                      onPressed: () => _openFoodSearchModal(
+                        context,
+                        foodProvider,
+                        dishProvider,
+                      ),
                     ),
                   ),
 
@@ -256,7 +308,11 @@ class _DishesScreenState extends State<DishesScreen> {
                       padding: const EdgeInsets.only(right: 6.0),
                       child: ActionChip(
                         label: Text(name),
-                        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppTheme.textDark),
+                        labelStyle: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: AppTheme.textDark,
+                        ),
                         backgroundColor: AppTheme.backgroundLight,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(20),
@@ -265,7 +321,9 @@ class _DishesScreenState extends State<DishesScreen> {
                         onPressed: () {
                           // Find food matching this name or create temporary reference
                           final food = foodProvider.foods.firstWhere(
-                            (f) => f.name.trim().toLowerCase() == name.trim().toLowerCase(),
+                            (f) =>
+                                f.name.trim().toLowerCase() ==
+                                name.trim().toLowerCase(),
                             orElse: () => Food(
                               id: 'quick_$name',
                               name: name,
@@ -320,7 +378,11 @@ class _DishesScreenState extends State<DishesScreen> {
                       const Expanded(
                         child: Text(
                           'Worauf hast du Hunger?',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textDark),
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textDark,
+                          ),
                         ),
                       ),
                       IconButton(
@@ -335,7 +397,10 @@ class _DishesScreenState extends State<DishesScreen> {
                     autofocus: true,
                     decoration: InputDecoration(
                       hintText: 'Zutat suchen (z. B. Hackfleisch)...',
-                      prefixIcon: const Icon(Icons.search, color: AppTheme.textMuted),
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        color: AppTheme.textMuted,
+                      ),
                       suffixIcon: _hungerSearchController.text.isNotEmpty
                           ? IconButton(
                               icon: const Icon(Icons.clear, size: 18),
@@ -346,43 +411,64 @@ class _DishesScreenState extends State<DishesScreen> {
                               },
                             )
                           : null,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                     ),
                     onChanged: (_) => setModalState(() {}),
                   ),
                   const SizedBox(height: 12),
                   Expanded(
                     child: matches.isEmpty
-                      ? const Center(
-                          child: Text(
-                            'Keine Zutat gefunden.',
-                            style: TextStyle(color: AppTheme.textMuted),
+                        ? const Center(
+                            child: Text(
+                              'Keine Zutat gefunden.',
+                              style: TextStyle(color: AppTheme.textMuted),
+                            ),
+                          )
+                        : ListView.separated(
+                            itemCount: matches.length,
+                            separatorBuilder: (_, _) =>
+                                const Divider(height: 1),
+                            itemBuilder: (context, index) {
+                              final food = matches[index];
+                              return ListTile(
+                                leading: const Text(
+                                  '🥕',
+                                  style: TextStyle(fontSize: 18),
+                                ),
+                                title: Text(
+                                  food.name,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                                subtitle:
+                                    food.note != null &&
+                                        food.note!.trim().isNotEmpty
+                                    ? Text(
+                                        food.note!,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppTheme.textMuted,
+                                        ),
+                                      )
+                                    : null,
+                                trailing: const Icon(
+                                  Icons.arrow_forward_ios,
+                                  size: 14,
+                                  color: AppTheme.textMuted,
+                                ),
+                                onTap: () {
+                                  _hungerSearchController.clear();
+                                  Navigator.pop(ctx);
+                                  dishProvider.setHungerFood(food);
+                                },
+                              );
+                            },
                           ),
-                        )
-                      : ListView.separated(
-                          itemCount: matches.length,
-                          separatorBuilder: (_, _) => const Divider(height: 1),
-                          itemBuilder: (context, index) {
-                            final food = matches[index];
-                            return ListTile(
-                              leading: const Text('🥕', style: TextStyle(fontSize: 18)),
-                              title: Text(
-                                food.name,
-                                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-                              ),
-                              subtitle: Text(
-                                food.category,
-                                style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
-                              ),
-                              trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.textMuted),
-                              onTap: () {
-                                _hungerSearchController.clear();
-                                Navigator.pop(ctx);
-                                dishProvider.setHungerFood(food);
-                              },
-                            );
-                          },
-                        ),
                   ),
                 ],
               ),
@@ -417,7 +503,14 @@ class _DishesScreenState extends State<DishesScreen> {
       itemCount: matches.length,
       itemBuilder: (context, index) {
         final match = matches[index];
-        return _buildHungerDishCard(context, match, dishProvider, stockProvider, hungerFood, foodMap);
+        return _buildHungerDishCard(
+          context,
+          match,
+          dishProvider,
+          stockProvider,
+          hungerFood,
+          foodMap,
+        );
       },
     );
   }
@@ -451,7 +544,8 @@ class _DishesScreenState extends State<DishesScreen> {
     final otherItems = <DishItem>[];
 
     for (final item in dish.items) {
-      final isMain = (item.foodId != null && item.foodId == hungerFood.id) ||
+      final isMain =
+          (item.foodId != null && item.foodId == hungerFood.id) ||
           (item.food?.id != null && item.food!.id == hungerFood.id) ||
           (item.displayName.trim().toLowerCase() == normalizedSearch);
 
@@ -462,14 +556,18 @@ class _DishesScreenState extends State<DishesScreen> {
       }
     }
 
-    final isCookable = match.totalCount > 0 && match.inStockCount == match.totalCount;
+    final isCookable =
+        match.totalCount > 0 && match.inStockCount == match.totalCount;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: DinoCard(
         padding: const EdgeInsets.all(16),
         border: isCookable
-            ? Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.6), width: 1.5)
+            ? Border.all(
+                color: const Color(0xFFEF4444).withValues(alpha: 0.6),
+                width: 1.5,
+              )
             : null,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -481,10 +579,15 @@ class _DishesScreenState extends State<DishesScreen> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: isCookable ? const Color(0xFFFEF2F2) : AppTheme.primarySoft,
+                    color: isCookable
+                        ? const Color(0xFFFEF2F2)
+                        : AppTheme.primarySoft,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text(isCookable ? '🔥' : '🍲', style: const TextStyle(fontSize: 22)),
+                  child: Text(
+                    isCookable ? '🔥' : '🍲',
+                    style: const TextStyle(fontSize: 22),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -506,11 +609,16 @@ class _DishesScreenState extends State<DishesScreen> {
                           if (isCookable) ...[
                             const SizedBox(width: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFFEF2F2),
                                 borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: const Color(0xFFFCA5A5)),
+                                border: Border.all(
+                                  color: const Color(0xFFFCA5A5),
+                                ),
                               ),
                               child: const Text(
                                 '🔥 Kochbar',
@@ -528,11 +636,16 @@ class _DishesScreenState extends State<DishesScreen> {
 
                       // Vorrats-Score Badge
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: scoreBgColor,
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: scoreTextColor.withValues(alpha: 0.2)),
+                          border: Border.all(
+                            color: scoreTextColor.withValues(alpha: 0.2),
+                          ),
                         ),
                         child: Text(
                           '${match.inStockCount} von ${match.totalCount} Zutaten vorhanden (${match.scorePercentageText})',
@@ -551,16 +664,22 @@ class _DishesScreenState extends State<DishesScreen> {
                 IconButton(
                   icon: Icon(
                     dish.isFavorite ? Icons.favorite : Icons.favorite_border,
-                    color: dish.isFavorite ? AppTheme.errorRed : AppTheme.textMuted,
+                    color: dish.isFavorite
+                        ? AppTheme.errorRed
+                        : AppTheme.textMuted,
                     size: 24,
                   ),
-                  tooltip: dish.isFavorite ? 'Aus Favoriten entfernen' : 'Als Favorit markieren',
+                  tooltip: dish.isFavorite
+                      ? 'Aus Favoriten entfernen'
+                      : 'Als Favorit markieren',
                   onPressed: () async {
                     final success = await dishProvider.toggleFavorite(dish.id);
                     if (!success && context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Du kannst maximal 5 Lieblingsgerichte auswählen.'),
+                          content: Text(
+                            'Du kannst maximal 5 Lieblingsgerichte auswählen.',
+                          ),
                           duration: Duration(seconds: 2),
                         ),
                       );
@@ -570,9 +689,14 @@ class _DishesScreenState extends State<DishesScreen> {
 
                 // Delete Dish Button
                 IconButton(
-                  icon: const Icon(Icons.delete_outline, color: AppTheme.textMuted, size: 20),
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    color: AppTheme.textMuted,
+                    size: 20,
+                  ),
                   tooltip: 'Gericht löschen',
-                  onPressed: () => _confirmDeleteDish(context, dish, dishProvider),
+                  onPressed: () =>
+                      _confirmDeleteDish(context, dish, dishProvider),
                 ),
               ],
             ),
@@ -595,36 +719,48 @@ class _DishesScreenState extends State<DishesScreen> {
                   if (mainItem != null) ...[
                     _buildIngredientRow(
                       iconText: '★',
-                      iconColor: match.isMainInStock ? const Color(0xFF166534) : const Color(0xFFD97706),
+                      iconColor: match.isMainInStock
+                          ? const Color(0xFF166534)
+                          : const Color(0xFFD97706),
                       nameText: match.isMainInStock
                           ? '${mainItem.displayName} · vorhanden'
                           : '${mainItem.displayName} · fehlt',
                       isBold: true,
-                      textColor: match.isMainInStock ? const Color(0xFF166534) : const Color(0xFFB45309),
-                      qtyStr: mainItem.formattedQuantity,
+                      textColor: match.isMainInStock
+                          ? const Color(0xFF166534)
+                          : const Color(0xFFB45309),
                       isMain: true,
                     ),
                     if (otherItems.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 4.0),
-                        child: Divider(height: 1, color: Colors.black.withValues(alpha: 0.06)),
+                        child: Divider(
+                          height: 1,
+                          color: Colors.black.withValues(alpha: 0.06),
+                        ),
                       ),
                   ],
 
                   // 2. Weitere Zutaten (✓ oder ○)
                   ...otherItems.map((item) {
                     final fId = item.foodId ?? item.food?.id;
-                    final resolvedByName = foodMap[item.displayName.trim().toLowerCase()];
-                    final isInStock = (fId != null && inStockFoodIds.contains(fId)) ||
-                        (resolvedByName != null && inStockFoodIds.contains(resolvedByName));
+                    final resolvedByName =
+                        foodMap[item.displayName.trim().toLowerCase()];
+                    final isInStock =
+                        (fId != null && inStockFoodIds.contains(fId)) ||
+                        (resolvedByName != null &&
+                            inStockFoodIds.contains(resolvedByName));
 
                     return _buildIngredientRow(
                       iconText: isInStock ? '✓' : '○',
-                      iconColor: isInStock ? AppTheme.primaryGreen : AppTheme.textMuted,
+                      iconColor: isInStock
+                          ? AppTheme.primaryGreen
+                          : AppTheme.textMuted,
                       nameText: item.displayName,
                       isBold: isInStock,
-                      textColor: isInStock ? AppTheme.textDark : AppTheme.textMuted,
-                      qtyStr: item.formattedQuantity,
+                      textColor: isInStock
+                          ? AppTheme.textDark
+                          : AppTheme.textMuted,
                     );
                   }),
                 ],
@@ -640,10 +776,20 @@ class _DishesScreenState extends State<DishesScreen> {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppTheme.primaryGreen,
                     side: const BorderSide(color: AppTheme.primaryGreen),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
                   ),
-                  icon: const Icon(Icons.edit_outlined, size: 16, color: AppTheme.primaryGreen),
-                  label: const Text('Bearbeiten', style: TextStyle(fontSize: 13)),
+                  icon: const Icon(
+                    Icons.edit_outlined,
+                    size: 16,
+                    color: AppTheme.primaryGreen,
+                  ),
+                  label: const Text(
+                    'Bearbeiten',
+                    style: TextStyle(fontSize: 13),
+                  ),
                   onPressed: () {
                     showDialog(
                       context: context,
@@ -658,13 +804,21 @@ class _DishesScreenState extends State<DishesScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryGreen,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                     icon: const Icon(Icons.add_shopping_cart, size: 16),
                     label: const Text(
                       'Auf Einkaufsliste',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     onPressed: () {
                       showDialog(
@@ -689,7 +843,6 @@ class _DishesScreenState extends State<DishesScreen> {
     required String nameText,
     required bool isBold,
     required Color textColor,
-    required String qtyStr,
     bool isMain = false,
   }) {
     return Padding(
@@ -719,18 +872,6 @@ class _DishesScreenState extends State<DishesScreen> {
               ),
             ),
           ),
-          if (qtyStr.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: AppTheme.primarySoft.withValues(alpha: 0.7),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                qtyStr,
-                style: const TextStyle(fontSize: 12, color: AppTheme.primaryDark, fontWeight: FontWeight.w700),
-              ),
-            ),
         ],
       ),
     );
@@ -744,11 +885,15 @@ class _DishesScreenState extends State<DishesScreen> {
     Map<String, String> foodMap,
   ) {
     if (dishProvider.errorMessage != null && dishProvider.dishes.isEmpty) {
-      final householdProvider = Provider.of<HouseholdProvider>(context, listen: false);
+      final householdProvider = Provider.of<HouseholdProvider>(
+        context,
+        listen: false,
+      );
       return EmptyState(
         emoji: '⚠️',
         title: 'Fehler beim Laden',
-        message: 'Die Gerichte konnten nicht geladen werden: ${dishProvider.errorMessage}',
+        message:
+            'Die Gerichte konnten nicht geladen werden: ${dishProvider.errorMessage}',
         actionLabel: 'Erneut versuchen',
         onAction: () {
           final hhId = householdProvider.currentHousehold?.id;
@@ -761,8 +906,7 @@ class _DishesScreenState extends State<DishesScreen> {
       return const EmptyState(
         emoji: '🍝',
         title: 'Noch keine Gerichte angelegt',
-        message:
-            'Erstelle gespeicherte Zusammenstellungen deiner Lieblingsgerichte (z. B. Spaghetti Bolognese) und setze alle Zutaten mit einem Klick auf die Einkaufsliste!',
+        message: 'Erstelle gespeicherte Zusammenstellungen deiner Lieblingsgerichte (z. B. Spaghetti Bolognese) und setze alle Zutaten mit einem Klick auf die Einkaufsliste!',
       );
     }
 
@@ -776,7 +920,8 @@ class _DishesScreenState extends State<DishesScreen> {
         final fId = item.foodId ?? item.food?.id;
         final resolvedByName = foodMap[item.displayName.trim().toLowerCase()];
         if ((fId != null && inStockFoodIds.contains(fId)) ||
-            (resolvedByName != null && inStockFoodIds.contains(resolvedByName))) {
+            (resolvedByName != null &&
+                inStockFoodIds.contains(resolvedByName))) {
           inStockCount++;
         }
       }
@@ -794,7 +939,13 @@ class _DishesScreenState extends State<DishesScreen> {
         itemCount: dishProvider.dishes.length,
         itemBuilder: (context, index) {
           final dish = dishProvider.dishes[index];
-          return _buildStandardDishCard(context, dish, dishProvider, stockProvider, foodMap);
+          return _buildStandardDishCard(
+            context,
+            dish,
+            dishProvider,
+            stockProvider,
+            foodMap,
+          );
         },
       );
     }
@@ -841,7 +992,13 @@ class _DishesScreenState extends State<DishesScreen> {
 
         // Cookable Dish Cards
         ...cookableDishes.map(
-          (dish) => _buildStandardDishCard(context, dish, dishProvider, stockProvider, foodMap),
+          (dish) => _buildStandardDishCard(
+            context,
+            dish,
+            dishProvider,
+            stockProvider,
+            foodMap,
+          ),
         ),
 
         // Section Header for other dishes (if any)
@@ -858,7 +1015,13 @@ class _DishesScreenState extends State<DishesScreen> {
             ),
           ),
           ...otherDishes.map(
-            (dish) => _buildStandardDishCard(context, dish, dishProvider, stockProvider, foodMap),
+            (dish) => _buildStandardDishCard(
+              context,
+              dish,
+              dishProvider,
+              stockProvider,
+              foodMap,
+            ),
           ),
         ],
       ],
@@ -884,14 +1047,18 @@ class _DishesScreenState extends State<DishesScreen> {
       }
     }
 
-    final isCookable = dish.items.isNotEmpty && inStockCount == dish.items.length;
+    final isCookable =
+        dish.items.isNotEmpty && inStockCount == dish.items.length;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: DinoCard(
         padding: const EdgeInsets.all(16),
         border: isCookable
-            ? Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.6), width: 1.5)
+            ? Border.all(
+                color: const Color(0xFFEF4444).withValues(alpha: 0.6),
+                width: 1.5,
+              )
             : null,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -902,10 +1069,15 @@ class _DishesScreenState extends State<DishesScreen> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: isCookable ? const Color(0xFFFEF2F2) : AppTheme.primarySoft,
+                    color: isCookable
+                        ? const Color(0xFFFEF2F2)
+                        : AppTheme.primarySoft,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text(isCookable ? '🔥' : '🍲', style: const TextStyle(fontSize: 22)),
+                  child: Text(
+                    isCookable ? '🔥' : '🍲',
+                    style: const TextStyle(fontSize: 22),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -927,11 +1099,16 @@ class _DishesScreenState extends State<DishesScreen> {
                           if (isCookable) ...[
                             const SizedBox(width: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFFEF2F2),
                                 borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: const Color(0xFFFCA5A5)),
+                                border: Border.all(
+                                  color: const Color(0xFFFCA5A5),
+                                ),
                               ),
                               child: const Text(
                                 '🔥 Kochbar',
@@ -952,8 +1129,12 @@ class _DishesScreenState extends State<DishesScreen> {
                             : '${dish.items.length} Zutaten · $inStockCount im Vorrat',
                         style: TextStyle(
                           fontSize: 13,
-                          fontWeight: isCookable ? FontWeight.w600 : FontWeight.normal,
-                          color: isCookable ? const Color(0xFFDC2626) : AppTheme.textMuted,
+                          fontWeight: isCookable
+                              ? FontWeight.w600
+                              : FontWeight.normal,
+                          color: isCookable
+                              ? const Color(0xFFDC2626)
+                              : AppTheme.textMuted,
                         ),
                       ),
                     ],
@@ -964,16 +1145,22 @@ class _DishesScreenState extends State<DishesScreen> {
                 IconButton(
                   icon: Icon(
                     dish.isFavorite ? Icons.favorite : Icons.favorite_border,
-                    color: dish.isFavorite ? AppTheme.errorRed : AppTheme.textMuted,
+                    color: dish.isFavorite
+                        ? AppTheme.errorRed
+                        : AppTheme.textMuted,
                     size: 24,
                   ),
-                  tooltip: dish.isFavorite ? 'Aus Favoriten entfernen' : 'Als Favorit markieren',
+                  tooltip: dish.isFavorite
+                      ? 'Aus Favoriten entfernen'
+                      : 'Als Favorit markieren',
                   onPressed: () async {
                     final success = await dishProvider.toggleFavorite(dish.id);
                     if (!success && context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Du kannst maximal 5 Lieblingsgerichte auswählen.'),
+                          content: Text(
+                            'Du kannst maximal 5 Lieblingsgerichte auswählen.',
+                          ),
                           duration: Duration(seconds: 2),
                         ),
                       );
@@ -983,9 +1170,14 @@ class _DishesScreenState extends State<DishesScreen> {
 
                 // Delete Dish Button with confirmation
                 IconButton(
-                  icon: const Icon(Icons.delete_outline, color: AppTheme.textMuted, size: 20),
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    color: AppTheme.textMuted,
+                    size: 20,
+                  ),
                   tooltip: 'Gericht löschen',
-                  onPressed: () => _confirmDeleteDish(context, dish, dishProvider),
+                  onPressed: () =>
+                      _confirmDeleteDish(context, dish, dishProvider),
                 ),
               ],
             ),
@@ -999,24 +1191,31 @@ class _DishesScreenState extends State<DishesScreen> {
                 decoration: BoxDecoration(
                   color: AppTheme.backgroundLight,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.black.withValues(alpha: 0.04)),
+                  border: Border.all(
+                    color: Colors.black.withValues(alpha: 0.04),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: dish.items.map((item) {
-                    final qtyStr = item.formattedQuantity;
                     final fId = item.foodId ?? item.food?.id;
-                    final resolvedByName = foodMap[item.displayName.trim().toLowerCase()];
-                    final isInStock = (fId != null && inStockFoodIds.contains(fId)) ||
-                        (resolvedByName != null && inStockFoodIds.contains(resolvedByName));
+                    final resolvedByName =
+                        foodMap[item.displayName.trim().toLowerCase()];
+                    final isInStock =
+                        (fId != null && inStockFoodIds.contains(fId)) ||
+                        (resolvedByName != null &&
+                            inStockFoodIds.contains(resolvedByName));
 
                     return _buildIngredientRow(
                       iconText: isInStock ? '✓' : '○',
-                      iconColor: isInStock ? AppTheme.primaryGreen : AppTheme.textMuted,
+                      iconColor: isInStock
+                          ? AppTheme.primaryGreen
+                          : AppTheme.textMuted,
                       nameText: item.displayName,
                       isBold: isInStock,
-                      textColor: isInStock ? AppTheme.textDark : AppTheme.textMuted,
-                      qtyStr: qtyStr,
+                      textColor: isInStock
+                          ? AppTheme.textDark
+                          : AppTheme.textMuted,
                     );
                   }).toList(),
                 ),
@@ -1032,10 +1231,20 @@ class _DishesScreenState extends State<DishesScreen> {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppTheme.primaryGreen,
                     side: const BorderSide(color: AppTheme.primaryGreen),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
                   ),
-                  icon: const Icon(Icons.edit_outlined, size: 16, color: AppTheme.primaryGreen),
-                  label: const Text('Bearbeiten', style: TextStyle(fontSize: 13)),
+                  icon: const Icon(
+                    Icons.edit_outlined,
+                    size: 16,
+                    color: AppTheme.primaryGreen,
+                  ),
+                  label: const Text(
+                    'Bearbeiten',
+                    style: TextStyle(fontSize: 13),
+                  ),
                   onPressed: () {
                     showDialog(
                       context: context,
@@ -1050,13 +1259,21 @@ class _DishesScreenState extends State<DishesScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryGreen,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                     icon: const Icon(Icons.add_shopping_cart, size: 16),
                     label: const Text(
                       'Auf Einkaufsliste',
-                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
                     ),
                     onPressed: () {
                       showDialog(
@@ -1087,7 +1304,10 @@ class _DishesScreenState extends State<DishesScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Abbrechen', style: TextStyle(color: AppTheme.textMuted)),
+            child: const Text(
+              'Abbrechen',
+              style: TextStyle(color: AppTheme.textMuted),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorRed),
@@ -1109,9 +1329,6 @@ class _DishesScreenState extends State<DishesScreen> {
   }
 
   void _openAddDishDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (_) => const AddDishDialog(),
-    );
+    showDialog(context: context, builder: (_) => const AddDishDialog());
   }
 }

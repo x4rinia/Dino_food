@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../config/app_theme.dart';
 import '../../models/food.dart';
 import '../../models/shopping_item.dart';
@@ -13,11 +14,7 @@ class AddEditItemDialog extends StatefulWidget {
   final ShoppingItem? itemToEdit;
   final Food? preselectedFood;
 
-  const AddEditItemDialog({
-    super.key,
-    this.itemToEdit,
-    this.preselectedFood,
-  });
+  const AddEditItemDialog({super.key, this.itemToEdit, this.preselectedFood});
 
   @override
   State<AddEditItemDialog> createState() => _AddEditItemDialogState();
@@ -26,7 +23,6 @@ class AddEditItemDialog extends StatefulWidget {
 class _AddEditItemDialogState extends State<AddEditItemDialog> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _quantityController = TextEditingController(text: '1');
   final _noteController = TextEditingController();
   Food? _selectedFood;
   TextEditingController? _autocompleteController;
@@ -36,25 +32,25 @@ class _AddEditItemDialogState extends State<AddEditItemDialog> {
     super.initState();
     if (widget.itemToEdit != null) {
       _nameController.text = widget.itemToEdit!.displayName;
-      _quantityController.text = widget.itemToEdit!.formattedQuantity;
       _noteController.text = widget.itemToEdit!.note ?? '';
       _selectedFood = widget.itemToEdit!.food;
     } else if (widget.preselectedFood != null) {
       _selectedFood = widget.preselectedFood;
       _nameController.text = widget.preselectedFood!.name;
-      _quantityController.text = '1';
     }
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _quantityController.dispose();
     _noteController.dispose();
     super.dispose();
   }
 
-  Future<void> _openCreateNewFood(BuildContext context, [String? initialName]) async {
+  Future<void> _openCreateNewFood(
+    BuildContext context, [
+    String? initialName,
+  ]) async {
     final newFood = await showDialog<Food>(
       context: context,
       builder: (_) => AddFoodDialog(initialName: initialName),
@@ -73,16 +69,17 @@ class _AddEditItemDialogState extends State<AddEditItemDialog> {
     if (!_formKey.currentState!.validate()) return;
 
     final foodProvider = Provider.of<FoodProvider>(context, listen: false);
-    final shoppingProvider = Provider.of<ShoppingProvider>(context, listen: false);
+    final shoppingProvider = Provider.of<ShoppingProvider>(
+      context,
+      listen: false,
+    );
     final name = _nameController.text.trim().toCapitalized();
     final note = _noteController.text.trim().toCapitalized();
 
-    final rawQty = _quantityController.text.trim().replaceAll(',', '.');
-    final quantity = double.tryParse(rawQty) ?? 1.0;
-
     // 1. Check if the food exists in catalog (case-insensitive)
     Food? matchedFood;
-    if (_selectedFood != null && _selectedFood!.name.toLowerCase().trim() == name.toLowerCase()) {
+    if (_selectedFood != null &&
+        _selectedFood!.name.toLowerCase().trim() == name.toLowerCase()) {
       matchedFood = _selectedFood;
     } else {
       matchedFood = foodProvider.foods.where((f) {
@@ -105,7 +102,7 @@ class _AddEditItemDialogState extends State<AddEditItemDialog> {
       if (decision.isAddToFoods) {
         final newFood = await foodProvider.addCustomFood(
           name: name,
-          category: decision.category,
+          note: decision.note,
         );
         finalFoodId = newFood.id;
         finalCustomName = newFood.name;
@@ -131,7 +128,6 @@ class _AddEditItemDialogState extends State<AddEditItemDialog> {
       await shoppingProvider.updateItem(
         itemId: widget.itemToEdit!.id,
         customName: finalCustomName,
-        quantity: quantity,
         note: note.isNotEmpty ? note : null,
       );
       success = true;
@@ -139,7 +135,6 @@ class _AddEditItemDialogState extends State<AddEditItemDialog> {
       success = await shoppingProvider.addItem(
         foodId: finalFoodId,
         customName: finalCustomName,
-        quantity: quantity,
         note: note.isNotEmpty ? note : null,
       );
     }
@@ -149,7 +144,10 @@ class _AddEditItemDialogState extends State<AddEditItemDialog> {
     } else if (!success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(shoppingProvider.errorMessage ?? 'Fehler beim Speichern des Artikels.'),
+          content: Text(
+            shoppingProvider.errorMessage ??
+                'Fehler beim Speichern des Artikels.',
+          ),
           backgroundColor: AppTheme.errorRed,
         ),
       );
@@ -206,40 +204,47 @@ class _AddEditItemDialogState extends State<AddEditItemDialog> {
                     return const Iterable<Food>.empty();
                   }
                   return foodProvider.foods.where((Food option) {
-                    return option.name
-                        .toLowerCase()
-                        .contains(textEditingValue.text.toLowerCase());
+                    final query = textEditingValue.text.toLowerCase();
+                    return option.name.toLowerCase().contains(query) ||
+                        (option.note?.toLowerCase().contains(query) ?? false);
                   });
                 },
-                displayStringForOption: (Food option) => option.name,
+                displayStringForOption: (Food option) =>
+                    option.note == null || option.note!.trim().isEmpty
+                    ? option.name
+                    : '${option.name} — ${option.note}',
                 onSelected: (Food selection) {
                   setState(() {
                     _selectedFood = selection;
                     _nameController.text = selection.name;
                   });
                 },
-                fieldViewBuilder: (context, fieldTextEditingController, fieldFocusNode, onFieldSubmitted) {
-                  _autocompleteController = fieldTextEditingController;
-                  fieldTextEditingController.addListener(() {
-                    _nameController.text = fieldTextEditingController.text;
-                  });
-
-                  return TextFormField(
-                    controller: fieldTextEditingController,
-                    focusNode: fieldFocusNode,
-                    decoration: const InputDecoration(
-                      labelText: 'Lebensmittel suchen *',
-                      hintText: 'z. B. Milch, Butter, Tomaten...',
-                      prefixIcon: Icon(Icons.search, color: AppTheme.textMuted),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Bitte Lebensmittel eingeben oder auswählen';
-                      }
-                      return null;
+                fieldViewBuilder:
+                    (context, controller, focusNode, onFieldSubmitted) {
+                      _autocompleteController = controller;
+                      return TextFormField(
+                        controller: controller,
+                        focusNode: focusNode,
+                        decoration: const InputDecoration(
+                          labelText: 'Lebensmittel *',
+                          hintText: 'z. B. Milch oder Tomaten',
+                          prefixIcon: Icon(
+                            Icons.shopping_basket_outlined,
+                            color: AppTheme.textMuted,
+                          ),
+                        ),
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) {
+                            return 'Bitte Name eingeben';
+                          }
+                          return null;
+                        },
+                        onChanged: (val) {
+                          _nameController.text = val;
+                          _selectedFood = null;
+                        },
+                      );
                     },
-                  );
-                },
               ),
 
               // Create new food button if not in list
@@ -247,38 +252,41 @@ class _AddEditItemDialogState extends State<AddEditItemDialog> {
                 alignment: Alignment.centerLeft,
                 child: TextButton.icon(
                   style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 4,
+                    ),
                     visualDensity: VisualDensity.compact,
                   ),
-                  icon: const Icon(Icons.add, size: 16, color: AppTheme.primaryGreen),
+                  icon: const Icon(
+                    Icons.add,
+                    size: 16,
+                    color: AppTheme.primaryGreen,
+                  ),
                   label: const Text(
                     '+ Neues Lebensmittel anlegen',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryGreen),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.primaryGreen,
+                    ),
                   ),
-                  onPressed: () => _openCreateNewFood(context, _nameController.text.trim()),
+                  onPressed: () =>
+                      _openCreateNewFood(context, _nameController.text.trim()),
                 ),
               ),
               const SizedBox(height: 8),
 
-              // 2. Quantity (optional number)
-              TextFormField(
-                controller: _quantityController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: 'Anzahl (optional)',
-                  hintText: 'z. B. 4',
-                  prefixIcon: Icon(Icons.format_list_numbered, color: AppTheme.textMuted),
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              // 3. Note (optional text)
+              // 2. Note (optional text)
               TextFormField(
                 controller: _noteController,
                 decoration: const InputDecoration(
                   labelText: 'Notiz (optional)',
                   hintText: 'z. B. Cherrytomaten oder laktosefrei',
-                  prefixIcon: Icon(Icons.note_alt_outlined, color: AppTheme.textMuted),
+                  prefixIcon: Icon(
+                    Icons.note_alt_outlined,
+                    color: AppTheme.textMuted,
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
@@ -289,7 +297,10 @@ class _AddEditItemDialogState extends State<AddEditItemDialog> {
                 children: [
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Abbrechen', style: TextStyle(color: AppTheme.textMuted)),
+                    child: const Text(
+                      'Abbrechen',
+                      style: TextStyle(color: AppTheme.textMuted),
+                    ),
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton(

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../config/supabase_config.dart';
 import '../models/dish.dart';
 import '../models/dish_item.dart';
@@ -14,106 +15,106 @@ class DishService {
     {
       'name': 'Spaghetti Bolognese',
       'items': [
-        {'name': 'Spaghetti', 'quantity': 1.0},
-        {'name': 'Hackfleisch', 'quantity': 1.0},
-        {'name': 'Passierte Tomaten', 'quantity': 1.0},
-        {'name': 'Tomatenmark', 'quantity': 1.0},
-        {'name': 'Zwiebeln', 'quantity': 1.0},
-        {'name': 'Knoblauch', 'quantity': 1.0},
+        {'name': 'Spaghetti'},
+        {'name': 'Hackfleisch'},
+        {'name': 'Passierte Tomaten'},
+        {'name': 'Tomatenmark'},
+        {'name': 'Zwiebeln'},
+        {'name': 'Knoblauch'},
       ],
     },
     {
       'name': 'Chili con Carne',
       'items': [
-        {'name': 'Hackfleisch', 'quantity': 1.0},
-        {'name': 'Kidneybohnen', 'quantity': 1.0},
-        {'name': 'Mais', 'quantity': 1.0},
-        {'name': 'Gehackte Tomaten', 'quantity': 1.0},
-        {'name': 'Zwiebeln', 'quantity': 1.0},
-        {'name': 'Paprika', 'quantity': 1.0},
+        {'name': 'Hackfleisch'},
+        {'name': 'Kidneybohnen'},
+        {'name': 'Mais'},
+        {'name': 'Gehackte Tomaten'},
+        {'name': 'Zwiebeln'},
+        {'name': 'Paprika'},
       ],
     },
     {
       'name': 'Kartoffelauflauf',
       'items': [
-        {'name': 'Kartoffeln', 'quantity': 6.0},
-        {'name': 'Sahne', 'quantity': 1.0},
-        {'name': 'Reibekäse', 'quantity': 1.0},
-        {'name': 'Zwiebeln', 'quantity': 1.0},
-        {'name': 'Kochschinken', 'quantity': 1.0},
+        {'name': 'Kartoffeln'},
+        {'name': 'Sahne'},
+        {'name': 'Reibekäse'},
+        {'name': 'Zwiebeln'},
+        {'name': 'Kochschinken'},
       ],
     },
     {
       'name': 'Nudelauflauf',
       'items': [
-        {'name': 'Penne', 'quantity': 1.0},
-        {'name': 'Kochschinken', 'quantity': 1.0},
-        {'name': 'Sahne', 'quantity': 1.0},
-        {'name': 'Reibekäse', 'quantity': 1.0},
-        {'name': 'Tomaten', 'quantity': 2.0},
+        {'name': 'Penne'},
+        {'name': 'Kochschinken'},
+        {'name': 'Sahne'},
+        {'name': 'Reibekäse'},
+        {'name': 'Tomaten'},
       ],
     },
     {
       'name': 'Gemüse-Reis-Pfanne',
       'items': [
-        {'name': 'Reis', 'quantity': 1.0},
-        {'name': 'Paprika', 'quantity': 2.0},
-        {'name': 'Zucchini', 'quantity': 1.0},
-        {'name': 'Karotten', 'quantity': 2.0},
-        {'name': 'Zwiebeln', 'quantity': 1.0},
-        {'name': 'Erbsen', 'quantity': 1.0},
+        {'name': 'Reis'},
+        {'name': 'Paprika'},
+        {'name': 'Zucchini'},
+        {'name': 'Karotten'},
+        {'name': 'Zwiebeln'},
+        {'name': 'Erbsen'},
       ],
     },
     {
       'name': 'Bratkartoffeln mit Spiegelei',
       'items': [
-        {'name': 'Kartoffeln', 'quantity': 6.0},
-        {'name': 'Eier', 'quantity': 4.0},
-        {'name': 'Zwiebeln', 'quantity': 1.0},
-        {'name': 'Bacon', 'quantity': 1.0},
+        {'name': 'Kartoffeln'},
+        {'name': 'Eier'},
+        {'name': 'Zwiebeln'},
+        {'name': 'Bacon'},
       ],
     },
     {
       'name': 'Wraps',
       'items': [
-        {'name': 'Wraps', 'quantity': 1.0},
-        {'name': 'Hackfleisch', 'quantity': 1.0},
-        {'name': 'Tomaten', 'quantity': 2.0},
-        {'name': 'Gurke', 'quantity': 1.0},
-        {'name': 'Eisbergsalat', 'quantity': 1.0},
-        {'name': 'Reibekäse', 'quantity': 1.0},
+        {'name': 'Wraps'},
+        {'name': 'Hackfleisch'},
+        {'name': 'Tomaten'},
+        {'name': 'Gurke'},
+        {'name': 'Eisbergsalat'},
+        {'name': 'Reibekäse'},
       ],
     },
     {
       'name': 'Tomaten-Mozzarella-Pasta',
       'items': [
-        {'name': 'Nudeln', 'quantity': 1.0},
-        {'name': 'Tomaten', 'quantity': 4.0},
-        {'name': 'Mozzarella', 'quantity': 2.0},
-        {'name': 'Basilikum', 'quantity': 1.0},
-        {'name': 'Knoblauch', 'quantity': 1.0},
+        {'name': 'Nudeln'},
+        {'name': 'Tomaten'},
+        {'name': 'Mozzarella'},
+        {'name': 'Basilikum'},
+        {'name': 'Knoblauch'},
       ],
     },
     {
       'name': 'Kartoffelsuppe',
       'items': [
-        {'name': 'Kartoffeln', 'quantity': 6.0},
-        {'name': 'Karotten', 'quantity': 3.0},
-        {'name': 'Lauch', 'quantity': 1.0},
-        {'name': 'Zwiebeln', 'quantity': 1.0},
-        {'name': 'Gemüsebrühe', 'quantity': 1.0},
-        {'name': 'Sahne', 'quantity': 1.0},
+        {'name': 'Kartoffeln'},
+        {'name': 'Karotten'},
+        {'name': 'Lauch'},
+        {'name': 'Zwiebeln'},
+        {'name': 'Gemüsebrühe'},
+        {'name': 'Sahne'},
       ],
     },
     {
       'name': 'Hähnchen-Reis-Pfanne',
       'items': [
-        {'name': 'Hähnchenbrust', 'quantity': 1.0},
-        {'name': 'Reis', 'quantity': 1.0},
-        {'name': 'Paprika', 'quantity': 2.0},
-        {'name': 'Zucchini', 'quantity': 1.0},
-        {'name': 'Zwiebeln', 'quantity': 1.0},
-        {'name': 'Kochsahne', 'quantity': 1.0},
+        {'name': 'Hähnchenbrust'},
+        {'name': 'Reis'},
+        {'name': 'Paprika'},
+        {'name': 'Zucchini'},
+        {'name': 'Zwiebeln'},
+        {'name': 'Kochsahne'},
       ],
     },
   ];
@@ -136,16 +137,16 @@ class DishService {
 
       final items = rawItems.map((raw) {
         final itemName = raw['name'] as String;
-        final qty = (raw['quantity'] as num).toDouble();
         final foodId = foodNameToIdMap[itemName.trim().toLowerCase()];
-        final foodObj = foodId != null && foodsById != null ? foodsById[foodId] : null;
+        final foodObj = foodId != null && foodsById != null
+            ? foodsById[foodId]
+            : null;
 
         return DishItem(
           id: 'ditem_${dishId}_$itemIndex',
           dishId: dishId,
           foodId: foodId,
           customName: foodId == null ? itemName : null,
-          quantity: qty,
           food: foodObj,
         );
       }).toList();
@@ -178,7 +179,11 @@ class DishService {
     if (!SupabaseConfig.isConfigured || householdId.isEmpty) {
       final foods = await FoodService().fetchFoods(householdId);
       final foodsById = {for (final f in foods) f.id: f};
-      final dishes = _createDefaultDishesForHousehold(householdId, foodNameToIdMap, foodsById: foodsById);
+      final dishes = _createDefaultDishesForHousehold(
+        householdId,
+        foodNameToIdMap,
+        foodsById: foodsById,
+      );
       _householdMockDishes[householdId] = dishes;
       return dishes;
     }
@@ -228,18 +233,27 @@ class DishService {
 
           // If it is incomplete (e.g. 0 items or fewer than expected items like 2/6),
           // attempt to clean it up before re-creating:
-          debugPrint('Repairing damaged dish "$dishName" (found $actualItemCount of $expectedItemCount expected items)...');
+          debugPrint(
+            'Repairing damaged dish "$dishName" (found $actualItemCount of $expectedItemCount expected items)...',
+          );
           var deleteSucceeded = false;
           try {
-            await _client.from('dishes').delete().eq('id', existing['id'] as String);
+            await _client
+                .from('dishes')
+                .delete()
+                .eq('id', existing['id'] as String);
             deleteSucceeded = true;
           } catch (delErr) {
-            debugPrint('Error deleting damaged dish "$dishName" (${existing['id']}): $delErr');
+            debugPrint(
+              'Error deleting damaged dish "$dishName" (${existing['id']}): $delErr',
+            );
           }
 
           // If deletion failed, do NOT attempt to re-create to prevent duplicates!
           if (!deleteSucceeded) {
-            debugPrint('Skipping re-creation of "$dishName" because deleting the existing record failed.');
+            debugPrint(
+              'Skipping re-creation of "$dishName" because deleting the existing record failed.',
+            );
             continue;
           }
         }
@@ -254,22 +268,26 @@ class DishService {
             dishMap['created_by'] = userId;
           }
 
-          final dishData = await _client.from('dishes').insert(dishMap).select().single();
+          final dishData = await _client
+              .from('dishes')
+              .insert(dishMap)
+              .select()
+              .single();
           createdDishId = dishData['id'] as String;
 
           final itemsToInsert = rawItems.map((raw) {
             final itemName = raw['name'] as String;
-            final qty = (raw['quantity'] as num).toDouble();
             final rawFoodId = resolvedFoodMap[itemName.trim().toLowerCase()];
-            final isUuid = rawFoodId != null &&
-                RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
-                    .hasMatch(rawFoodId);
+            final isUuid =
+                rawFoodId != null &&
+                RegExp(
+                  r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+                ).hasMatch(rawFoodId);
 
             return {
               'dish_id': createdDishId,
               'food_id': isUuid ? rawFoodId : null,
               'custom_name': isUuid ? null : itemName,
-              'quantity': qty,
             };
           }).toList();
 
@@ -277,13 +295,17 @@ class DishService {
             await _client.from('dish_items').insert(itemsToInsert);
           }
         } catch (singleDishError) {
-          debugPrint('Error inserting single dish "$dishName" for household $householdId: $singleDishError');
+          debugPrint(
+            'Error inserting single dish "$dishName" for household $householdId: $singleDishError',
+          );
           // Rollback: Clean up empty dish if items failed
           if (createdDishId != null) {
             try {
               await _client.from('dishes').delete().eq('id', createdDishId);
             } catch (rollbackErr) {
-              debugPrint('Rollback error deleting dish $createdDishId for household $householdId: $rollbackErr');
+              debugPrint(
+                'Rollback error deleting dish $createdDishId for household $householdId: $rollbackErr',
+              );
             }
           }
         }
@@ -338,7 +360,9 @@ class DishService {
 
       return list;
     } catch (e, stackTrace) {
-      debugPrint('CRITICAL: Error fetching dishes for household "$householdId": $e\n$stackTrace');
+      debugPrint(
+        'CRITICAL: Error fetching dishes for household "$householdId": $e\n$stackTrace',
+      );
       rethrow;
     }
   }
@@ -359,13 +383,17 @@ class DishService {
           id: '${f.id}_$householdId',
           householdId: householdId,
           name: f.name,
-          category: f.category,
+          note: f.note,
           defaultUnit: f.defaultUnit,
           createdAt: DateTime.now(),
-        )
+        ),
     };
 
-    final seeded = _createDefaultDishesForHousehold(householdId, foodMap, foodsById: foodsById);
+    final seeded = _createDefaultDishesForHousehold(
+      householdId,
+      foodMap,
+      foodsById: foodsById,
+    );
     _householdMockDishes[householdId] = seeded;
     return seeded;
   }
@@ -383,8 +411,9 @@ class DishService {
           id: 'item_${DateTime.now().millisecondsSinceEpoch}_${i['food_id']}',
           dishId: dishId,
           foodId: fId,
-          customName: i['custom_name'] ?? (fId == null ? (i['food_name'] ?? i['name']) : null),
-          quantity: (i['quantity'] as num?)?.toDouble() ?? 1.0,
+          customName:
+              i['custom_name'] ??
+              (fId == null ? (i['food_name'] ?? i['name']) : null),
         );
       }).toList();
 
@@ -427,8 +456,9 @@ class DishService {
         return {
           'dish_id': dishId,
           'food_id': i['food_id'],
-          'custom_name': i['custom_name'] ?? (i['food_id'] == null ? i['food_name'] : null),
-          'quantity': i['quantity'] ?? 1.0,
+          'custom_name':
+              i['custom_name'] ??
+              (i['food_id'] == null ? i['food_name'] : null),
         };
       }).toList();
 
@@ -452,7 +482,8 @@ class DishService {
     String? householdId,
   }) async {
     if (!SupabaseConfig.isConfigured) {
-      if (householdId != null && _householdMockDishes.containsKey(householdId)) {
+      if (householdId != null &&
+          _householdMockDishes.containsKey(householdId)) {
         final list = _householdMockDishes[householdId]!;
         final index = list.indexWhere((d) => d.id == dishId);
         if (index != -1) {
@@ -463,15 +494,12 @@ class DishService {
               id: 'item_${DateTime.now().millisecondsSinceEpoch}_${i['food_id']}',
               dishId: dishId,
               foodId: fId,
-              customName: i['custom_name'] ?? (fId == null ? i['food_name'] : null),
-              quantity: (i['quantity'] as num?)?.toDouble() ?? 1.0,
+              customName:
+                  i['custom_name'] ?? (fId == null ? i['food_name'] : null),
             );
           }).toList();
 
-          final updated = old.copyWith(
-            name: name.trim(),
-            items: dishItems,
-          );
+          final updated = old.copyWith(name: name.trim(), items: dishItems);
           list[index] = updated;
           return updated;
         }
@@ -485,9 +513,7 @@ class DishService {
     }
 
     // 1. Update dish name
-    await _client.from('dishes').update({
-      'name': name.trim(),
-    }).eq('id', dishId);
+    await _client.from('dishes').update({'name': name.trim()}).eq('id', dishId);
 
     // 2. Replace dish items: delete old items and insert updated ones
     await _client.from('dish_items').delete().eq('dish_id', dishId);
@@ -497,8 +523,9 @@ class DishService {
         return {
           'dish_id': dishId,
           'food_id': i['food_id'],
-          'custom_name': i['custom_name'] ?? (i['food_id'] == null ? i['food_name'] : null),
-          'quantity': i['quantity'] ?? 1.0,
+          'custom_name':
+              i['custom_name'] ??
+              (i['food_id'] == null ? i['food_name'] : null),
         };
       }).toList();
 
@@ -517,7 +544,8 @@ class DishService {
 
   Future<void> deleteDish(String dishId, {String? householdId}) async {
     if (!SupabaseConfig.isConfigured) {
-      if (householdId != null && _householdMockDishes.containsKey(householdId)) {
+      if (householdId != null &&
+          _householdMockDishes.containsKey(householdId)) {
         _householdMockDishes[householdId]!.removeWhere((d) => d.id == dishId);
       }
       return;
@@ -530,9 +558,14 @@ class DishService {
     }
   }
 
-  Future<void> toggleFavorite(String dishId, bool isFavorite, {String? householdId}) async {
+  Future<void> toggleFavorite(
+    String dishId,
+    bool isFavorite, {
+    String? householdId,
+  }) async {
     if (!SupabaseConfig.isConfigured || SupabaseConfig.currentUserId == null) {
-      if (householdId != null && _householdMockDishes.containsKey(householdId)) {
+      if (householdId != null &&
+          _householdMockDishes.containsKey(householdId)) {
         final list = _householdMockDishes[householdId]!;
         final idx = list.indexWhere((d) => d.id == dishId);
         if (idx != -1) {
@@ -577,8 +610,6 @@ class DishService {
         'household_id': householdId,
         'food_id': item.foodId,
         'custom_name': item.food?.name ?? item.customName,
-        'quantity': item.quantity > 0 ? item.quantity : 1.0,
-        'unit': '',
         'checked': false,
       };
       if (userId != null) {

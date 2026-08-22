@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../config/app_theme.dart';
 import '../../models/dish.dart';
 import '../../models/food.dart';
@@ -23,7 +24,6 @@ class _AddDishDialogState extends State<AddDishDialog> {
 
   Food? _tempSelectedFood;
   TextEditingController? _autocompleteTextController;
-  final _tempQuantityController = TextEditingController(text: '1');
 
   @override
   void initState() {
@@ -34,7 +34,6 @@ class _AddDishDialogState extends State<AddDishDialog> {
         _selectedIngredients.add({
           'food_id': item.foodId,
           'food_name': item.displayName,
-          'quantity': item.quantity,
         });
       }
     }
@@ -43,11 +42,13 @@ class _AddDishDialogState extends State<AddDishDialog> {
   @override
   void dispose() {
     _nameController.dispose();
-    _tempQuantityController.dispose();
     super.dispose();
   }
 
-  Future<void> _openCreateNewFood(BuildContext context, [String? initialName]) async {
+  Future<void> _openCreateNewFood(
+    BuildContext context, [
+    String? initialName,
+  ]) async {
     final newFood = await showDialog<Food>(
       context: context,
       builder: (_) => AddFoodDialog(initialName: initialName),
@@ -67,13 +68,10 @@ class _AddDishDialogState extends State<AddDishDialog> {
     if (name.isEmpty) return;
 
     final foodProvider = Provider.of<FoodProvider>(context, listen: false);
-    final rawQty = _tempQuantityController.text.trim().replaceAll(',', '.');
-    final qty = double.tryParse(rawQty) ?? 1.0;
-    final finalQty = qty > 0 ? qty : 1.0;
 
     // Check if matching catalog food exists
     Food? matchedFood;
-    if (_tempSelectedFood != null && _tempSelectedFood!.name.toLowerCase().trim() == name.toLowerCase()) {
+    if (_tempSelectedFood != null) {
       matchedFood = _tempSelectedFood;
     } else {
       matchedFood = foodProvider.foods.where((f) {
@@ -84,7 +82,9 @@ class _AddDishDialogState extends State<AddDishDialog> {
     if (matchedFood == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Bitte wähle ein Lebensmittel aus der Liste oder lege es neu an.'),
+          content: const Text(
+            'Bitte wähle ein Lebensmittel aus der Liste oder lege es neu an.',
+          ),
           backgroundColor: AppTheme.accentOrange,
           action: SnackBarAction(
             label: 'Neu anlegen',
@@ -99,12 +99,13 @@ class _AddDishDialogState extends State<AddDishDialog> {
     setState(() {
       _selectedIngredients.add({
         'food_id': matchedFood!.id,
-        'food_name': matchedFood.name,
-        'quantity': finalQty,
+        'food_name':
+            matchedFood.note == null || matchedFood.note!.trim().isEmpty
+            ? matchedFood.name
+            : '${matchedFood.name} — ${matchedFood.note}',
       });
       _tempSelectedFood = null;
       _autocompleteTextController?.clear();
-      _tempQuantityController.text = '1';
     });
   }
 
@@ -124,7 +125,10 @@ class _AddDishDialogState extends State<AddDishDialog> {
       return;
     }
 
-    final householdProvider = Provider.of<HouseholdProvider>(context, listen: false);
+    final householdProvider = Provider.of<HouseholdProvider>(
+      context,
+      listen: false,
+    );
     final dishProvider = Provider.of<DishProvider>(context, listen: false);
     final householdId = householdProvider.currentHousehold?.id ?? '';
 
@@ -146,9 +150,11 @@ class _AddDishDialogState extends State<AddDishDialog> {
     if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(widget.dishToEdit != null
-              ? 'Gericht "$name" erfolgreich aktualisiert!'
-              : 'Gericht "$name" erfolgreich erstellt!'),
+          content: Text(
+            widget.dishToEdit != null
+                ? 'Gericht "$name" erfolgreich aktualisiert!'
+                : 'Gericht "$name" erfolgreich erstellt!',
+          ),
           backgroundColor: AppTheme.primaryGreen,
         ),
       );
@@ -178,7 +184,10 @@ class _AddDishDialogState extends State<AddDishDialog> {
                     color: AppTheme.primarySoft,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Text(isEditing ? '✏️' : '🍲', style: const TextStyle(fontSize: 22)),
+                  child: Text(
+                    isEditing ? '✏️' : '🍲',
+                    style: const TextStyle(fontSize: 22),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Text(
@@ -199,7 +208,10 @@ class _AddDishDialogState extends State<AddDishDialog> {
               decoration: const InputDecoration(
                 labelText: 'Name des Gerichts *',
                 hintText: 'z. B. Spaghetti Bolognese',
-                prefixIcon: Icon(Icons.restaurant_menu, color: AppTheme.textMuted),
+                prefixIcon: Icon(
+                  Icons.restaurant_menu,
+                  color: AppTheme.textMuted,
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -207,11 +219,15 @@ class _AddDishDialogState extends State<AddDishDialog> {
             // Ingredients Header
             const Text(
               'Zutaten zusammenstellen:',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textDark),
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textDark,
+              ),
             ),
             const SizedBox(height: 8),
 
-            // Add Ingredient Area: Lebensmittel + Anzahl
+            // Add ingredient area
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -227,74 +243,89 @@ class _AddDishDialogState extends State<AddDishDialog> {
                         return const Iterable<Food>.empty();
                       }
                       return foodProvider.foods.where((Food option) {
-                        return option.name
-                            .toLowerCase()
-                            .contains(textEditingValue.text.toLowerCase());
+                        final query = textEditingValue.text.toLowerCase();
+                        return option.name.toLowerCase().contains(query) ||
+                            (option.note?.toLowerCase().contains(query) ??
+                                false);
                       });
                     },
-                    displayStringForOption: (Food option) => option.name,
+                    displayStringForOption: (Food option) =>
+                        option.note == null || option.note!.trim().isEmpty
+                        ? option.name
+                        : '${option.name} — ${option.note}',
                     onSelected: (Food selection) {
                       setState(() {
                         _tempSelectedFood = selection;
                       });
                     },
-                    fieldViewBuilder: (context, controller, focusNode, onSubmitted) {
-                      _autocompleteTextController = controller;
-                      return TextField(
-                        controller: controller,
-                        focusNode: focusNode,
-                        decoration: const InputDecoration(
-                          hintText: 'Zutat suchen (z. B. Tomaten)...',
-                          prefixIcon: Icon(Icons.search, size: 20),
-                          isDense: true,
-                        ),
-                        onChanged: (_) {
-                          setState(() {});
+                    fieldViewBuilder:
+                        (context, controller, focusNode, onSubmitted) {
+                          _autocompleteTextController = controller;
+                          return TextField(
+                            controller: controller,
+                            focusNode: focusNode,
+                            decoration: const InputDecoration(
+                              hintText: 'Zutat suchen (z. B. Tomaten)...',
+                              prefixIcon: Icon(Icons.search, size: 20),
+                              isDense: true,
+                            ),
+                            onChanged: (_) {
+                              setState(() => _tempSelectedFood = null);
+                            },
+                            onSubmitted: (_) => _addIngredient(),
+                          );
                         },
-                        onSubmitted: (_) => _addIngredient(),
-                      );
-                    },
                   ),
                   Align(
                     alignment: Alignment.centerLeft,
                     child: TextButton.icon(
                       style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 2,
+                        ),
                         visualDensity: VisualDensity.compact,
                       ),
-                      icon: const Icon(Icons.add, size: 16, color: AppTheme.primaryGreen),
+                      icon: const Icon(
+                        Icons.add,
+                        size: 16,
+                        color: AppTheme.primaryGreen,
+                      ),
                       label: const Text(
                         '+ Neues Lebensmittel anlegen',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryGreen),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.primaryGreen,
+                        ),
                       ),
-                      onPressed: () => _openCreateNewFood(context, _autocompleteTextController?.text.trim()),
+                      onPressed: () => _openCreateNewFood(
+                        context,
+                        _autocompleteTextController?.text.trim(),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      // Quantity input
-                      Expanded(
-                        child: TextField(
-                          controller: _tempQuantityController,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          decoration: const InputDecoration(
-                            labelText: 'Anzahl',
-                            hintText: 'z. B. 4',
-                            isDense: true,
-                          ),
-                          onSubmitted: (_) => _addIngredient(),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      ElevatedButton(
+                      const Spacer(),
+                      ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
                         ),
-                        onPressed: ((_autocompleteTextController?.text.trim().isNotEmpty ?? false) || _tempSelectedFood != null)
+                        icon: const Icon(Icons.add, size: 18),
+                        onPressed:
+                            ((_autocompleteTextController?.text
+                                        .trim()
+                                        .isNotEmpty ??
+                                    false) ||
+                                _tempSelectedFood != null)
                             ? _addIngredient
                             : null,
-                        child: const Text('Zutat hinzufügen'),
+                        label: const Text('Zutat hinzufügen'),
                       ),
                     ],
                   ),
@@ -310,23 +341,23 @@ class _AddDishDialogState extends State<AddDishDialog> {
                   ? Center(
                       child: Text(
                         'Noch keine Zutaten hinzugefügt.',
-                        style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                        style: TextStyle(
+                          color: Colors.grey.shade500,
+                          fontSize: 13,
+                        ),
                       ),
                     )
                   : ListView.builder(
                       itemCount: _selectedIngredients.length,
                       itemBuilder: (context, index) {
                         final ing = _selectedIngredients[index];
-                        final dynamic qty = ing['quantity'];
-                        final String qtyStr = (qty is num)
-                            ? (qty == qty.roundToDouble()
-                                ? qty.toInt().toString()
-                                : qty.toString().replaceAll('.', ','))
-                            : (qty?.toString() ?? '1');
 
                         return Container(
                           margin: const EdgeInsets.only(bottom: 6),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(10),
@@ -334,32 +365,29 @@ class _AddDishDialogState extends State<AddDishDialog> {
                           ),
                           child: Row(
                             children: [
-                              const Text('•', style: TextStyle(fontSize: 18, color: AppTheme.primaryGreen)),
+                              const Text(
+                                '•',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: AppTheme.primaryGreen,
+                                ),
+                              ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   ing['food_name'] ?? 'Zutat',
-                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                  ),
                                 ),
                               ),
-                              if (qtyStr.isNotEmpty)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.primarySoft.withValues(alpha: 0.7),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    qtyStr,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppTheme.primaryDark,
-                                    ),
-                                  ),
-                                ),
                               IconButton(
-                                icon: const Icon(Icons.close, size: 18, color: AppTheme.errorRed),
+                                icon: const Icon(
+                                  Icons.close,
+                                  size: 18,
+                                  color: AppTheme.errorRed,
+                                ),
                                 onPressed: () {
                                   setState(() {
                                     _selectedIngredients.removeAt(index);
@@ -381,7 +409,10 @@ class _AddDishDialogState extends State<AddDishDialog> {
               children: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Abbrechen', style: TextStyle(color: AppTheme.textMuted)),
+                  child: const Text(
+                    'Abbrechen',
+                    style: TextStyle(color: AppTheme.textMuted),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(

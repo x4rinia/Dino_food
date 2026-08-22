@@ -1,5 +1,7 @@
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+
 import '../config/supabase_config.dart';
 import '../services/stock_service.dart';
 
@@ -18,6 +20,9 @@ class StockProvider extends ChangeNotifier {
 
   bool isInStock(String foodId) => _inStockFoodIds.contains(foodId);
 
+  int countForFoodIds(Iterable<String> foodIds) =>
+      foodIds.where(_inStockFoodIds.contains).toSet().length;
+
   void bindToHousehold(String? householdId) {
     if (householdId == null || householdId.isEmpty) {
       _inStockFoodIds = {};
@@ -34,10 +39,14 @@ class StockProvider extends ChangeNotifier {
 
     _currentHouseholdId = householdId;
     _subscription?.cancel();
+    _inStockFoodIds = {};
 
     if (!SupabaseConfig.isConfigured) {
       // Demo mock stock starts empty per household
-      _inStockFoodIds = _householdMockStock.putIfAbsent(householdId, () => <String>{});
+      _inStockFoodIds = _householdMockStock.putIfAbsent(
+        householdId,
+        () => <String>{},
+      );
       notifyListeners();
       return;
     }

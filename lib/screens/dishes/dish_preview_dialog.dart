@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../config/app_theme.dart';
 import '../../config/supabase_config.dart';
 import '../../models/dish.dart';
@@ -37,7 +38,8 @@ class DishPreviewDialog extends StatelessWidget {
       // Find matching catalog food if available
       final matchingFood = foodProvider.foods.where((f) {
         final fName = f.name.toLowerCase().trim();
-        return fName == itemName || (itemCustomName != null && fName == itemCustomName);
+        return fName == itemName ||
+            (itemCustomName != null && fName == itemCustomName);
       }).firstOrNull;
 
       final matchedFoodId = item.foodId ?? item.food?.id ?? matchingFood?.id;
@@ -48,7 +50,8 @@ class DishPreviewDialog extends StatelessWidget {
         isInStock = true;
       } else if (item.food != null && stockProvider.isInStock(item.food!.id)) {
         isInStock = true;
-      } else if (matchedFoodId != null && stockProvider.isInStock(matchedFoodId)) {
+      } else if (matchedFoodId != null &&
+          stockProvider.isInStock(matchedFoodId)) {
         isInStock = true;
       }
 
@@ -58,7 +61,9 @@ class DishPreviewDialog extends StatelessWidget {
         isAlreadyOnList = openItems.any((openItem) {
           final openFoodId = openItem.foodId ?? openItem.food?.id;
           // Match by food ID
-          if (matchedFoodId != null && openFoodId != null && matchedFoodId == openFoodId) {
+          if (matchedFoodId != null &&
+              openFoodId != null &&
+              matchedFoodId == openFoodId) {
             return true;
           }
           // Match by display name
@@ -68,13 +73,16 @@ class DishPreviewDialog extends StatelessWidget {
           }
           // Match by custom name
           final openCustomName = openItem.customName?.toLowerCase().trim();
-          if (openCustomName != null && itemCustomName != null && openCustomName == itemCustomName) {
+          if (openCustomName != null &&
+              itemCustomName != null &&
+              openCustomName == itemCustomName) {
             return true;
           }
           // Match with open food catalog name
           if (openItem.food != null) {
             final openCatalogName = openItem.food!.name.toLowerCase().trim();
-            if (openCatalogName == itemName || (itemCustomName != null && openCatalogName == itemCustomName)) {
+            if (openCatalogName == itemName ||
+                (itemCustomName != null && openCatalogName == itemCustomName)) {
               return true;
             }
           }
@@ -147,37 +155,37 @@ class DishPreviewDialog extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: AppTheme.primarySoft.withValues(alpha: 0.35),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppTheme.primaryLight.withValues(alpha: 0.3)),
+                          border: Border.all(
+                            color: AppTheme.primaryLight.withValues(alpha: 0.3),
+                          ),
                         ),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         child: Column(
                           children: itemsToAdd.map((item) {
-                            final qtyStr = item.formattedQuantity;
-
                             return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4.0),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 4.0,
+                              ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.check_circle_outline, color: AppTheme.primaryGreen, size: 18),
+                                  const Icon(
+                                    Icons.check_circle_outline,
+                                    color: AppTheme.primaryGreen,
+                                    size: 18,
+                                  ),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
                                       item.displayName,
-                                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
                                     ),
                                   ),
-                                  if (qtyStr.isNotEmpty)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        qtyStr,
-                                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: AppTheme.primaryDark),
-                                      ),
-                                    ),
                                 ],
                               ),
                             );
@@ -204,24 +212,39 @@ class DishPreviewDialog extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: Colors.grey.shade300),
                         ),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         child: Column(
                           children: inStockItems.map((item) {
                             return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4.0),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 4.0,
+                              ),
                               child: Row(
                                 children: [
-                                  const Text('🏠', style: TextStyle(fontSize: 15)),
+                                  const Text(
+                                    '🏠',
+                                    style: TextStyle(fontSize: 15),
+                                  ),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
                                       item.displayName,
-                                      style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                                      style: TextStyle(
+                                        color: Colors.grey.shade700,
+                                        fontSize: 13,
+                                      ),
                                     ),
                                   ),
                                   const Text(
                                     'Im Vorrat',
-                                    style: TextStyle(color: AppTheme.primaryGreen, fontSize: 11, fontWeight: FontWeight.w600),
+                                    style: TextStyle(
+                                      color: AppTheme.primaryGreen,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -249,24 +272,39 @@ class DishPreviewDialog extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: Colors.grey.shade300),
                         ),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         child: Column(
                           children: alreadyOnListItems.map((item) {
                             return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4.0),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 4.0,
+                              ),
                               child: Row(
                                 children: [
-                                  const Text('🛒', style: TextStyle(fontSize: 15)),
+                                  const Text(
+                                    '🛒',
+                                    style: TextStyle(fontSize: 15),
+                                  ),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
                                       item.displayName,
-                                      style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                                      style: TextStyle(
+                                        color: Colors.grey.shade700,
+                                        fontSize: 13,
+                                      ),
                                     ),
                                   ),
                                   Text(
                                     'Bereits auf Liste',
-                                    style: TextStyle(color: Colors.grey.shade600, fontSize: 11, fontStyle: FontStyle.italic),
+                                    style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                      fontSize: 11,
+                                      fontStyle: FontStyle.italic,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -285,7 +323,9 @@ class DishPreviewDialog extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
-                        color: itemsToAdd.isEmpty ? AppTheme.accentOrange : AppTheme.primaryDark,
+                        color: itemsToAdd.isEmpty
+                            ? AppTheme.accentOrange
+                            : AppTheme.primaryDark,
                       ),
                     ),
                   ],
@@ -300,20 +340,26 @@ class DishPreviewDialog extends StatelessWidget {
               children: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Abbrechen', style: TextStyle(color: AppTheme.textMuted)),
+                  child: const Text(
+                    'Abbrechen',
+                    style: TextStyle(color: AppTheme.textMuted),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
                   onPressed: itemsToAdd.isEmpty
                       ? () => Navigator.of(context).pop()
                       : () async {
-                          final householdId = householdProvider.currentHousehold?.id ?? '';
+                          final householdId =
+                              householdProvider.currentHousehold?.id ?? '';
                           if (!SupabaseConfig.isConfigured) {
                             for (final item in itemsToAdd) {
                               await shoppingProvider.addItem(
                                 foodId: item.foodId ?? item.food?.id,
-                                customName: item.food?.name ?? item.customName ?? item.displayName,
-                                quantity: item.quantity > 0 ? item.quantity : 1.0,
+                                customName:
+                                    item.food?.name ??
+                                    item.customName ??
+                                    item.displayName,
                               );
                             }
                           } else {
@@ -328,13 +374,19 @@ class DishPreviewDialog extends StatelessWidget {
                             Navigator.of(context).pop();
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('${itemsToAdd.length} Zutaten zur Einkaufsliste hinzugefügt! 🛒'),
+                                content: Text(
+                                  '${itemsToAdd.length} Zutaten zur Einkaufsliste hinzugefügt! 🛒',
+                                ),
                                 backgroundColor: AppTheme.primaryGreen,
                               ),
                             );
                           }
                         },
-                  child: Text(itemsToAdd.isEmpty ? 'Schließen' : 'Zur Einkaufsliste hinzufügen'),
+                  child: Text(
+                    itemsToAdd.isEmpty
+                        ? 'Schließen'
+                        : 'Zur Einkaufsliste hinzufügen',
+                  ),
                 ),
               ],
             ),

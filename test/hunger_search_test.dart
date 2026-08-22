@@ -19,7 +19,7 @@ void main() {
       final hackfleischFood = Food(
         id: 'f_71_demo-household-id',
         name: 'Hackfleisch',
-        category: 'Fleisch',
+        note: 'Fleisch',
         createdAt: DateTime.now(),
       );
 
@@ -42,47 +42,50 @@ void main() {
       expect(names.contains('Kartoffelsuppe'), isFalse);
     });
 
-    test('Calculates Vorrats-Score and sorts higher percentage score first', () {
-      final hackfleischFood = Food(
-        id: 'f_71_demo-household-id',
-        name: 'Hackfleisch',
-        category: 'Fleisch',
-        createdAt: DateTime.now(),
-      );
+    test(
+      'Calculates Vorrats-Score and sorts higher percentage score first',
+      () {
+        final hackfleischFood = Food(
+          id: 'f_71_demo-household-id',
+          name: 'Hackfleisch',
+          note: 'Fleisch',
+          createdAt: DateTime.now(),
+        );
 
-      // Stock has: Hackfleisch, Zwiebeln, Tomatenmark, Passierte Tomaten (4 out of 6 for Spaghetti Bolognese = 66.7%)
-      // Stock has: Hackfleisch, Zwiebeln (2 out of 6 for Chili con Carne = 33.3%)
-      // Stock has: Hackfleisch (1 out of 6 for Wraps = 16.7%)
-      final inStockIds = {
-        'f_71_demo-household-id', // Hackfleisch
-        'f_5_demo-household-id',  // Zwiebeln
-        'f_156_demo-household-id', // Tomatenmark
-        'f_154_demo-household-id', // Passierte Tomaten
-      };
+        // Stock has: Hackfleisch, Zwiebeln, Tomatenmark, Passierte Tomaten (4 out of 6 for Spaghetti Bolognese = 66.7%)
+        // Stock has: Hackfleisch, Zwiebeln (2 out of 6 for Chili con Carne = 33.3%)
+        // Stock has: Hackfleisch (1 out of 6 for Wraps = 16.7%)
+        final inStockIds = {
+          'f_71_demo-household-id', // Hackfleisch
+          'f_5_demo-household-id', // Zwiebeln
+          'f_156_demo-household-id', // Tomatenmark
+          'f_154_demo-household-id', // Passierte Tomaten
+        };
 
-      final matches = dishProvider.getRankedDishesForHunger(
-        hungerFood: hackfleischFood,
-        inStockFoodIds: inStockIds,
-      );
+        final matches = dishProvider.getRankedDishesForHunger(
+          hungerFood: hackfleischFood,
+          inStockFoodIds: inStockIds,
+        );
 
-      expect(matches.length, 3);
+        expect(matches.length, 3);
 
-      // 1st place: Spaghetti Bolognese (4/6 in stock)
-      expect(matches[0].dish.name, 'Spaghetti Bolognese');
-      expect(matches[0].inStockCount, 4);
-      expect(matches[0].totalCount, 6);
-      expect(matches[0].isMainInStock, isTrue);
+        // 1st place: Spaghetti Bolognese (4/6 in stock)
+        expect(matches[0].dish.name, 'Spaghetti Bolognese');
+        expect(matches[0].inStockCount, 4);
+        expect(matches[0].totalCount, 6);
+        expect(matches[0].isMainInStock, isTrue);
 
-      // 2nd place: Chili con Carne (2/6 in stock)
-      expect(matches[1].dish.name, 'Chili con Carne');
-      expect(matches[1].inStockCount, 2);
-      expect(matches[1].totalCount, 6);
+        // 2nd place: Chili con Carne (2/6 in stock)
+        expect(matches[1].dish.name, 'Chili con Carne');
+        expect(matches[1].inStockCount, 2);
+        expect(matches[1].totalCount, 6);
 
-      // 3rd place: Wraps (1/6 in stock)
-      expect(matches[2].dish.name, 'Wraps');
-      expect(matches[2].inStockCount, 1);
-      expect(matches[2].totalCount, 6);
-    });
+        // 3rd place: Wraps (1/6 in stock)
+        expect(matches[2].dish.name, 'Wraps');
+        expect(matches[2].inStockCount, 1);
+        expect(matches[2].totalCount, 6);
+      },
+    );
 
     test('Ties in percentage score are broken by absolute in-stock count then name', () {
       // Dish A: 2 of 2 in stock (100%, 2 items)
@@ -93,8 +96,18 @@ void main() {
         name: 'Dish A',
         createdAt: DateTime.now(),
         items: [
-          DishItem(id: 'i1', dishId: 'dish_a', foodId: 'food_x', customName: 'Zutat X', quantity: 1),
-          DishItem(id: 'i2', dishId: 'dish_a', foodId: 'food_y', customName: 'Zutat Y', quantity: 1),
+          DishItem(
+            id: 'i1',
+            dishId: 'dish_a',
+            foodId: 'food_x',
+            customName: 'Zutat X',
+          ),
+          DishItem(
+            id: 'i2',
+            dishId: 'dish_a',
+            foodId: 'food_y',
+            customName: 'Zutat Y',
+          ),
         ],
       );
 
@@ -104,10 +117,30 @@ void main() {
         name: 'Dish B',
         createdAt: DateTime.now(),
         items: [
-          DishItem(id: 'i3', dishId: 'dish_b', foodId: 'food_x', customName: 'Zutat X', quantity: 1),
-          DishItem(id: 'i4', dishId: 'dish_b', foodId: 'food_1', customName: 'Zutat 1', quantity: 1),
-          DishItem(id: 'i5', dishId: 'dish_b', foodId: 'food_2', customName: 'Zutat 2', quantity: 1),
-          DishItem(id: 'i6', dishId: 'dish_b', foodId: 'food_3', customName: 'Zutat 3', quantity: 1),
+          DishItem(
+            id: 'i3',
+            dishId: 'dish_b',
+            foodId: 'food_x',
+            customName: 'Zutat X',
+          ),
+          DishItem(
+            id: 'i4',
+            dishId: 'dish_b',
+            foodId: 'food_1',
+            customName: 'Zutat 1',
+          ),
+          DishItem(
+            id: 'i5',
+            dishId: 'dish_b',
+            foodId: 'food_2',
+            customName: 'Zutat 2',
+          ),
+          DishItem(
+            id: 'i6',
+            dishId: 'dish_b',
+            foodId: 'food_3',
+            customName: 'Zutat 3',
+          ),
         ],
       );
 
@@ -147,7 +180,7 @@ void main() {
       final hackfleischFood = Food(
         id: 'f_71_demo-household-id',
         name: 'Hackfleisch',
-        category: 'Fleisch',
+        note: 'Fleisch',
         createdAt: DateTime.now(),
       );
 
@@ -159,36 +192,39 @@ void main() {
       expect(dishProvider.dishes.length, greaterThanOrEqualTo(10));
     });
 
-    test('Loading dishes for a new household resets hunger search food and scores', () async {
-      final hackfleischFood = Food(
-        id: 'f_71_demo-household-id',
-        name: 'Hackfleisch',
-        category: 'Fleisch',
-        createdAt: DateTime.now(),
-      );
+    test(
+      'Loading dishes for a new household resets hunger search food and scores',
+      () async {
+        final hackfleischFood = Food(
+          id: 'f_71_demo-household-id',
+          name: 'Hackfleisch',
+          note: 'Fleisch',
+          createdAt: DateTime.now(),
+        );
 
-      dishProvider.setHungerFood(hackfleischFood);
-      expect(dishProvider.selectedHungerFood, isNotNull);
+        dishProvider.setHungerFood(hackfleischFood);
+        expect(dishProvider.selectedHungerFood, isNotNull);
 
-      // Household switch
-      await dishProvider.loadDishes('household_b');
-      expect(dishProvider.selectedHungerFood, isNull);
-    });
+        // Household switch
+        await dishProvider.loadDishes('household_b');
+        expect(dishProvider.selectedHungerFood, isNull);
+      },
+    );
 
     test('Every ingredient in dish is verified against stock individually and matches foodMap fallback', () {
       final hackfleisch = Food(
         id: 'f_71_demo-household-id',
         name: 'Hackfleisch',
-        category: 'Fleisch',
+        note: 'Fleisch',
         createdAt: DateTime.now(),
       );
 
       // Suppose Vorrat has: Hackfleisch, Zwiebeln, Paprika, Tomaten, Käse
       final inStockIds = {
         'f_71_demo-household-id', // Hackfleisch
-        'f_5_demo-household-id',  // Zwiebeln
+        'f_5_demo-household-id', // Zwiebeln
         'f_60_demo-household-id', // Paprika
-        'f_1_demo-household-id',  // Tomaten
+        'f_1_demo-household-id', // Tomaten
         'f_116_demo-household-id', // Käse
       };
 
@@ -207,7 +243,9 @@ void main() {
         foodNameToIdMap: foodMap,
       );
 
-      final chiliMatch = matches.firstWhere((m) => m.dish.name == 'Chili con Carne');
+      final chiliMatch = matches.firstWhere(
+        (m) => m.dish.name == 'Chili con Carne',
+      );
       // Chili has 6 items: Hackfleisch (in stock), Kidneybohnen, Mais, Gehackte Tomaten, Zwiebeln (in stock), Paprika (in stock)
       expect(chiliMatch.inStockCount, 3);
       expect(chiliMatch.totalCount, 6);

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../config/app_theme.dart';
 import '../../models/food.dart';
 import '../../providers/food_provider.dart';
@@ -29,7 +30,10 @@ class _FoodsScreenState extends State<FoodsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       String? hhId;
       try {
-        hhId = Provider.of<HouseholdProvider>(context, listen: false).currentHousehold?.id;
+        hhId = Provider.of<HouseholdProvider>(
+          context,
+          listen: false,
+        ).currentHousehold?.id;
       } catch (_) {}
       final fp = Provider.of<FoodProvider>(context, listen: false);
       if (hhId != null) {
@@ -50,7 +54,13 @@ class _FoodsScreenState extends State<FoodsScreen> {
   Widget build(BuildContext context) {
     final foodProvider = Provider.of<FoodProvider>(context);
     final stockProvider = Provider.of<StockProvider>(context);
-    final shoppingProvider = Provider.of<ShoppingProvider>(context, listen: false);
+    final shoppingProvider = Provider.of<ShoppingProvider>(
+      context,
+      listen: false,
+    );
+    final visibleStockCount = stockProvider.countForFoodIds(
+      foodProvider.foods.map((food) => food.id),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -62,8 +72,13 @@ class _FoodsScreenState extends State<FoodsScreen> {
               style: TextButton.styleFrom(
                 backgroundColor: AppTheme.primarySoft,
                 foregroundColor: AppTheme.primaryDark,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               onPressed: () {
                 Navigator.push(
@@ -73,8 +88,11 @@ class _FoodsScreenState extends State<FoodsScreen> {
               },
               icon: const Text('📦', style: TextStyle(fontSize: 16)),
               label: Text(
-                'Vorrat (${stockProvider.inStockFoodIds.length})',
-                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                'Vorrat ($visibleStockCount)',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
               ),
             ),
           ),
@@ -92,10 +110,14 @@ class _FoodsScreenState extends State<FoodsScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    stockProvider.inStockFoodIds.isEmpty
+                    visibleStockCount == 0
                         ? 'Tippe bei Artikeln auf „Vorrat?“, um sie als Zuhause zu markieren.'
-                        : '${stockProvider.inStockFoodIds.length} Artikel im Vorrat',
-                    style: const TextStyle(fontSize: 12, color: AppTheme.primaryDark, fontWeight: FontWeight.w600),
+                        : '$visibleStockCount Artikel im Vorrat',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.primaryDark,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -119,42 +141,12 @@ class _FoodsScreenState extends State<FoodsScreen> {
                         },
                       )
                     : null,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
               ),
               onChanged: (val) => foodProvider.setSearchQuery(val),
-            ),
-          ),
-
-          // Categories Filter Chips
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: Row(
-              children: foodProvider.categories.map((category) {
-                final isSelected = foodProvider.selectedCategory == category;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8.0),
-                  child: FilterChip(
-                    label: Text(category),
-                    selected: isSelected,
-                    selectedColor: AppTheme.primaryGreen,
-                    backgroundColor: Colors.white,
-                    labelStyle: TextStyle(
-                      color: isSelected ? Colors.white : AppTheme.textDark,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                      fontSize: 13,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      side: BorderSide(
-                        color: isSelected ? AppTheme.primaryGreen : Colors.grey.shade300,
-                      ),
-                    ),
-                    showCheckmark: false,
-                    onSelected: (_) => foodProvider.selectCategory(category),
-                  ),
-                );
-              }).toList(),
             ),
           ),
 
@@ -165,163 +157,213 @@ class _FoodsScreenState extends State<FoodsScreen> {
             child: foodProvider.isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : foodProvider.filteredFoods.isEmpty
-                    ? EmptyState(
-                        emoji: '🔍',
-                        title: 'Keine Lebensmittel gefunden',
-                        message: 'Füge "${foodProvider.searchQuery}" als neues eigenes Lebensmittel hinzu!',
-                        actionLabel: 'Lebensmittel hinzufügen',
-                        onAction: () => _openAddFoodDialog(context),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 6, 16, 80),
-                        itemCount: foodProvider.filteredFoods.length,
-                        itemBuilder: (context, index) {
-                          final food = foodProvider.filteredFoods[index];
-                          final isInStock = stockProvider.isInStock(food.id);
+                ? EmptyState(
+                    emoji: '🔍',
+                    title: 'Keine Lebensmittel gefunden',
+                    message:
+                        'Füge "${foodProvider.searchQuery}" als neues eigenes Lebensmittel hinzu!',
+                    actionLabel: 'Lebensmittel hinzufügen',
+                    onAction: () => _openAddFoodDialog(context),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 80),
+                    itemCount: foodProvider.filteredFoods.length,
+                    itemBuilder: (context, index) {
+                      final food = foodProvider.filteredFoods[index];
+                      final isInStock = stockProvider.isInStock(food.id);
 
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 8.0),
-                            child: DinoCard(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(10),
-                                    decoration: BoxDecoration(
-                                      color: isInStock
-                                          ? AppTheme.primarySoft
-                                          : Colors.grey.shade100,
-                                      borderRadius: BorderRadius.circular(12),
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: DinoCard(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: isInStock
+                                      ? AppTheme.primarySoft
+                                      : Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Text(
+                                  '🥕',
+                                  style: TextStyle(fontSize: 18),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      food.name,
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppTheme.textDark,
+                                      ),
                                     ),
-                                    child: Text(
-                                      _getEmojiForCategory(food.category),
-                                      style: const TextStyle(fontSize: 18),
+                                    if (food.note != null &&
+                                        food.note!.trim().isNotEmpty) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        food.note!,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppTheme.textMuted,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+
+                              // Stock Toggle Button
+                              InkWell(
+                                onTap: () {
+                                  stockProvider.toggleStock(food.id);
+                                },
+                                borderRadius: BorderRadius.circular(10),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isInStock
+                                        ? AppTheme.primaryGreen
+                                        : Colors.grey.shade100,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: isInStock
+                                          ? AppTheme.primaryGreen
+                                          : Colors.grey.shade300,
                                     ),
                                   ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          food.name,
-                                          style: const TextStyle(
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w600,
-                                            color: AppTheme.textDark,
-                                          ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        isInStock
+                                            ? Icons.check_circle
+                                            : Icons.home_outlined,
+                                        size: 15,
+                                        color: isInStock
+                                            ? Colors.white
+                                            : AppTheme.textMuted,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        isInStock ? 'Zuhause' : 'Vorrat?',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: isInStock
+                                              ? Colors.white
+                                              : AppTheme.textMuted,
                                         ),
-                                        const SizedBox(height: 2),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(width: 6),
+
+                              // Quick Add to shopping list
+                              IconButton.filledTonal(
+                                style: IconButton.styleFrom(
+                                  backgroundColor: AppTheme.primarySoft,
+                                  foregroundColor: AppTheme.primaryDark,
+                                  padding: const EdgeInsets.all(8),
+                                  minimumSize: const Size(36, 36),
+                                ),
+                                icon: const Icon(
+                                  Icons.add_shopping_cart,
+                                  size: 18,
+                                ),
+                                tooltip: 'Auf Einkaufsliste setzen',
+                                onPressed: () {
+                                  _quickAddFoodToShopping(
+                                    context,
+                                    food,
+                                    shoppingProvider,
+                                  );
+                                },
+                              ),
+
+                              // More menu: Edit / Delete
+                              PopupMenuButton<String>(
+                                icon: const Icon(
+                                  Icons.more_vert,
+                                  size: 20,
+                                  color: AppTheme.textMuted,
+                                ),
+                                padding: EdgeInsets.zero,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                onSelected: (value) {
+                                  if (value == 'edit') {
+                                    _openEditFoodDialog(context, food);
+                                  } else if (value == 'delete') {
+                                    _confirmDeleteFood(
+                                      context,
+                                      food,
+                                      foodProvider,
+                                    );
+                                  }
+                                },
+                                itemBuilder: (ctx) => [
+                                  const PopupMenuItem(
+                                    value: 'edit',
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.edit_outlined,
+                                          size: 18,
+                                          color: AppTheme.primaryGreen,
+                                        ),
+                                        SizedBox(width: 8),
                                         Text(
-                                          food.category,
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: AppTheme.textMuted,
+                                          'Bearbeiten',
+                                          style: TextStyle(fontSize: 13),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'delete',
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.delete_outline,
+                                          size: 18,
+                                          color: AppTheme.errorRed,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Löschen',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: AppTheme.errorRed,
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
-
-                                  // Stock Toggle Button
-                                  InkWell(
-                                    onTap: () {
-                                      stockProvider.toggleStock(food.id);
-                                    },
-                                    borderRadius: BorderRadius.circular(10),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                      decoration: BoxDecoration(
-                                        color: isInStock
-                                            ? AppTheme.primaryGreen
-                                            : Colors.grey.shade100,
-                                        borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(
-                                          color: isInStock
-                                              ? AppTheme.primaryGreen
-                                              : Colors.grey.shade300,
-                                        ),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            isInStock ? Icons.check_circle : Icons.home_outlined,
-                                            size: 15,
-                                            color: isInStock ? Colors.white : AppTheme.textMuted,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            isInStock ? 'Zuhause' : 'Vorrat?',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
-                                              color: isInStock ? Colors.white : AppTheme.textMuted,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-
-                                  const SizedBox(width: 6),
-
-                                  // Quick Add to shopping list
-                                  IconButton.filledTonal(
-                                    style: IconButton.styleFrom(
-                                      backgroundColor: AppTheme.primarySoft,
-                                      foregroundColor: AppTheme.primaryDark,
-                                      padding: const EdgeInsets.all(8),
-                                      minimumSize: const Size(36, 36),
-                                    ),
-                                    icon: const Icon(Icons.add_shopping_cart, size: 18),
-                                    tooltip: 'Auf Einkaufsliste setzen',
-                                    onPressed: () {
-                                      _quickAddFoodToShopping(context, food, shoppingProvider);
-                                    },
-                                  ),
-
-                                  // More menu: Edit / Delete
-                                  PopupMenuButton<String>(
-                                    icon: const Icon(Icons.more_vert, size: 20, color: AppTheme.textMuted),
-                                    padding: EdgeInsets.zero,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                    onSelected: (value) {
-                                      if (value == 'edit') {
-                                        _openEditFoodDialog(context, food);
-                                      } else if (value == 'delete') {
-                                        _confirmDeleteFood(context, food, foodProvider);
-                                      }
-                                    },
-                                    itemBuilder: (ctx) => [
-                                      const PopupMenuItem(
-                                        value: 'edit',
-                                        child: Row(
-                                          children: [
-                                            Icon(Icons.edit_outlined, size: 18, color: AppTheme.primaryGreen),
-                                            SizedBox(width: 8),
-                                            Text('Bearbeiten', style: TextStyle(fontSize: 13)),
-                                          ],
-                                        ),
-                                      ),
-                                      const PopupMenuItem(
-                                        value: 'delete',
-                                        child: Row(
-                                          children: [
-                                            Icon(Icons.delete_outline, size: 18, color: AppTheme.errorRed),
-                                            SizedBox(width: 8),
-                                            Text('Löschen', style: TextStyle(fontSize: 13, color: AppTheme.errorRed)),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
                                 ],
                               ),
-                            ),
-                          );
-                        },
-                      ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -336,7 +378,9 @@ class _FoodsScreenState extends State<FoodsScreen> {
               backgroundColor: AppTheme.primaryGreen,
               foregroundColor: Colors.white,
               elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
             onPressed: () => _openAddFoodDialog(context),
             icon: const Icon(Icons.add, size: 22),
@@ -351,10 +395,7 @@ class _FoodsScreenState extends State<FoodsScreen> {
   }
 
   void _openAddFoodDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (_) => const AddFoodDialog(),
-    );
+    showDialog(context: context, builder: (_) => const AddFoodDialog());
   }
 
   void _openEditFoodDialog(BuildContext context, Food food) {
@@ -364,7 +405,11 @@ class _FoodsScreenState extends State<FoodsScreen> {
     );
   }
 
-  void _confirmDeleteFood(BuildContext context, Food food, FoodProvider foodProvider) async {
+  void _confirmDeleteFood(
+    BuildContext context,
+    Food food,
+    FoodProvider foodProvider,
+  ) async {
     final inUse = await foodProvider.isFoodInUse(food.id);
     if (!context.mounted) return;
 
@@ -381,7 +426,10 @@ class _FoodsScreenState extends State<FoodsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Abbrechen', style: TextStyle(color: AppTheme.textMuted)),
+            child: const Text(
+              'Abbrechen',
+              style: TextStyle(color: AppTheme.textMuted),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorRed),
@@ -401,7 +449,9 @@ class _FoodsScreenState extends State<FoodsScreen> {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(e.toString().replaceFirst('Exception: ', '')),
+                      content: Text(
+                        e.toString().replaceFirst('Exception: ', ''),
+                      ),
                       backgroundColor: AppTheme.errorRed,
                       duration: const Duration(seconds: 4),
                     ),
@@ -425,52 +475,5 @@ class _FoodsScreenState extends State<FoodsScreen> {
       context: context,
       builder: (_) => AddEditItemDialog(preselectedFood: food),
     );
-  }
-
-  String _getEmojiForCategory(String category) {
-    switch (category) {
-      case 'Gemüse':
-        return '🥦';
-      case 'Obst':
-        return '🍎';
-      case 'Kartoffeln':
-        return '🥔';
-      case 'Fleisch':
-        return '🥩';
-      case 'Wurst':
-        return '🥓';
-      case 'Fisch':
-        return '🐟';
-      case 'Milchprodukte':
-        return '🥛';
-      case 'Käse':
-        return '🧀';
-      case 'Eier':
-        return '🥚';
-      case 'Brot & Backwaren':
-        return '🍞';
-      case 'Nudeln & Reis':
-        return '🍝';
-      case 'Konserven & Gläser':
-        return '🥫';
-      case 'Tiefkühl':
-        return '🧊';
-      case 'Gewürze':
-        return '🧂';
-      case 'Saucen':
-        return '🍅';
-      case 'Öle & Fette':
-        return '🫒';
-      case 'Frühstück':
-        return '🥣';
-      case 'Backen':
-        return '🧁';
-      case 'Getränke':
-        return '🧃';
-      case 'Snacks':
-        return '🍿';
-      default:
-        return '🥑';
-    }
   }
 }

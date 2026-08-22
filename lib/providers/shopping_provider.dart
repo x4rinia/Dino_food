@@ -1,5 +1,7 @@
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+
 import '../config/supabase_config.dart';
 import '../models/shopping_item.dart';
 import '../services/shopping_service.dart';
@@ -20,8 +22,10 @@ class ShoppingProvider extends ChangeNotifier {
   String? _errorMessage;
 
   List<ShoppingItem> get allItems => _items;
-  List<ShoppingItem> get activeItems => _items.where((i) => !i.checked).toList();
-  List<ShoppingItem> get checkedItems => _items.where((i) => i.checked).toList();
+  List<ShoppingItem> get activeItems =>
+      _items.where((i) => !i.checked).toList();
+  List<ShoppingItem> get checkedItems =>
+      _items.where((i) => i.checked).toList();
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
@@ -63,30 +67,34 @@ class ShoppingProvider extends ChangeNotifier {
       notifyListeners();
     });
 
-    _streamSubscription = _shoppingService.streamShoppingItems(householdId).listen(
-      (items) {
-        final foodMap = {for (final item in _items) if (item.food != null) item.id: item.food};
-        _items = items.map((i) {
-          if (i.food == null && foodMap.containsKey(i.id)) {
-            return i.copyWith(food: foodMap[i.id]);
-          }
-          return i;
-        }).toList();
-        _isLoading = false;
-        notifyListeners();
-      },
-      onError: (e) {
-        _errorMessage = 'Fehler beim Laden der Einkaufsliste: $e';
-        _isLoading = false;
-        notifyListeners();
-      },
-    );
+    _streamSubscription = _shoppingService
+        .streamShoppingItems(householdId)
+        .listen(
+          (items) {
+            final foodMap = {
+              for (final item in _items)
+                if (item.food != null) item.id: item.food,
+            };
+            _items = items.map((i) {
+              if (i.food == null && foodMap.containsKey(i.id)) {
+                return i.copyWith(food: foodMap[i.id]);
+              }
+              return i;
+            }).toList();
+            _isLoading = false;
+            notifyListeners();
+          },
+          onError: (e) {
+            _errorMessage = 'Fehler beim Laden der Einkaufsliste: $e';
+            _isLoading = false;
+            notifyListeners();
+          },
+        );
   }
 
   Future<bool> addItem({
     String? foodId,
     String? customName,
-    double quantity = 1.0,
     String? note,
   }) async {
     if (_currentHouseholdId == null) return false;
@@ -97,7 +105,6 @@ class ShoppingProvider extends ChangeNotifier {
         householdId: _currentHouseholdId!,
         foodId: foodId,
         customName: customName,
-        quantity: quantity > 0 ? quantity : 1.0,
         note: note,
         checked: false,
         createdAt: DateTime.now(),
@@ -114,7 +121,6 @@ class ShoppingProvider extends ChangeNotifier {
         householdId: _currentHouseholdId!,
         foodId: foodId,
         customName: customName,
-        quantity: quantity,
         note: note,
       );
       final existingIndex = _items.indexWhere((i) => i.id == newItem.id);
@@ -161,14 +167,12 @@ class ShoppingProvider extends ChangeNotifier {
   Future<void> updateItem({
     required String itemId,
     String? customName,
-    double? quantity,
     String? note,
   }) async {
     final index = _items.indexWhere((i) => i.id == itemId);
     if (index != -1) {
       _items[index] = _items[index].copyWith(
         customName: customName,
-        quantity: quantity,
         note: note,
       );
       if (!SupabaseConfig.isConfigured && _currentHouseholdId != null) {
@@ -182,7 +186,6 @@ class ShoppingProvider extends ChangeNotifier {
         await _shoppingService.updateItem(
           itemId: itemId,
           customName: customName,
-          quantity: quantity,
           note: note,
         );
       } catch (e) {
@@ -226,13 +229,19 @@ class ShoppingProvider extends ChangeNotifier {
         String? targetFoodId = item.foodId;
 
         // 1. If foodId is missing, resolve by customName
-        if (targetFoodId == null && item.customName != null && item.customName!.trim().isNotEmpty) {
+        if (targetFoodId == null &&
+            item.customName != null &&
+            item.customName!.trim().isNotEmpty) {
           final trimmed = item.customName!.trim();
           final normalized = trimmed.toLowerCase();
 
           // Search in loaded foods or fetch from service
-          final existingFoods = foodProvider?.foods ?? await foodSvc.fetchFoods(_currentHouseholdId);
-          final match = existingFoods.where((f) => f.name.trim().toLowerCase() == normalized).firstOrNull;
+          final existingFoods =
+              foodProvider?.foods ??
+              await foodSvc.fetchFoods(_currentHouseholdId);
+          final match = existingFoods
+              .where((f) => f.name.trim().toLowerCase() == normalized)
+              .firstOrNull;
 
           if (match != null) {
             targetFoodId = match.id;
@@ -242,18 +251,20 @@ class ShoppingProvider extends ChangeNotifier {
               try {
                 final newFood = await foodProvider.addCustomFood(
                   name: trimmed,
-                  category: 'Sonstiges',
+                  note: null,
                 );
                 targetFoodId = newFood.id;
               } catch (e) {
                 // If it already exists or was created concurrently
-                final retryMatch = foodProvider.foods.where((f) => f.name.trim().toLowerCase() == normalized).firstOrNull;
+                final retryMatch = foodProvider.foods
+                    .where((f) => f.name.trim().toLowerCase() == normalized)
+                    .firstOrNull;
                 targetFoodId = retryMatch?.id;
               }
             } else {
               final newFood = await foodSvc.addCustomFood(
                 name: trimmed,
-                category: 'Sonstiges',
+                note: null,
                 householdId: _currentHouseholdId,
               );
               targetFoodId = newFood.id;
@@ -289,13 +300,19 @@ class ShoppingProvider extends ChangeNotifier {
             }
             successfullyHandledIds.add(item.id);
           } else {
-            debugPrint('Could not transfer item ${item.id} to stock. Preserving on shopping list.');
+            debugPrint(
+              'Could not transfer item ${item.id} to stock. Preserving on shopping list.',
+            );
           }
         } else {
-          debugPrint('Could not resolve foodId for item ${item.id} (${item.customName}). Preserving on shopping list.');
+          debugPrint(
+            'Could not resolve foodId for item ${item.id} (${item.customName}). Preserving on shopping list.',
+          );
         }
       } catch (err, stackTrace) {
-        debugPrint('Error processing checked item ${item.id}: $err\n$stackTrace');
+        debugPrint(
+          'Error processing checked item ${item.id}: $err\n$stackTrace',
+        );
       }
     }
 

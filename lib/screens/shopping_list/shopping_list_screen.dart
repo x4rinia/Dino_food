@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../config/app_theme.dart';
 import '../../models/shopping_item.dart';
 import '../../providers/household_provider.dart';
@@ -44,7 +45,10 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
         actions: [
           if (shoppingProvider.checkedCount > 0)
             IconButton(
-              icon: const Icon(Icons.cleaning_services_outlined, color: AppTheme.primaryGreen),
+              icon: const Icon(
+                Icons.cleaning_services_outlined,
+                color: AppTheme.primaryGreen,
+              ),
               tooltip: 'Erledigte in den Vorrat übernehmen',
               onPressed: () {
                 _showClearCheckedDialog(context, shoppingProvider);
@@ -55,72 +59,94 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
       body: shoppingProvider.isLoading
           ? const Center(child: CircularProgressIndicator())
           : shoppingProvider.allItems.isEmpty
-              ? EmptyState(
-                  emoji: '🦖',
-                  title: 'Deine Einkaufsliste ist leer',
-                  message: 'Füge Artikel hinzu oder wähle Zutaten aus deinen Lieblingsgerichten!',
-                  actionLabel: 'Artikel hinzufügen',
-                  onAction: () => _openAddItemDialog(context),
-                )
-              : RefreshIndicator(
-                  onRefresh: () async {
-                    if (activeHousehold != null) {
-                      shoppingProvider.bindToHousehold(activeHousehold.id);
-                    }
-                  },
-                  child: ListView(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                    children: [
-                      // Active items section
-                      if (shoppingProvider.activeItems.isNotEmpty) ...[
-                        _buildSectionHeader(
-                          'Zu Kaufen (${shoppingProvider.activeCount})',
-                          AppTheme.textDark,
-                        ),
-                        const SizedBox(height: 8),
-                        ...shoppingProvider.activeItems.map(
-                          (item) => _buildItemTile(context, item, shoppingProvider, isChecked: false),
-                        ),
-                      ],
-
-                      // Checked items section
-                      if (shoppingProvider.checkedItems.isNotEmpty) ...[
-                        const SizedBox(height: 20),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            _buildSectionHeader(
-                              'Erledigt (${shoppingProvider.checkedCount})',
-                              AppTheme.textMuted,
-                            ),
-                            TextButton.icon(
-                              onPressed: () => _showClearCheckedDialog(context, shoppingProvider),
-                              style: TextButton.styleFrom(
-                                visualDensity: VisualDensity.compact,
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              ),
-                              icon: const Text('📦', style: TextStyle(fontSize: 12)),
-                              label: const Text(
-                                'In Vorrat',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppTheme.primaryGreen,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        ...shoppingProvider.checkedItems.map(
-                          (item) => _buildItemTile(context, item, shoppingProvider, isChecked: true),
-                        ),
-                      ],
-
-                      const SizedBox(height: 80),
-                    ],
-                  ),
+          ? EmptyState(
+              emoji: '🦖',
+              title: 'Deine Einkaufsliste ist leer',
+              message: 'Füge Artikel hinzu oder wähle Zutaten aus deinen Lieblingsgerichten!',
+              actionLabel: 'Artikel hinzufügen',
+              onAction: () => _openAddItemDialog(context),
+            )
+          : RefreshIndicator(
+              onRefresh: () async {
+                if (activeHousehold != null) {
+                  shoppingProvider.bindToHousehold(activeHousehold.id);
+                }
+              },
+              child: ListView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0,
+                  vertical: 12.0,
                 ),
+                children: [
+                  // Active items section
+                  if (shoppingProvider.activeItems.isNotEmpty) ...[
+                    _buildSectionHeader(
+                      'Zu Kaufen (${shoppingProvider.activeCount})',
+                      AppTheme.textDark,
+                    ),
+                    const SizedBox(height: 8),
+                    ...shoppingProvider.activeItems.map(
+                      (item) => _buildItemTile(
+                        context,
+                        item,
+                        shoppingProvider,
+                        isChecked: false,
+                      ),
+                    ),
+                  ],
+
+                  // Checked items section
+                  if (shoppingProvider.checkedItems.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildSectionHeader(
+                          'Erledigt (${shoppingProvider.checkedCount})',
+                          AppTheme.textMuted,
+                        ),
+                        TextButton.icon(
+                          onPressed: () => _showClearCheckedDialog(
+                            context,
+                            shoppingProvider,
+                          ),
+                          style: TextButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                          ),
+                          icon: const Text(
+                            '📦',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                          label: const Text(
+                            'In Vorrat',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.primaryGreen,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ...shoppingProvider.checkedItems.map(
+                      (item) => _buildItemTile(
+                        context,
+                        item,
+                        shoppingProvider,
+                        isChecked: true,
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 80),
+                ],
+              ),
+            ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20.0),
@@ -132,7 +158,9 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
               backgroundColor: AppTheme.primaryGreen,
               foregroundColor: Colors.white,
               elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
             onPressed: () => _openAddItemDialog(context),
             icon: const Icon(Icons.add, size: 22),
@@ -164,7 +192,6 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
     ShoppingProvider provider, {
     required bool isChecked,
   }) {
-    final qtyStr = item.formattedQuantity;
     final hasNote = item.note != null && item.note!.trim().isNotEmpty;
 
     return Padding(
@@ -192,7 +219,9 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
         },
         child: DinoCard(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          backgroundColor: isChecked ? AppTheme.checkedGray.withValues(alpha: 0.5) : Colors.white,
+          backgroundColor: isChecked
+              ? AppTheme.checkedGray.withValues(alpha: 0.5)
+              : Colors.white,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -201,7 +230,9 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
                 scale: 1.15,
                 child: Checkbox(
                   value: isChecked,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
                   activeColor: AppTheme.primaryGreen,
                   onChanged: (val) {
                     if (val != null) {
@@ -225,41 +256,19 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Name and optional quantity inline
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              item.displayName,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: isChecked ? AppTheme.textMuted : AppTheme.textDark,
-                                decoration: isChecked ? TextDecoration.lineThrough : TextDecoration.none,
-                              ),
-                            ),
-                          ),
-                          if (qtyStr.isNotEmpty) ...[
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: isChecked
-                                    ? Colors.grey.shade300
-                                    : AppTheme.primarySoft.withValues(alpha: 0.7),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                qtyStr,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: isChecked ? AppTheme.textMuted : AppTheme.primaryDark,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
+                      // Name
+                      Text(
+                        item.displayName,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: isChecked
+                              ? AppTheme.textMuted
+                              : AppTheme.textDark,
+                          decoration: isChecked
+                              ? TextDecoration.lineThrough
+                              : TextDecoration.none,
+                        ),
                       ),
 
                       // Optional Note underneath
@@ -270,8 +279,12 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
                           style: TextStyle(
                             fontSize: 12,
                             fontStyle: FontStyle.italic,
-                            color: isChecked ? Colors.grey.shade400 : AppTheme.textMuted,
-                            decoration: isChecked ? TextDecoration.lineThrough : TextDecoration.none,
+                            color: isChecked
+                                ? Colors.grey.shade400
+                                : AppTheme.textMuted,
+                            decoration: isChecked
+                                ? TextDecoration.lineThrough
+                                : TextDecoration.none,
                           ),
                         ),
                       ],
@@ -282,7 +295,11 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
 
               // Edit / More button
               IconButton(
-                icon: const Icon(Icons.more_vert, color: AppTheme.textMuted, size: 20),
+                icon: const Icon(
+                  Icons.more_vert,
+                  color: AppTheme.textMuted,
+                  size: 20,
+                ),
                 onPressed: () {
                   _showItemOptions(context, item, provider);
                 },
@@ -295,10 +312,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
   }
 
   void _openAddItemDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (_) => const AddEditItemDialog(),
-    );
+    showDialog(context: context, builder: (_) => const AddEditItemDialog());
   }
 
   void _showItemOptions(
@@ -328,7 +342,10 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.delete, color: AppTheme.errorRed),
-              title: const Text('Artikel löschen', style: TextStyle(color: AppTheme.errorRed)),
+              title: const Text(
+                'Artikel löschen',
+                style: TextStyle(color: AppTheme.errorRed),
+              ),
               onTap: () {
                 Navigator.pop(ctx);
                 provider.deleteItem(item.id);
@@ -340,7 +357,10 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
     );
   }
 
-  void _showClearCheckedDialog(BuildContext context, ShoppingProvider provider) {
+  void _showClearCheckedDialog(
+    BuildContext context,
+    ShoppingProvider provider,
+  ) {
     final stockProvider = Provider.of<StockProvider>(context, listen: false);
     final foodProvider = Provider.of<FoodProvider>(context, listen: false);
 
