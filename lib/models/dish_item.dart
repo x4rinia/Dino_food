@@ -16,12 +16,7 @@ class DishItem {
   });
 
   String get displayName {
-    if (food != null) {
-      final note = food!.note?.trim();
-      return note == null || note.isEmpty
-          ? food!.name
-          : '${food!.name} — $note';
-    }
+    if (food != null) return food!.name;
     if (customName != null && customName!.trim().isNotEmpty) return customName!;
     return 'Zutat';
   }

@@ -3,6 +3,7 @@ import 'package:dino_food/models/dish.dart';
 import 'package:dino_food/models/dish_item.dart';
 import 'package:dino_food/models/food.dart';
 import 'package:dino_food/providers/dish_provider.dart';
+import 'package:dino_food/utils/recipe_ingredient_matcher.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -229,18 +230,18 @@ void main() {
       };
 
       final foodMap = {
-        'hackfleisch': 'f_71_demo-household-id',
-        'zwiebeln': 'f_5_demo-household-id',
-        'paprika': 'f_60_demo-household-id',
-        'tomaten': 'f_1_demo-household-id',
-        'käse': 'f_116_demo-household-id',
-        'reibekäse': 'f_124_demo-household-id',
+        'hackfleisch': {'f_71_demo-household-id'},
+        'zwiebeln': {'f_5_demo-household-id'},
+        'paprika': {'f_60_demo-household-id'},
+        'tomaten': {'f_1_demo-household-id'},
+        'käse': {'f_116_demo-household-id'},
+        'reibekäse': {'f_124_demo-household-id'},
       };
 
       final matches = dishProvider.getRankedDishesForHunger(
         hungerFood: hackfleisch,
         inStockFoodIds: inStockIds,
-        foodNameToIdMap: foodMap,
+        foodIdsByName: foodMap,
       );
 
       final chiliMatch = matches.firstWhere(
@@ -257,6 +258,31 @@ void main() {
       expect(wrapsMatch.inStockCount, 2);
       expect(wrapsMatch.totalCount, 6);
       expect(wrapsMatch.isMainInStock, isTrue);
+    });
+
+    test('Hunger search treats any stocked note variant as available', () {
+      final jasmin = Food(
+        id: 'rice-jasmin',
+        name: 'Reis',
+        note: 'Jasmin',
+        createdAt: DateTime(2026),
+      );
+      final basmati = Food(
+        id: 'rice-basmati',
+        name: 'Reis',
+        note: 'Basmati',
+        createdAt: DateTime(2026),
+      );
+      final foodIndex = RecipeIngredientMatcher.indexFoods([jasmin, basmati]);
+
+      final matches = dishProvider.getRankedDishesForHunger(
+        hungerFood: jasmin,
+        inStockFoodIds: {basmati.id},
+        foodIdsByName: foodIndex,
+      );
+
+      expect(matches, isNotEmpty);
+      expect(matches.every((match) => match.isMainInStock), isTrue);
     });
   });
 }

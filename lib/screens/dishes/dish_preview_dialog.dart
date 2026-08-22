@@ -10,6 +10,7 @@ import '../../providers/food_provider.dart';
 import '../../providers/household_provider.dart';
 import '../../providers/shopping_provider.dart';
 import '../../providers/stock_provider.dart';
+import '../../utils/recipe_ingredient_matcher.dart';
 
 class DishPreviewDialog extends StatelessWidget {
   final Dish dish;
@@ -30,30 +31,31 @@ class DishPreviewDialog extends StatelessWidget {
     final List<DishItem> itemsToAdd = [];
     final List<DishItem> inStockItems = [];
     final List<DishItem> alreadyOnListItems = [];
+    final foodIdsByName = RecipeIngredientMatcher.indexFoods(
+      foodProvider.foods,
+    );
 
     for (final item in dish.items) {
-      final itemName = item.displayName.toLowerCase().trim();
-      final itemCustomName = item.customName?.toLowerCase().trim();
+      final itemName = RecipeIngredientMatcher.normalizeName(item.displayName);
+      final itemCustomName = item.customName == null
+          ? null
+          : RecipeIngredientMatcher.normalizeName(item.customName!);
 
       // Find matching catalog food if available
       final matchingFood = foodProvider.foods.where((f) {
-        final fName = f.name.toLowerCase().trim();
+        final fName = RecipeIngredientMatcher.normalizeName(f.name);
         return fName == itemName ||
             (itemCustomName != null && fName == itemCustomName);
       }).firstOrNull;
 
       final matchedFoodId = item.foodId ?? item.food?.id ?? matchingFood?.id;
 
-      // 1. Check if in stock (Vorrat aktiv)
-      bool isInStock = false;
-      if (item.foodId != null && stockProvider.isInStock(item.foodId!)) {
-        isInStock = true;
-      } else if (item.food != null && stockProvider.isInStock(item.food!.id)) {
-        isInStock = true;
-      } else if (matchedFoodId != null &&
-          stockProvider.isInStock(matchedFoodId)) {
-        isInStock = true;
-      }
+      // 1. Any stocked variant with the same food name satisfies the recipe.
+      final isInStock = RecipeIngredientMatcher.isInStock(
+        item: item,
+        inStockFoodIds: stockProvider.inStockFoodIds,
+        foodIdsByName: foodIdsByName,
+      );
 
       // 2. Check if already on active shopping list
       bool isAlreadyOnList = false;
@@ -67,12 +69,16 @@ class DishPreviewDialog extends StatelessWidget {
             return true;
           }
           // Match by display name
-          final openName = openItem.displayName.toLowerCase().trim();
+          final openName = RecipeIngredientMatcher.normalizeName(
+            openItem.displayName,
+          );
           if (openName == itemName) {
             return true;
           }
           // Match by custom name
-          final openCustomName = openItem.customName?.toLowerCase().trim();
+          final openCustomName = openItem.customName == null
+              ? null
+              : RecipeIngredientMatcher.normalizeName(openItem.customName!);
           if (openCustomName != null &&
               itemCustomName != null &&
               openCustomName == itemCustomName) {
@@ -80,7 +86,9 @@ class DishPreviewDialog extends StatelessWidget {
           }
           // Match with open food catalog name
           if (openItem.food != null) {
-            final openCatalogName = openItem.food!.name.toLowerCase().trim();
+            final openCatalogName = RecipeIngredientMatcher.normalizeName(
+              openItem.food!.name,
+            );
             if (openCatalogName == itemName ||
                 (itemCustomName != null && openCatalogName == itemCustomName)) {
               return true;

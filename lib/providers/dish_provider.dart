@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
+
 import '../models/dish.dart';
 import '../models/dish_item.dart';
 import '../models/food.dart';
 import '../services/dish_service.dart';
+import '../utils/recipe_ingredient_matcher.dart';
 
 class HungerDishMatch {
   final Dish dish;
@@ -66,9 +68,12 @@ class DishProvider extends ChangeNotifier {
   List<HungerDishMatch> getRankedDishesForHunger({
     required Food hungerFood,
     required Set<String> inStockFoodIds,
-    Map<String, String>? foodNameToIdMap,
+    FoodIdsByNormalizedName? foodIdsByName,
   }) {
-    final normalizedSearchName = hungerFood.name.trim().toLowerCase();
+    final normalizedSearchName = RecipeIngredientMatcher.normalizeName(
+      hungerFood.name,
+    );
+    final indexedFoods = foodIdsByName ?? <String, Set<String>>{};
     final List<HungerDishMatch> matches = [];
 
     for (final dish in _dishes) {
@@ -83,7 +88,8 @@ class DishProvider extends ChangeNotifier {
           matchingItem = item;
           break;
         }
-        if (item.displayName.trim().toLowerCase() == normalizedSearchName) {
+        if (RecipeIngredientMatcher.normalizeName(item.displayName) ==
+            normalizedSearchName) {
           matchingItem = item;
           break;
         }
@@ -96,25 +102,22 @@ class DishProvider extends ChangeNotifier {
       final totalCount = dish.items.length;
 
       for (final item in dish.items) {
-        final fId = item.foodId ?? item.food?.id;
-        final resolvedByNameId = foodNameToIdMap?[item.displayName.trim().toLowerCase()];
-
-        final isInStock = (fId != null && inStockFoodIds.contains(fId)) ||
-            (resolvedByNameId != null && inStockFoodIds.contains(resolvedByNameId)) ||
-            (item.displayName.trim().toLowerCase() == normalizedSearchName &&
-                inStockFoodIds.contains(hungerFood.id));
+        final isInStock = RecipeIngredientMatcher.isInStock(
+          item: item,
+          inStockFoodIds: inStockFoodIds,
+          foodIdsByName: indexedFoods,
+        );
 
         if (isInStock) {
           inStockCount++;
         }
       }
 
-      final mainFId = matchingItem.foodId ?? matchingItem.food?.id;
-      final mainResolvedByNameId = foodNameToIdMap?[matchingItem.displayName.trim().toLowerCase()];
-
-      final isMainInStock = (mainFId != null && inStockFoodIds.contains(mainFId)) ||
-          (mainResolvedByNameId != null && inStockFoodIds.contains(mainResolvedByNameId)) ||
-          inStockFoodIds.contains(hungerFood.id);
+      final isMainInStock = RecipeIngredientMatcher.isInStock(
+        item: matchingItem,
+        inStockFoodIds: inStockFoodIds,
+        foodIdsByName: indexedFoods,
+      );
 
       final score = totalCount > 0 ? (inStockCount / totalCount) : 0.0;
 
@@ -253,7 +256,11 @@ class DishProvider extends ChangeNotifier {
     _dishes[index] = _dishes[index].copyWith(isFavorite: willBeFav);
     notifyListeners();
 
-    await _dishService.toggleFavorite(dishId, willBeFav, householdId: _currentHouseholdId);
+    await _dishService.toggleFavorite(
+      dishId,
+      willBeFav,
+      householdId: _currentHouseholdId,
+    );
     return true;
   }
 

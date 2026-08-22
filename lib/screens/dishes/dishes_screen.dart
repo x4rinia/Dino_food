@@ -9,6 +9,7 @@ import '../../providers/dish_provider.dart';
 import '../../providers/food_provider.dart';
 import '../../providers/household_provider.dart';
 import '../../providers/stock_provider.dart';
+import '../../utils/recipe_ingredient_matcher.dart';
 import '../../widgets/dino_card.dart';
 import '../../widgets/empty_state.dart';
 import 'add_dish_dialog.dart';
@@ -63,9 +64,7 @@ class _DishesScreenState extends State<DishesScreen> {
     final foodProvider = Provider.of<FoodProvider>(context);
     final household = householdProvider.currentHousehold;
 
-    final foodMap = {
-      for (final f in foodProvider.foods) f.name.trim().toLowerCase(): f.id,
-    };
+    final foodMap = RecipeIngredientMatcher.indexFoods(foodProvider.foods);
 
     final selectedHunger = dishProvider.selectedHungerFood;
     List<HungerDishMatch>? rankedMatches;
@@ -74,7 +73,7 @@ class _DishesScreenState extends State<DishesScreen> {
       rankedMatches = dishProvider.getRankedDishesForHunger(
         hungerFood: selectedHunger,
         inStockFoodIds: stockProvider.inStockFoodIds,
-        foodNameToIdMap: foodMap,
+        foodIdsByName: foodMap,
       );
     }
 
@@ -486,7 +485,7 @@ class _DishesScreenState extends State<DishesScreen> {
     StockProvider stockProvider,
     List<HungerDishMatch> matches,
     Food hungerFood,
-    Map<String, String> foodMap,
+    FoodIdsByNormalizedName foodMap,
   ) {
     if (matches.isEmpty) {
       return EmptyState(
@@ -522,11 +521,13 @@ class _DishesScreenState extends State<DishesScreen> {
     DishProvider dishProvider,
     StockProvider stockProvider,
     Food hungerFood,
-    Map<String, String> foodMap,
+    FoodIdsByNormalizedName foodMap,
   ) {
     final dish = match.dish;
     final inStockFoodIds = stockProvider.inStockFoodIds;
-    final normalizedSearch = hungerFood.name.trim().toLowerCase();
+    final normalizedSearch = RecipeIngredientMatcher.normalizeName(
+      hungerFood.name,
+    );
 
     // Determine badge color based on stock percentage
     Color scoreBgColor = const Color(0xFFF3F4F6);
@@ -547,7 +548,8 @@ class _DishesScreenState extends State<DishesScreen> {
       final isMain =
           (item.foodId != null && item.foodId == hungerFood.id) ||
           (item.food?.id != null && item.food!.id == hungerFood.id) ||
-          (item.displayName.trim().toLowerCase() == normalizedSearch);
+          (RecipeIngredientMatcher.normalizeName(item.displayName) ==
+              normalizedSearch);
 
       if (isMain && mainItem == null) {
         mainItem = item;
@@ -743,13 +745,11 @@ class _DishesScreenState extends State<DishesScreen> {
 
                   // 2. Weitere Zutaten (✓ oder ○)
                   ...otherItems.map((item) {
-                    final fId = item.foodId ?? item.food?.id;
-                    final resolvedByName =
-                        foodMap[item.displayName.trim().toLowerCase()];
-                    final isInStock =
-                        (fId != null && inStockFoodIds.contains(fId)) ||
-                        (resolvedByName != null &&
-                            inStockFoodIds.contains(resolvedByName));
+                    final isInStock = RecipeIngredientMatcher.isInStock(
+                      item: item,
+                      inStockFoodIds: inStockFoodIds,
+                      foodIdsByName: foodMap,
+                    );
 
                     return _buildIngredientRow(
                       iconText: isInStock ? '✓' : '○',
@@ -882,7 +882,7 @@ class _DishesScreenState extends State<DishesScreen> {
     BuildContext context,
     DishProvider dishProvider,
     StockProvider stockProvider,
-    Map<String, String> foodMap,
+    FoodIdsByNormalizedName foodMap,
   ) {
     if (dishProvider.errorMessage != null && dishProvider.dishes.isEmpty) {
       final householdProvider = Provider.of<HouseholdProvider>(
@@ -917,11 +917,11 @@ class _DishesScreenState extends State<DishesScreen> {
     for (final dish in dishProvider.dishes) {
       var inStockCount = 0;
       for (final item in dish.items) {
-        final fId = item.foodId ?? item.food?.id;
-        final resolvedByName = foodMap[item.displayName.trim().toLowerCase()];
-        if ((fId != null && inStockFoodIds.contains(fId)) ||
-            (resolvedByName != null &&
-                inStockFoodIds.contains(resolvedByName))) {
+        if (RecipeIngredientMatcher.isInStock(
+          item: item,
+          inStockFoodIds: inStockFoodIds,
+          foodIdsByName: foodMap,
+        )) {
           inStockCount++;
         }
       }
@@ -1033,16 +1033,17 @@ class _DishesScreenState extends State<DishesScreen> {
     Dish dish,
     DishProvider dishProvider,
     StockProvider stockProvider,
-    Map<String, String> foodMap,
+    FoodIdsByNormalizedName foodMap,
   ) {
     final inStockFoodIds = stockProvider.inStockFoodIds;
 
     var inStockCount = 0;
     for (final item in dish.items) {
-      final fId = item.foodId ?? item.food?.id;
-      final resolvedByName = foodMap[item.displayName.trim().toLowerCase()];
-      if ((fId != null && inStockFoodIds.contains(fId)) ||
-          (resolvedByName != null && inStockFoodIds.contains(resolvedByName))) {
+      if (RecipeIngredientMatcher.isInStock(
+        item: item,
+        inStockFoodIds: inStockFoodIds,
+        foodIdsByName: foodMap,
+      )) {
         inStockCount++;
       }
     }
@@ -1198,13 +1199,11 @@ class _DishesScreenState extends State<DishesScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: dish.items.map((item) {
-                    final fId = item.foodId ?? item.food?.id;
-                    final resolvedByName =
-                        foodMap[item.displayName.trim().toLowerCase()];
-                    final isInStock =
-                        (fId != null && inStockFoodIds.contains(fId)) ||
-                        (resolvedByName != null &&
-                            inStockFoodIds.contains(resolvedByName));
+                    final isInStock = RecipeIngredientMatcher.isInStock(
+                      item: item,
+                      inStockFoodIds: inStockFoodIds,
+                      foodIdsByName: foodMap,
+                    );
 
                     return _buildIngredientRow(
                       iconText: isInStock ? '✓' : '○',
