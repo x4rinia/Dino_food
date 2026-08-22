@@ -22,8 +22,11 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
   @override
   Widget build(BuildContext context) {
     final shoppingProvider = Provider.of<ShoppingProvider>(context);
-    final householdProvider = Provider.of<HouseholdProvider>(context);
-    final activeHousehold = householdProvider.currentHousehold;
+    final activeHousehold = context.select(
+      (HouseholdProvider provider) => provider.currentHousehold,
+    );
+    final activeItems = shoppingProvider.activeItems;
+    final checkedItems = shoppingProvider.checkedItems;
 
     return Scaffold(
       appBar: AppBar(
@@ -43,7 +46,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
           ],
         ),
         actions: [
-          if (shoppingProvider.checkedCount > 0)
+          if (checkedItems.isNotEmpty)
             IconButton(
               icon: const Icon(
                 Icons.cleaning_services_outlined,
@@ -72,78 +75,92 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
                   shoppingProvider.bindToHousehold(activeHousehold.id);
                 }
               },
-              child: ListView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16.0,
-                  vertical: 12.0,
-                ),
-                children: [
-                  // Active items section
-                  if (shoppingProvider.activeItems.isNotEmpty) ...[
-                    _buildSectionHeader(
-                      'Zu Kaufen (${shoppingProvider.activeCount})',
-                      AppTheme.textDark,
+              child: CustomScrollView(
+                slivers: [
+                  const SliverPadding(padding: EdgeInsets.only(top: 12)),
+                  if (activeItems.isNotEmpty) ...[
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      sliver: SliverToBoxAdapter(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildSectionHeader(
+                              'Zu Kaufen (${activeItems.length})',
+                              AppTheme.textDark,
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 8),
-                    ...shoppingProvider.activeItems.map(
-                      (item) => _buildItemTile(
-                        context,
-                        item,
-                        shoppingProvider,
-                        isChecked: false,
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      sliver: SliverList.builder(
+                        itemCount: activeItems.length,
+                        itemBuilder: (context, index) => _buildItemTile(
+                          context,
+                          activeItems[index],
+                          shoppingProvider,
+                          isChecked: false,
+                        ),
                       ),
                     ),
                   ],
-
-                  // Checked items section
-                  if (shoppingProvider.checkedItems.isNotEmpty) ...[
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _buildSectionHeader(
-                          'Erledigt (${shoppingProvider.checkedCount})',
-                          AppTheme.textMuted,
-                        ),
-                        TextButton.icon(
-                          onPressed: () => _showClearCheckedDialog(
-                            context,
-                            shoppingProvider,
-                          ),
-                          style: TextButton.styleFrom(
-                            visualDensity: VisualDensity.compact,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
+                  if (checkedItems.isNotEmpty) ...[
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                      sliver: SliverToBoxAdapter(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _buildSectionHeader(
+                              'Erledigt (${checkedItems.length})',
+                              AppTheme.textMuted,
                             ),
-                          ),
-                          icon: const Text(
-                            '📦',
-                            style: TextStyle(fontSize: 12),
-                          ),
-                          label: const Text(
-                            'In Vorrat',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.primaryGreen,
-                              fontWeight: FontWeight.w700,
+                            TextButton.icon(
+                              onPressed: () => _showClearCheckedDialog(
+                                context,
+                                shoppingProvider,
+                              ),
+                              style: TextButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                              ),
+                              icon: const Text(
+                                '📦',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                              label: const Text(
+                                'In Vorrat',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.primaryGreen,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                             ),
-                          ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
-                    const SizedBox(height: 8),
-                    ...shoppingProvider.checkedItems.map(
-                      (item) => _buildItemTile(
-                        context,
-                        item,
-                        shoppingProvider,
-                        isChecked: true,
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      sliver: SliverList.builder(
+                        itemCount: checkedItems.length,
+                        itemBuilder: (context, index) => _buildItemTile(
+                          context,
+                          checkedItems[index],
+                          shoppingProvider,
+                          isChecked: true,
+                        ),
                       ),
                     ),
                   ],
-
-                  const SizedBox(height: 80),
+                  const SliverToBoxAdapter(child: SizedBox(height: 80)),
                 ],
               ),
             ),
@@ -192,7 +209,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
     ShoppingProvider provider, {
     required bool isChecked,
   }) {
-    final details = item.detailsText;
+    final note = item.note?.trim();
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
@@ -259,6 +276,8 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
                       // Name
                       Text(
                         item.displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -271,11 +290,13 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
                         ),
                       ),
 
-                      // Optional note and shopping quantity underneath
-                      if (details != null) ...[
+                      // The optional note remains underneath the name.
+                      if (note != null && note.isNotEmpty) ...[
                         const SizedBox(height: 3),
                         Text(
-                          details,
+                          note,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 12,
                             fontStyle: FontStyle.italic,
@@ -292,6 +313,27 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
                   ),
                 ),
               ),
+
+              // Shopping quantity stays compact and separate from the note.
+              if (item.quantity != null) ...[
+                const SizedBox(width: 8),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: 24),
+                  child: Text(
+                    '${item.quantity}',
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: isChecked ? AppTheme.textMuted : AppTheme.textDark,
+                      decoration: isChecked
+                          ? TextDecoration.lineThrough
+                          : TextDecoration.none,
+                    ),
+                  ),
+                ),
+              ],
 
               // Edit / More button
               IconButton(

@@ -59,6 +59,7 @@ class _FoodsScreenState extends State<FoodsScreen> {
       context,
       listen: false,
     );
+    final filteredFoods = foodProvider.filteredFoods;
     final visibleStockCount = stockProvider.countForFoodIds(
       foodProvider.foods.map((food) => food.id),
     );
@@ -157,7 +158,7 @@ class _FoodsScreenState extends State<FoodsScreen> {
           Expanded(
             child: foodProvider.isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : foodProvider.filteredFoods.isEmpty
+                : filteredFoods.isEmpty
                 ? EmptyState(
                     emoji: '🔍',
                     title: 'Keine Lebensmittel gefunden',
@@ -168,12 +169,13 @@ class _FoodsScreenState extends State<FoodsScreen> {
                   )
                 : ListView.builder(
                     padding: const EdgeInsets.fromLTRB(16, 6, 16, 80),
-                    itemCount: foodProvider.filteredFoods.length,
+                    itemCount: filteredFoods.length,
                     itemBuilder: (context, index) {
-                      final food = foodProvider.filteredFoods[index];
+                      final food = filteredFoods[index];
                       final isInStock = stockProvider.isInStock(food.id);
 
                       return Padding(
+                        key: ValueKey(food.id),
                         padding: const EdgeInsets.only(bottom: 8.0),
                         child: DinoCard(
                           padding: const EdgeInsets.symmetric(

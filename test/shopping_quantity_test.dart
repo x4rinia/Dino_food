@@ -1,7 +1,9 @@
 import 'package:dino_food/models/shopping_item.dart';
 import 'package:dino_food/providers/food_provider.dart';
+import 'package:dino_food/providers/household_provider.dart';
 import 'package:dino_food/providers/shopping_provider.dart';
 import 'package:dino_food/screens/shopping_list/add_edit_item_dialog.dart';
+import 'package:dino_food/screens/shopping_list/shopping_list_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -149,5 +151,50 @@ void main() {
 
       expect(shoppingProvider.allItems.single.quantity, 23);
     });
+
+    testWidgets(
+      'Shows quantity beside the name without narrow-screen overflow',
+      (tester) async {
+        tester.view.physicalSize = const Size(320, 640);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        final shoppingProvider = ShoppingProvider();
+        shoppingProvider.bindToHousehold('shopping-quantity-layout');
+        await shoppingProvider.addItem(
+          customName: 'Tomaten',
+          note: 'Cherry',
+          quantity: 4,
+        );
+        await shoppingProvider.addItem(customName: 'Spülmittel');
+
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider.value(value: shoppingProvider),
+              ChangeNotifierProvider(create: (_) => HouseholdProvider()),
+            ],
+            child: const MaterialApp(home: ShoppingListScreen()),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Tomaten'), findsOneWidget);
+        expect(find.text('Cherry'), findsOneWidget);
+        expect(find.text('4'), findsOneWidget);
+        expect(find.textContaining('Anzahl:'), findsNothing);
+        expect(find.text('Spülmittel'), findsOneWidget);
+
+        final nameCenter = tester.getCenter(find.text('Tomaten'));
+        final quantityCenter = tester.getCenter(find.text('4'));
+        final noteCenter = tester.getCenter(find.text('Cherry'));
+        final menuCenter = tester.getCenter(find.byIcon(Icons.more_vert).last);
+        expect(quantityCenter.dx, greaterThan(nameCenter.dx));
+        expect(quantityCenter.dx, lessThan(menuCenter.dx));
+        expect(noteCenter.dy, greaterThan(nameCenter.dy));
+        expect(tester.takeException(), isNull);
+      },
+    );
   });
 }
