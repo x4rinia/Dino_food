@@ -96,6 +96,7 @@ class ShoppingProvider extends ChangeNotifier {
     String? foodId,
     String? customName,
     String? note,
+    int? quantity,
   }) async {
     if (_currentHouseholdId == null) return false;
 
@@ -106,6 +107,7 @@ class ShoppingProvider extends ChangeNotifier {
         foodId: foodId,
         customName: customName,
         note: note,
+        quantity: quantity,
         checked: false,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
@@ -122,6 +124,7 @@ class ShoppingProvider extends ChangeNotifier {
         foodId: foodId,
         customName: customName,
         note: note,
+        quantity: quantity,
       );
       final existingIndex = _items.indexWhere((i) => i.id == newItem.id);
       if (existingIndex != -1) {
@@ -168,12 +171,16 @@ class ShoppingProvider extends ChangeNotifier {
     required String itemId,
     String? customName,
     String? note,
+    int? quantity,
+    bool replaceQuantity = false,
   }) async {
     final index = _items.indexWhere((i) => i.id == itemId);
     if (index != -1) {
       _items[index] = _items[index].copyWith(
         customName: customName,
         note: note,
+        quantity: quantity,
+        clearQuantity: replaceQuantity && quantity == null,
       );
       if (!SupabaseConfig.isConfigured && _currentHouseholdId != null) {
         _householdMockItems[_currentHouseholdId!] = _items;
@@ -187,6 +194,8 @@ class ShoppingProvider extends ChangeNotifier {
           itemId: itemId,
           customName: customName,
           note: note,
+          quantity: quantity,
+          replaceQuantity: replaceQuantity,
         );
       } catch (e) {
         debugPrint('Error updating item: $e');

@@ -5,6 +5,7 @@ import '../../config/app_theme.dart';
 import '../../models/food.dart';
 import '../../providers/food_provider.dart';
 import '../../utils/string_extensions.dart';
+import '../../widgets/food_icon_picker.dart';
 
 class EditFoodDialog extends StatefulWidget {
   final Food food;
@@ -19,6 +20,7 @@ class _EditFoodDialogState extends State<EditFoodDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _noteController;
+  late String _selectedIconKey;
   bool _isSaving = false;
 
   @override
@@ -26,6 +28,7 @@ class _EditFoodDialogState extends State<EditFoodDialog> {
     super.initState();
     _nameController = TextEditingController(text: widget.food.name);
     _noteController = TextEditingController(text: widget.food.note ?? '');
+    _selectedIconKey = widget.food.iconKey;
   }
 
   @override
@@ -47,6 +50,7 @@ class _EditFoodDialogState extends State<EditFoodDialog> {
         id: widget.food.id,
         name: name,
         note: note.isEmpty ? null : note,
+        iconKey: _selectedIconKey,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -109,6 +113,11 @@ class _EditFoodDialogState extends State<EditFoodDialog> {
                     color: AppTheme.textMuted,
                   ),
                 ),
+              ),
+              const SizedBox(height: 16),
+              FoodIconPicker(
+                selectedKey: _selectedIconKey,
+                onSelected: (key) => setState(() => _selectedIconKey = key),
               ),
               const SizedBox(height: 24),
               Row(

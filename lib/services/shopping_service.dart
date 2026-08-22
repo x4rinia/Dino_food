@@ -64,6 +64,7 @@ class ShoppingService {
     String? foodId,
     String? customName,
     String? note,
+    int? quantity,
   }) async {
     if (!SupabaseConfig.isConfigured) {
       throw Exception('Supabase ist nicht konfiguriert');
@@ -87,6 +88,7 @@ class ShoppingService {
     if (note != null && note.trim().isNotEmpty) {
       itemMap['note'] = note.trim();
     }
+    if (quantity != null) itemMap['quantity'] = quantity;
 
     if (userId != null) {
       itemMap['added_by'] = userId;
@@ -106,6 +108,8 @@ class ShoppingService {
     required String itemId,
     String? customName,
     String? note,
+    int? quantity,
+    bool replaceQuantity = false,
     bool? checked,
   }) async {
     if (!SupabaseConfig.isConfigured) return;
@@ -115,6 +119,7 @@ class ShoppingService {
     };
     if (customName != null) updates['custom_name'] = customName.trim();
     if (note != null) updates['note'] = note.trim();
+    if (replaceQuantity) updates['quantity'] = quantity;
     if (checked != null) updates['checked'] = checked;
 
     await _client.from('shopping_items').update(updates).eq('id', itemId);

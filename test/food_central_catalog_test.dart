@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:dino_food/models/food.dart';
+import 'package:dino_food/models/food_icon.dart';
 import 'package:dino_food/providers/food_provider.dart';
 import 'package:dino_food/providers/household_provider.dart';
 import 'package:dino_food/providers/shopping_provider.dart';
 import 'package:dino_food/providers/stock_provider.dart';
 import 'package:dino_food/providers/dish_provider.dart';
+import 'package:dino_food/services/food_service.dart';
 import 'package:dino_food/screens/foods/foods_screen.dart';
 import 'package:dino_food/screens/foods/edit_food_dialog.dart';
+import 'package:dino_food/screens/foods/add_food_dialog.dart';
 import 'package:dino_food/screens/shopping_list/add_edit_item_dialog.dart';
 import 'package:dino_food/screens/dishes/add_dish_dialog.dart';
 
@@ -16,7 +19,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('FoodProvider Core & Central Catalog Tests', () {
-    test('Does not restore legacy category when note is null', () {
+    test('Does not use legacy category as note or runtime icon', () {
       final food = Food.fromJson({
         'id': 'legacy-apple',
         'name': 'Apfel',
@@ -25,6 +28,91 @@ void main() {
       });
 
       expect(food.note, isNull);
+      expect(food.iconKey, FoodIconCatalog.fallbackKey);
+    });
+
+    test('Allows Reis note variants beside Reis and Basmatireis', () async {
+      final foodProvider = FoodProvider();
+      const householdId = 'rice-variant-household';
+      await FoodService().seedDefaultFoodsForHousehold(householdId);
+      foodProvider.bindToHousehold(householdId);
+      await foodProvider.loadFoods(force: true);
+
+      expect(foodProvider.foodExists('Reis'), isTrue);
+      expect(foodProvider.foodExists('Basmatireis'), isTrue);
+      expect(foodProvider.foodExists('Jasminreis'), isTrue);
+
+      final basmati = await foodProvider.addCustomFood(
+        name: 'Reis',
+        note: 'Basmati',
+      );
+      final jasmin = await foodProvider.addCustomFood(
+        name: 'Reis',
+        note: 'Jasmin',
+      );
+
+      expect(basmati.id, isNot(jasmin.id));
+      expect(
+        () => foodProvider.addCustomFood(name: 'reis', note: ' basmati '),
+        throwsA(isA<Exception>()),
+      );
+    });
+
+    test('Persists icon independently from note changes', () async {
+      final foodProvider = FoodProvider();
+      foodProvider.bindToHousehold('food-icon-household');
+      await foodProvider.loadFoods(force: true);
+
+      final rice = await foodProvider.addCustomFood(
+        name: 'Dino Reis',
+        note: 'Basmati',
+        iconKey: 'grains',
+      );
+      await foodProvider.loadFoods(force: true);
+      expect(
+        foodProvider.foods.firstWhere((food) => food.id == rice.id).iconKey,
+        'grains',
+      );
+
+      await foodProvider.updateFood(id: rice.id, name: rice.name, note: null);
+      await foodProvider.loadFoods(force: true);
+      final withoutNote = foodProvider.foods.firstWhere(
+        (food) => food.id == rice.id,
+      );
+      expect(withoutNote.note, isNull);
+      expect(withoutNote.iconKey, 'grains');
+
+      final changed = await foodProvider.updateFood(
+        id: rice.id,
+        name: rice.name,
+        note: null,
+        iconKey: 'fruit',
+      );
+      expect(changed.iconKey, 'fruit');
+    });
+
+    test('Standard foods have varied meaningful icon keys', () {
+      final apple = FoodService.defaultFoods.firstWhere(
+        (food) => food.name == 'Äpfel',
+      );
+      final tomato = FoodService.defaultFoods.firstWhere(
+        (food) => food.name == 'Tomaten',
+      );
+      final milk = FoodService.defaultFoods.firstWhere(
+        (food) => food.name == 'Milch',
+      );
+      final water = FoodService.defaultFoods.firstWhere(
+        (food) => food.name == 'Wasser',
+      );
+
+      expect(apple.iconKey, 'fruit');
+      expect(tomato.iconKey, 'vegetables');
+      expect(milk.iconKey, 'dairy');
+      expect(water.iconKey, 'drinks');
+      expect(
+        {apple.iconKey, tomato.iconKey, milk.iconKey, water.iconKey}.length,
+        4,
+      );
     });
 
     test('Prevents duplicate foods case-insensitively', () async {
@@ -206,6 +294,32 @@ void main() {
   });
 
   group('FoodsScreen Management Tests', () {
+    testWidgets('AddFoodDialog saves the selected icon', (
+      WidgetTester tester,
+    ) async {
+      final foodProvider = FoodProvider();
+      foodProvider.bindToHousehold('add-icon-household');
+      await foodProvider.loadFoods(force: true);
+
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: foodProvider,
+          child: const MaterialApp(home: Scaffold(body: AddFoodDialog())),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField).first, 'Icon Apfel');
+      await tester.tap(find.byKey(const ValueKey('food-icon-fruit')));
+      await tester.tap(find.text('Speichern'));
+      await tester.pumpAndSettle();
+
+      final created = foodProvider.foods.firstWhere(
+        (food) => food.name == 'Icon Apfel',
+      );
+      expect(created.iconKey, 'fruit');
+    });
+
     testWidgets(
       'Renders foods with stock, shopping cart, and edit/delete menu',
       (WidgetTester tester) async {
@@ -226,7 +340,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('Lebensmittel & Vorrat 🥕'), findsOneWidget);
+        expect(find.text('Lebensmittel & Vorrat 🍽️'), findsOneWidget);
         final firstFoodName = foodProvider.foods.first.name;
         expect(find.text(firstFoodName), findsOneWidget);
 
@@ -267,10 +381,17 @@ void main() {
 
       await tester.enterText(find.byType(TextFormField).first, 'Bio-Tomaten');
       await tester.enterText(find.byType(TextFormField).at(1), 'Cherry');
+      await tester.tap(find.byKey(const ValueKey('food-icon-fish')));
       await tester.tap(find.text('Speichern'));
       await tester.pumpAndSettle();
 
       expect(foodProvider.foodExists('Bio-Tomaten', note: 'Cherry'), isTrue);
+      expect(
+        foodProvider.foods
+            .firstWhere((food) => food.name == 'Bio-Tomaten')
+            .iconKey,
+        'fish',
+      );
     });
 
     testWidgets('EditFoodDialog clears an existing note permanently', (

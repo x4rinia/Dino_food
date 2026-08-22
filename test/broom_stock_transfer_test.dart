@@ -317,6 +317,7 @@ void main() {
       final added = await shoppingProvider.addItem(
         foodId: milch.id,
         note: 'laktosefrei',
+        quantity: 4,
       );
       expect(added, isTrue);
 
@@ -324,6 +325,7 @@ void main() {
         (i) => i.foodId == milch.id,
       );
       expect(item.note, 'laktosefrei');
+      expect(item.quantity, 4);
 
       // Update note
       await shoppingProvider.updateItem(

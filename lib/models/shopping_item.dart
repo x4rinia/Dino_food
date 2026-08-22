@@ -7,6 +7,7 @@ class ShoppingItem {
   final String? foodId;
   final String? customName;
   final String? note;
+  final int? quantity;
   final bool checked;
   final String? addedBy;
   final DateTime createdAt;
@@ -20,6 +21,7 @@ class ShoppingItem {
     this.foodId,
     this.customName,
     this.note,
+    this.quantity,
     this.checked = false,
     this.addedBy,
     required this.createdAt,
@@ -34,12 +36,22 @@ class ShoppingItem {
     return 'Unbenannter Artikel';
   }
 
+  String? get detailsText {
+    final parts = <String>[
+      if (note != null && note!.trim().isNotEmpty) note!.trim(),
+      if (quantity != null) 'Anzahl: $quantity',
+    ];
+    return parts.isEmpty ? null : parts.join(' · ');
+  }
+
   ShoppingItem copyWith({
     String? id,
     String? householdId,
     String? foodId,
     String? customName,
     String? note,
+    int? quantity,
+    bool clearQuantity = false,
     bool? checked,
     String? addedBy,
     DateTime? createdAt,
@@ -53,6 +65,7 @@ class ShoppingItem {
       foodId: foodId ?? this.foodId,
       customName: customName ?? this.customName,
       note: note ?? this.note,
+      quantity: clearQuantity ? null : quantity ?? this.quantity,
       checked: checked ?? this.checked,
       addedBy: addedBy ?? this.addedBy,
       createdAt: createdAt ?? this.createdAt,
@@ -69,6 +82,7 @@ class ShoppingItem {
       foodId: json['food_id'] as String?,
       customName: json['custom_name'] as String?,
       note: json['note'] as String?,
+      quantity: _parseQuantity(json['quantity']),
       checked: json['checked'] as bool? ?? false,
       addedBy: json['added_by'] as String?,
       createdAt: json['created_at'] != null
@@ -93,10 +107,16 @@ class ShoppingItem {
       if (foodId != null) 'food_id': foodId,
       'custom_name': customName,
       'note': note,
+      'quantity': quantity,
       'checked': checked,
       if (addedBy != null) 'added_by': addedBy,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
+  }
+
+  static int? _parseQuantity(dynamic value) {
+    if (value is! num || value <= 0 || value != value.truncate()) return null;
+    return value.toInt();
   }
 }

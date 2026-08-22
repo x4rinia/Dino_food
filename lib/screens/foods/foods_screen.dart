@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../config/app_theme.dart';
 import '../../models/food.dart';
+import '../../models/food_icon.dart';
 import '../../providers/food_provider.dart';
 import '../../providers/household_provider.dart';
 import '../../providers/shopping_provider.dart';
@@ -64,7 +65,7 @@ class _FoodsScreenState extends State<FoodsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Lebensmittel & Vorrat 🥕'),
+        title: const Text('Lebensmittel & Vorrat 🍽️'),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12.0),
@@ -189,8 +190,8 @@ class _FoodsScreenState extends State<FoodsScreen> {
                                       : Colors.grey.shade100,
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: const Text(
-                                  '🥕',
+                                child: Text(
+                                  FoodIconCatalog.emojiFor(food.iconKey),
                                   style: TextStyle(fontSize: 18),
                                 ),
                               ),

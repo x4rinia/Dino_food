@@ -104,6 +104,7 @@ class FoodProvider extends ChangeNotifier {
   Future<Food> addCustomFood({
     required String name,
     String? note,
+    String? iconKey,
     String defaultUnit = '',
   }) async {
     final trimmedName = name.trim();
@@ -115,6 +116,7 @@ class FoodProvider extends ChangeNotifier {
     final food = await _foodService.addCustomFood(
       name: trimmedName,
       note: trimmedNote?.isEmpty == true ? null : trimmedNote,
+      iconKey: iconKey,
       defaultUnit: defaultUnit,
       householdId: _currentHouseholdId,
     );
@@ -130,6 +132,7 @@ class FoodProvider extends ChangeNotifier {
     required String id,
     required String name,
     String? note,
+    String? iconKey,
   }) async {
     final trimmedName = name.trim();
     final trimmedNote = note?.trim();
@@ -141,6 +144,7 @@ class FoodProvider extends ChangeNotifier {
       id: id,
       name: trimmedName,
       note: trimmedNote?.isEmpty == true ? null : trimmedNote,
+      iconKey: iconKey,
       householdId: _currentHouseholdId,
     );
 

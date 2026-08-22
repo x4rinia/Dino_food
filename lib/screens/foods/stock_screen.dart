@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/app_theme.dart';
+import '../../models/food_icon.dart';
 import '../../providers/food_provider.dart';
 import '../../providers/stock_provider.dart';
 import '../../widgets/dino_card.dart';
@@ -176,8 +177,8 @@ class _StockScreenState extends State<StockScreen> {
                                         borderRadius: BorderRadius.circular(10),
                                       ),
                                       alignment: Alignment.center,
-                                      child: const Text(
-                                        '🥕',
+                                      child: Text(
+                                        FoodIconCatalog.emojiFor(food.iconKey),
                                         style: TextStyle(fontSize: 20),
                                       ),
                                     ),

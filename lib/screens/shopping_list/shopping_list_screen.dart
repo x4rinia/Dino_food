@@ -192,7 +192,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
     ShoppingProvider provider, {
     required bool isChecked,
   }) {
-    final hasNote = item.note != null && item.note!.trim().isNotEmpty;
+    final details = item.detailsText;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
@@ -271,11 +271,11 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
                         ),
                       ),
 
-                      // Optional Note underneath
-                      if (hasNote) ...[
+                      // Optional note and shopping quantity underneath
+                      if (details != null) ...[
                         const SizedBox(height: 3),
                         Text(
-                          item.note!,
+                          details,
                           style: TextStyle(
                             fontSize: 12,
                             fontStyle: FontStyle.italic,

@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/supabase_config.dart';
 import '../models/food.dart';
+import '../models/food_icon.dart';
 
 class FoodService {
   SupabaseClient get _client => SupabaseConfig.client;
@@ -337,6 +338,7 @@ class FoodService {
           'household_id': householdId,
           'name': f.name,
           'note': f.note,
+          'icon_key': f.iconKey,
           'default_unit': f.defaultUnit,
         };
       }).toList();
@@ -406,15 +408,18 @@ class FoodService {
   Future<Food> addCustomFood({
     required String name,
     String? note,
+    String? iconKey,
     String defaultUnit = '',
     String? householdId,
   }) async {
+    final resolvedIconKey = FoodIconCatalog.normalizeKey(iconKey);
     if (!SupabaseConfig.isConfigured) {
       final newFood = Food(
         id: 'f_custom_${DateTime.now().millisecondsSinceEpoch}',
         householdId: householdId,
         name: name,
         note: note,
+        iconKey: resolvedIconKey,
         defaultUnit: defaultUnit,
         createdAt: DateTime.now(),
       );
@@ -437,6 +442,7 @@ class FoodService {
             .insert({
               'name': name,
               'note': note,
+              'icon_key': resolvedIconKey,
               'default_unit': defaultUnit,
               'household_id': householdId,
             })
@@ -462,7 +468,12 @@ class FoodService {
     try {
       final data = await _client
           .from('foods')
-          .insert({'name': name, 'note': note, 'default_unit': defaultUnit})
+          .insert({
+            'name': name,
+            'note': note,
+            'icon_key': resolvedIconKey,
+            'default_unit': defaultUnit,
+          })
           .select()
           .single();
 
@@ -483,17 +494,23 @@ class FoodService {
     required String id,
     required String name,
     String? note,
+    String? iconKey,
     String? householdId,
   }) async {
+    final resolvedIconKey = iconKey == null
+        ? null
+        : FoodIconCatalog.normalizeKey(iconKey);
     if (!SupabaseConfig.isConfigured) {
       if (householdId != null && _householdMockFoods.containsKey(householdId)) {
         final list = _householdMockFoods[householdId]!;
         final index = list.indexWhere((f) => f.id == id);
+        final previous = index == -1 ? null : list[index];
         final updated = Food(
           id: id,
           householdId: householdId,
           name: name,
           note: note,
+          iconKey: resolvedIconKey ?? previous?.iconKey,
           defaultUnit: '',
           createdAt: index != -1 ? list[index].createdAt : DateTime.now(),
         );
@@ -505,10 +522,12 @@ class FoodService {
         return updated;
       }
       final index = defaultFoods.indexWhere((f) => f.id == id);
+      final previous = index == -1 ? null : defaultFoods[index];
       final updated = Food(
         id: id,
         name: name,
         note: note,
+        iconKey: resolvedIconKey ?? previous?.iconKey,
         defaultUnit: '',
         createdAt: index != -1 ? defaultFoods[index].createdAt : DateTime.now(),
       );
@@ -520,9 +539,11 @@ class FoodService {
       return updated;
     }
 
+    final values = <String, dynamic>{'name': name, 'note': note};
+    if (resolvedIconKey != null) values['icon_key'] = resolvedIconKey;
     final data = await _client
         .from('foods')
-        .update({'name': name, 'note': note})
+        .update(values)
         .eq('id', id)
         .select()
         .single();

@@ -5,6 +5,7 @@ import '../../config/app_theme.dart';
 import '../../models/dish.dart';
 import '../../models/dish_item.dart';
 import '../../models/food.dart';
+import '../../models/food_icon.dart';
 import '../../providers/dish_provider.dart';
 import '../../providers/food_provider.dart';
 import '../../providers/household_provider.dart';
@@ -433,8 +434,8 @@ class _DishesScreenState extends State<DishesScreen> {
                             itemBuilder: (context, index) {
                               final food = matches[index];
                               return ListTile(
-                                leading: const Text(
-                                  '🥕',
+                                leading: Text(
+                                  FoodIconCatalog.emojiFor(food.iconKey),
                                   style: TextStyle(fontSize: 18),
                                 ),
                                 title: Text(

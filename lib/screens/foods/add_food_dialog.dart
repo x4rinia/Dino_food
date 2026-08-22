@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/app_theme.dart';
+import '../../models/food_icon.dart';
 import '../../providers/food_provider.dart';
 import '../../utils/string_extensions.dart';
+import '../../widgets/food_icon_picker.dart';
 
 class AddFoodDialog extends StatefulWidget {
   final String? initialName;
@@ -18,6 +20,7 @@ class _AddFoodDialogState extends State<AddFoodDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   final _noteController = TextEditingController();
+  String _selectedIconKey = FoodIconCatalog.fallbackKey;
   bool _isSaving = false;
 
   @override
@@ -45,12 +48,16 @@ class _AddFoodDialogState extends State<AddFoodDialog> {
       final newFood = await foodProvider.addCustomFood(
         name: name,
         note: note.isEmpty ? null : note,
+        iconKey: _selectedIconKey,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('$name zu den Lebensmitteln hinzugefügt! 🥕'),
+          content: Text(
+            '$name zu den Lebensmitteln hinzugefügt! '
+            '${FoodIconCatalog.emojiFor(_selectedIconKey)}',
+          ),
           backgroundColor: AppTheme.primaryGreen,
           duration: const Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
@@ -124,6 +131,11 @@ class _AddFoodDialogState extends State<AddFoodDialog> {
                     color: AppTheme.textMuted,
                   ),
                 ),
+              ),
+              const SizedBox(height: 16),
+              FoodIconPicker(
+                selectedKey: _selectedIconKey,
+                onSelected: (key) => setState(() => _selectedIconKey = key),
               ),
               const SizedBox(height: 24),
               Row(
