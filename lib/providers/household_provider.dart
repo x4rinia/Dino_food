@@ -12,7 +12,6 @@ enum HouseholdState {
   loaded,
   error,
 }
-
 class HouseholdProvider extends ChangeNotifier {
   final HouseholdService _householdService = HouseholdService();
   final FoodService _foodService = FoodService();
@@ -199,7 +198,10 @@ class HouseholdProvider extends ChangeNotifier {
         );
 
         // Seed default foods & dishes for new mock household
-        final foodMap = await _foodService.seedDefaultFoodsForHousehold(newH.id);
+        final foodMap = await _foodService.seedDefaultFoodsForHousehold(
+          newH.id,
+          replaceExistingDefaults: true,
+        );
         final dishes = await _dishService.seedDefaultDishesForHousehold(
           newH.id,
           foodMap,

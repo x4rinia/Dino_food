@@ -4,6 +4,7 @@ import 'package:dino_food/providers/food_provider.dart';
 import 'package:dino_food/providers/dish_provider.dart';
 import 'package:dino_food/providers/shopping_provider.dart';
 import 'package:dino_food/providers/stock_provider.dart';
+import 'package:dino_food/services/food_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -204,10 +205,15 @@ void main() {
       );
       expect(hasVariant('Reis', 'Basmati'), isTrue);
       expect(hasVariant('Reis', 'Jasmin'), isTrue);
+      expect(hasVariant('Reis', 'Risotto'), isTrue);
+      expect(hasVariant('Tomaten', 'Cherry'), isTrue);
       expect(hasVariant('Tomaten', 'gehackt'), isTrue);
       expect(hasVariant('Tomaten', 'groß'), isTrue);
+      expect(hasVariant('Tomaten', 'passiert'), isTrue);
       expect(hasVariant('Nudeln', 'Spaghetti'), isTrue);
+      expect(hasVariant('Nudeln', 'Penne'), isTrue);
       expect(hasVariant('Nudeln', 'Fusilli'), isTrue);
+      expect(hasVariant('Nudeln', 'Makkaroni'), isTrue);
       for (final food in foodProvider.foods.where(
         (food) => const {'Reis', 'Nudeln'}.contains(food.name),
       )) {
@@ -223,8 +229,14 @@ void main() {
           (food) => const {
             'Basmatireis',
             'Jasminreis',
+            'Risottoreis',
+            'Cherrytomaten',
+            'Passierte Tomaten',
+            'Gehackte Tomaten',
             'Spaghetti',
+            'Penne',
             'Fusilli',
+            'Makkaroni',
           }.contains(food.name),
         ),
         isFalse,
@@ -298,6 +310,41 @@ void main() {
           reason: '${entry.key} should use ${entry.value}',
         );
       }
+    });
+
+    test('authoritative replacement clears a legacy pre-seed only in the target new household', () async {
+      const existingHouseholdId = 'existing-household-seed-protection';
+      const newHouseholdId = 'new-household-authoritative-seed';
+      final foodService = FoodService();
+
+      await foodService.seedDefaultFoodsForHousehold(existingHouseholdId);
+      final existingProvider = FoodProvider();
+      existingProvider.bindToHousehold(existingHouseholdId);
+      await existingProvider.loadFoods(force: true);
+      await existingProvider.addCustomFood(name: 'Bestands-Snack');
+
+      await foodService.seedDefaultFoodsForHousehold(newHouseholdId);
+      final newProvider = FoodProvider();
+      newProvider.bindToHousehold(newHouseholdId);
+      await newProvider.loadFoods(force: true);
+      await newProvider.addCustomFood(name: 'Basmatireis');
+      expect(newProvider.foodExists('Basmatireis'), isTrue);
+
+      await foodService.seedDefaultFoodsForHousehold(
+        newHouseholdId,
+        replaceExistingDefaults: true,
+      );
+      await newProvider.loadFoods(force: true);
+
+      expect(newProvider.foodExists('Basmatireis'), isFalse);
+      expect(newProvider.foodExists('Jasminreis'), isFalse);
+      expect(newProvider.foodExists('Risottoreis'), isFalse);
+      expect(newProvider.foodExists('Reis', note: 'Basmati'), isTrue);
+      expect(newProvider.foodExists('Reis', note: 'Jasmin'), isTrue);
+      expect(newProvider.foodExists('Reis', note: 'Risotto'), isTrue);
+
+      await existingProvider.loadFoods(force: true);
+      expect(existingProvider.foodExists('Bestands-Snack'), isTrue);
     });
 
     test('Damaged standard dish with missing ingredients is detected and repaired with full items', () async {

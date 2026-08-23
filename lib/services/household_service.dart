@@ -13,7 +13,6 @@ class UserHouseholdsResult {
 
   UserHouseholdsResult({required this.households, required this.roles});
 }
-
 class HouseholdService {
   SupabaseClient get _client => SupabaseConfig.client;
 
@@ -126,7 +125,10 @@ class HouseholdService {
 
       // Seed standard food catalogue and dishes for this newly created household
       try {
-        final foodMap = await FoodService().seedDefaultFoodsForHousehold(household.id);
+        final foodMap = await FoodService().seedDefaultFoodsForHousehold(
+          household.id,
+          replaceExistingDefaults: true,
+        );
         final dishes = await DishService().seedDefaultDishesForHousehold(household.id, foodMap, userId: userId);
 
         // Validation: verify all 10 standard dishes exist and have all expected ingredients
@@ -182,7 +184,10 @@ class HouseholdService {
 
       // Seed standard food catalogue and dishes for this newly created household
       try {
-        final foodMap = await FoodService().seedDefaultFoodsForHousehold(household.id);
+        final foodMap = await FoodService().seedDefaultFoodsForHousehold(
+          household.id,
+          replaceExistingDefaults: true,
+        );
         final dishes = await DishService().seedDefaultDishesForHousehold(household.id, foodMap, userId: userId);
 
         if (dishes.length < 10) {

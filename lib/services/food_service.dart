@@ -374,15 +374,20 @@ class FoodService {
   /// Seeds the standard food catalogue for a newly created household.
   /// Returns a map of lowercased food name -> newly created food ID.
   Future<Map<String, String>> seedDefaultFoodsForHousehold(
-    String householdId,
-  ) async {
+    String householdId, {
+    bool replaceExistingDefaults = false,
+  }) async {
     final Map<String, String> nameToIdMap = {};
 
     if (!SupabaseConfig.isConfigured || householdId.isEmpty) {
-      final seeded = _householdMockFoods.putIfAbsent(
-        householdId,
-        () => _createDefaultFoodsForHousehold(householdId),
-      );
+      final seeded = replaceExistingDefaults
+          ? _householdMockFoods[householdId] = _createDefaultFoodsForHousehold(
+              householdId,
+            )
+          : _householdMockFoods.putIfAbsent(
+              householdId,
+              () => _createDefaultFoodsForHousehold(householdId),
+            );
       for (final f in seeded) {
         addToSeedLookup(nameToIdMap, id: f.id, name: f.name, note: f.note);
       }
@@ -390,6 +395,14 @@ class FoodService {
     }
 
     try {
+      // A legacy RPC/trigger may already have inserted obsolete defaults into
+      // this just-created household. Replacement is never enabled for an
+      // existing household, but makes the Flutter catalogue authoritative for
+      // the new-household transaction.
+      if (replaceExistingDefaults) {
+        await _client.from('foods').delete().eq('household_id', householdId);
+      }
+
       final foodsToInsert = defaultFoods.map((f) {
         return {
           'household_id': householdId,
