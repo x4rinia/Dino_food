@@ -11,6 +11,7 @@ import '../../providers/household_provider.dart';
 import '../../providers/shopping_provider.dart';
 import '../../providers/stock_provider.dart';
 import '../../utils/recipe_ingredient_matcher.dart';
+import '../../widgets/food_variant_text.dart';
 
 class DishPreviewDialog extends StatelessWidget {
   final Dish dish;
@@ -186,8 +187,8 @@ class DishPreviewDialog extends StatelessWidget {
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
-                                    child: Text(
-                                      item.displayLabel,
+                                    child: FoodVariantText.forDishItem(
+                                      item,
                                       style: const TextStyle(
                                         fontWeight: FontWeight.w600,
                                         fontSize: 14,
@@ -238,8 +239,8 @@ class DishPreviewDialog extends StatelessWidget {
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
-                                    child: Text(
-                                      item.displayLabel,
+                                    child: FoodVariantText.forDishItem(
+                                      item,
                                       style: TextStyle(
                                         color: Colors.grey.shade700,
                                         fontSize: 13,
@@ -298,8 +299,8 @@ class DishPreviewDialog extends StatelessWidget {
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
-                                    child: Text(
-                                      item.displayLabel,
+                                    child: FoodVariantText.forDishItem(
+                                      item,
                                       style: TextStyle(
                                         color: Colors.grey.shade700,
                                         fontSize: 13,

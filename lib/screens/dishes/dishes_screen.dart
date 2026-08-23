@@ -13,6 +13,7 @@ import '../../providers/stock_provider.dart';
 import '../../utils/recipe_ingredient_matcher.dart';
 import '../../widgets/dino_card.dart';
 import '../../widgets/empty_state.dart';
+import '../../widgets/food_variant_text.dart';
 import 'add_dish_dialog.dart';
 import 'dish_preview_dialog.dart';
 
@@ -725,9 +726,8 @@ class _DishesScreenState extends State<DishesScreen> {
                       iconColor: match.isMainInStock
                           ? const Color(0xFF166534)
                           : const Color(0xFFD97706),
-                      nameText: match.isMainInStock
-                          ? '${mainItem.displayLabel} · vorhanden'
-                          : '${mainItem.displayLabel} · fehlt',
+                      item: mainItem,
+                      suffix: match.isMainInStock ? ' · vorhanden' : ' · fehlt',
                       isBold: true,
                       textColor: match.isMainInStock
                           ? const Color(0xFF166534)
@@ -757,7 +757,7 @@ class _DishesScreenState extends State<DishesScreen> {
                       iconColor: isInStock
                           ? AppTheme.primaryGreen
                           : AppTheme.textMuted,
-                      nameText: item.displayLabel,
+                      item: item,
                       isBold: isInStock,
                       textColor: isInStock
                           ? AppTheme.textDark
@@ -841,9 +841,10 @@ class _DishesScreenState extends State<DishesScreen> {
   Widget _buildIngredientRow({
     required String iconText,
     required Color iconColor,
-    required String nameText,
+    required DishItem item,
     required bool isBold,
     required Color textColor,
+    String suffix = '',
     bool isMain = false,
   }) {
     return Padding(
@@ -864,8 +865,9 @@ class _DishesScreenState extends State<DishesScreen> {
           ),
           const SizedBox(width: 6),
           Expanded(
-            child: Text(
-              nameText,
+            child: FoodVariantText.forDishItem(
+              item,
+              suffix: suffix,
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: isBold ? FontWeight.w700 : FontWeight.w500,
@@ -1211,7 +1213,7 @@ class _DishesScreenState extends State<DishesScreen> {
                       iconColor: isInStock
                           ? AppTheme.primaryGreen
                           : AppTheme.textMuted,
-                      nameText: item.displayLabel,
+                      item: item,
                       isBold: isInStock,
                       textColor: isInStock
                           ? AppTheme.textDark

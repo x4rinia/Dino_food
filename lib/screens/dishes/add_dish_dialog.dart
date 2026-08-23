@@ -7,6 +7,7 @@ import '../../models/food.dart';
 import '../../providers/dish_provider.dart';
 import '../../providers/food_provider.dart';
 import '../../providers/household_provider.dart';
+import '../../widgets/food_variant_text.dart';
 import '../foods/add_food_dialog.dart';
 
 class AddDishDialog extends StatefulWidget {
@@ -33,7 +34,8 @@ class _AddDishDialogState extends State<AddDishDialog> {
       for (final item in widget.dishToEdit!.items) {
         _selectedIngredients.add({
           'food_id': item.foodId,
-          'food_name': item.displayLabel,
+          'food_name': item.displayName,
+          'food_note': item.food?.note,
         });
       }
     }
@@ -99,7 +101,8 @@ class _AddDishDialogState extends State<AddDishDialog> {
     setState(() {
       _selectedIngredients.add({
         'food_id': matchedFood!.id,
-        'food_name': matchedFood.displayLabel,
+        'food_name': matchedFood.name,
+        'food_note': matchedFood.note,
       });
       _tempSelectedFood = null;
       _autocompleteTextController?.clear();
@@ -369,8 +372,9 @@ class _AddDishDialogState extends State<AddDishDialog> {
                               ),
                               const SizedBox(width: 8),
                               Expanded(
-                                child: Text(
-                                  ing['food_name'] ?? 'Zutat',
+                                child: FoodVariantText(
+                                  name: ing['food_name'] as String? ?? 'Zutat',
+                                  note: ing['food_note'] as String?,
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w600,
                                     fontSize: 14,
