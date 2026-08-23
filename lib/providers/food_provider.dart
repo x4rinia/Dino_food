@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../config/supabase_config.dart';
 import '../models/food.dart';
 import '../services/food_service.dart';
 
@@ -74,15 +75,21 @@ class FoodProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
+    final requestedHouseholdId = _currentHouseholdId;
+
     try {
-      _foods = await _foodService.fetchFoods(_currentHouseholdId);
+      final loaded = await _foodService.fetchFoods(requestedHouseholdId);
+      if (_currentHouseholdId != requestedHouseholdId) return;
+      _foods = loaded;
       _sortFoods();
       _hasLoaded = true;
     } catch (e) {
       debugPrint('Error loading foods: $e');
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      if (_currentHouseholdId == requestedHouseholdId) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -107,6 +114,10 @@ class FoodProvider extends ChangeNotifier {
     String? iconKey,
     String defaultUnit = '',
   }) async {
+    if (_currentHouseholdId == null && SupabaseConfig.isConfigured) {
+      throw StateError('Kein aktiver Haushalt.');
+    }
+    final householdId = _currentHouseholdId;
     final trimmedName = name.trim();
     final trimmedNote = note?.trim();
     if (foodExists(trimmedName, note: trimmedNote)) {
@@ -118,8 +129,9 @@ class FoodProvider extends ChangeNotifier {
       note: trimmedNote?.isEmpty == true ? null : trimmedNote,
       iconKey: iconKey,
       defaultUnit: defaultUnit,
-      householdId: _currentHouseholdId,
+      householdId: householdId,
     );
+    if (_currentHouseholdId != householdId) return food;
     if (!_foods.any((f) => f.id == food.id)) {
       _foods.add(food);
       _sortFoods();
@@ -134,6 +146,10 @@ class FoodProvider extends ChangeNotifier {
     String? note,
     String? iconKey,
   }) async {
+    if (_currentHouseholdId == null && SupabaseConfig.isConfigured) {
+      throw StateError('Kein aktiver Haushalt.');
+    }
+    final householdId = _currentHouseholdId;
     final trimmedName = name.trim();
     final trimmedNote = note?.trim();
     if (foodExists(trimmedName, note: trimmedNote, excludeId: id)) {
@@ -145,8 +161,9 @@ class FoodProvider extends ChangeNotifier {
       name: trimmedName,
       note: trimmedNote?.isEmpty == true ? null : trimmedNote,
       iconKey: iconKey,
-      householdId: _currentHouseholdId,
+      householdId: householdId,
     );
+    if (_currentHouseholdId != householdId) return updated;
 
     final index = _foods.indexWhere((f) => f.id == id);
     if (index != -1) {
@@ -157,16 +174,25 @@ class FoodProvider extends ChangeNotifier {
     return updated;
   }
 
-  Future<bool> isFoodInUse(String foodId) => _foodService.isFoodInUse(foodId);
+  Future<bool> isFoodInUse(String foodId) {
+    final householdId = _currentHouseholdId;
+    if (householdId == null) return Future.value(false);
+    return _foodService.isFoodInUse(foodId, householdId);
+  }
 
   Future<bool> deleteFood(String foodId, {String? foodName}) async {
+    if (_currentHouseholdId == null && SupabaseConfig.isConfigured) {
+      return false;
+    }
+    final householdId = _currentHouseholdId;
     final name =
         foodName ?? _foods.where((f) => f.id == foodId).firstOrNull?.name;
     await _foodService.deleteFood(
       foodId,
       foodName: name,
-      householdId: _currentHouseholdId,
+      householdId: householdId,
     );
+    if (_currentHouseholdId != householdId) return true;
     _foods.removeWhere((f) => f.id == foodId);
     notifyListeners();
     return true;

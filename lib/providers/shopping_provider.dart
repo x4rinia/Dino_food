@@ -49,6 +49,7 @@ class ShoppingProvider extends ChangeNotifier {
 
     _currentHouseholdId = householdId;
     _streamSubscription?.cancel();
+    _items = [];
 
     if (!SupabaseConfig.isConfigured) {
       _items = _householdMockItems.putIfAbsent(householdId, () => []);
@@ -62,6 +63,7 @@ class ShoppingProvider extends ChangeNotifier {
 
     // Initial fetch to get relational data
     _shoppingService.fetchShoppingItems(householdId).then((initialList) {
+      if (_currentHouseholdId != householdId) return;
       _items = initialList;
       _isLoading = false;
       notifyListeners();
@@ -71,6 +73,7 @@ class ShoppingProvider extends ChangeNotifier {
         .streamShoppingItems(householdId)
         .listen(
           (items) {
+            if (_currentHouseholdId != householdId) return;
             final foodMap = {
               for (final item in _items)
                 if (item.food != null) item.id: item.food,
@@ -99,11 +102,17 @@ class ShoppingProvider extends ChangeNotifier {
     int? quantity,
   }) async {
     if (_currentHouseholdId == null) return false;
+    final householdId = _currentHouseholdId!;
 
     if (!SupabaseConfig.isConfigured) {
+      if (foodId != null &&
+          !await FoodService().foodBelongsToHousehold(foodId, householdId)) {
+        return false;
+      }
+      if (_currentHouseholdId != householdId) return false;
       final newItem = ShoppingItem(
         id: 'mock_${DateTime.now().microsecondsSinceEpoch}_${_items.length + 1}',
-        householdId: _currentHouseholdId!,
+        householdId: householdId,
         foodId: foodId,
         customName: customName,
         note: note,
@@ -113,19 +122,20 @@ class ShoppingProvider extends ChangeNotifier {
         updatedAt: DateTime.now(),
       );
       _items.insert(0, newItem);
-      _householdMockItems[_currentHouseholdId!] = _items;
+      _householdMockItems[householdId] = _items;
       notifyListeners();
       return true;
     }
 
     try {
       final newItem = await _shoppingService.addItem(
-        householdId: _currentHouseholdId!,
+        householdId: householdId,
         foodId: foodId,
         customName: customName,
         note: note,
         quantity: quantity,
       );
+      if (_currentHouseholdId != householdId) return false;
       final existingIndex = _items.indexWhere((i) => i.id == newItem.id);
       if (existingIndex != -1) {
         _items[existingIndex] = newItem;
@@ -143,6 +153,8 @@ class ShoppingProvider extends ChangeNotifier {
   }
 
   Future<void> toggleItem(String itemId, bool checked) async {
+    final householdId = _currentHouseholdId;
+    if (householdId == null) return;
     final index = _items.indexWhere((i) => i.id == itemId);
     if (index != -1) {
       _items[index] = _items[index].copyWith(checked: checked);
@@ -154,7 +166,11 @@ class ShoppingProvider extends ChangeNotifier {
 
     if (SupabaseConfig.isConfigured) {
       try {
-        await _shoppingService.toggleChecked(itemId, checked);
+        await _shoppingService.toggleChecked(
+          itemId,
+          checked,
+          householdId: householdId,
+        );
       } catch (e) {
         debugPrint('Error toggling item: $e');
       }
@@ -174,6 +190,8 @@ class ShoppingProvider extends ChangeNotifier {
     int? quantity,
     bool replaceQuantity = false,
   }) async {
+    final householdId = _currentHouseholdId;
+    if (householdId == null) return;
     final index = _items.indexWhere((i) => i.id == itemId);
     if (index != -1) {
       _items[index] = _items[index].copyWith(
@@ -192,6 +210,7 @@ class ShoppingProvider extends ChangeNotifier {
       try {
         await _shoppingService.updateItem(
           itemId: itemId,
+          householdId: householdId,
           customName: customName,
           note: note,
           quantity: quantity,
@@ -204,6 +223,8 @@ class ShoppingProvider extends ChangeNotifier {
   }
 
   Future<void> deleteItem(String itemId) async {
+    final householdId = _currentHouseholdId;
+    if (householdId == null) return;
     _items.removeWhere((i) => i.id == itemId);
     if (!SupabaseConfig.isConfigured && _currentHouseholdId != null) {
       _householdMockItems[_currentHouseholdId!] = _items;
@@ -212,7 +233,7 @@ class ShoppingProvider extends ChangeNotifier {
 
     if (SupabaseConfig.isConfigured) {
       try {
-        await _shoppingService.deleteItem(itemId);
+        await _shoppingService.deleteItem(itemId, householdId: householdId);
       } catch (e) {
         debugPrint('Error deleting item: $e');
       }
@@ -224,6 +245,15 @@ class ShoppingProvider extends ChangeNotifier {
     FoodProvider? foodProvider,
   }) async {
     if (_currentHouseholdId == null) return 0;
+    final householdId = _currentHouseholdId!;
+    if (stockProvider != null &&
+        stockProvider.currentHouseholdId != householdId) {
+      return 0;
+    }
+    if (foodProvider != null &&
+        foodProvider.currentHouseholdId != householdId) {
+      return 0;
+    }
 
     final checked = _items.where((i) => i.checked).toList();
     if (checked.isEmpty) return 0;
@@ -246,8 +276,8 @@ class ShoppingProvider extends ChangeNotifier {
 
           // Search in loaded foods or fetch from service
           final existingFoods =
-              foodProvider?.foods ??
-              await foodSvc.fetchFoods(_currentHouseholdId);
+              foodProvider?.foods ?? await foodSvc.fetchFoods(householdId);
+          if (_currentHouseholdId != householdId) return 0;
           final match = existingFoods
               .where((f) => f.name.trim().toLowerCase() == normalized)
               .firstOrNull;
@@ -274,7 +304,7 @@ class ShoppingProvider extends ChangeNotifier {
               final newFood = await foodSvc.addCustomFood(
                 name: trimmed,
                 note: null,
-                householdId: _currentHouseholdId,
+                householdId: householdId,
               );
               targetFoodId = newFood.id;
             }
@@ -290,7 +320,7 @@ class ShoppingProvider extends ChangeNotifier {
             try {
               if (SupabaseConfig.isConfigured) {
                 await stockSvc.setInStock(
-                  householdId: _currentHouseholdId!,
+                  householdId: householdId,
                   foodId: targetFoodId,
                   inStock: true,
                 );
@@ -305,7 +335,10 @@ class ShoppingProvider extends ChangeNotifier {
           // 3. Only delete shopping item if stock addition was successful
           if (stockSuccess) {
             if (SupabaseConfig.isConfigured) {
-              await _shoppingService.deleteItem(item.id);
+              await _shoppingService.deleteItem(
+                item.id,
+                householdId: householdId,
+              );
             }
             successfullyHandledIds.add(item.id);
           } else {
@@ -326,9 +359,10 @@ class ShoppingProvider extends ChangeNotifier {
     }
 
     if (successfullyHandledIds.isNotEmpty) {
+      if (_currentHouseholdId != householdId) return 0;
       _items.removeWhere((i) => successfullyHandledIds.contains(i.id));
       if (!SupabaseConfig.isConfigured) {
-        _householdMockItems[_currentHouseholdId!] = _items;
+        _householdMockItems[householdId] = _items;
       }
       notifyListeners();
     }

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+
 import '../config/supabase_config.dart';
 import '../models/household.dart';
 import '../models/household_member.dart';
@@ -6,12 +7,8 @@ import '../services/dish_service.dart';
 import '../services/food_service.dart';
 import '../services/household_service.dart';
 
-enum HouseholdState {
-  initial,
-  loading,
-  loaded,
-  error,
-}
+enum HouseholdState { initial, loading, loaded, error }
+
 class HouseholdProvider extends ChangeNotifier {
   final HouseholdService _householdService = HouseholdService();
   final FoodService _foodService = FoodService();
@@ -21,7 +18,6 @@ class HouseholdProvider extends ChangeNotifier {
   List<Household> _households = [];
   String? _defaultHouseholdId;
   Household? _currentHousehold;
-  Map<String, String> _userRoles = {}; // householdId -> role
   List<HouseholdMember> _members = [];
   String? _errorMessage;
 
@@ -37,21 +33,15 @@ class HouseholdProvider extends ChangeNotifier {
   bool get hasError => _state == HouseholdState.error;
   bool get hasHousehold => _currentHousehold != null;
 
-  bool isDefaultHousehold(String householdId) => _defaultHouseholdId == householdId;
-  bool isCurrentHousehold(String householdId) => _currentHousehold?.id == householdId;
-
-  bool isOwnerOf(String householdId) {
-    if (_userRoles[householdId] == 'owner') return true;
-    final h = _households.where((item) => item.id == householdId).firstOrNull;
-    if (h != null && h.createdBy != null && h.createdBy == SupabaseConfig.currentUserId) {
-      return true;
-    }
-    return false;
-  }
+  bool isDefaultHousehold(String householdId) =>
+      _defaultHouseholdId == householdId;
+  bool isCurrentHousehold(String householdId) =>
+      _currentHousehold?.id == householdId;
 
   Future<void> loadHouseholds({bool force = false}) async {
     // If already loading or loaded, don't re-trigger unless force is true
-    if (!force && (_state == HouseholdState.loading || _state == HouseholdState.loaded)) {
+    if (!force &&
+        (_state == HouseholdState.loading || _state == HouseholdState.loaded)) {
       return;
     }
 
@@ -71,18 +61,21 @@ class HouseholdProvider extends ChangeNotifier {
         _households = [mockHousehold];
         _defaultHouseholdId = mockHousehold.id;
         _currentHousehold = mockHousehold;
-        _userRoles = {mockHousehold.id: 'owner'};
         _members = [
           HouseholdMember(
             householdId: mockHousehold.id,
             userId: 'demo-user-1',
-            role: 'owner',
             joinedAt: DateTime.now(),
-          )
+          ),
         ];
         // Seed default foods & dishes for demo mock household if not yet seeded
-        final foodMap = await _foodService.seedDefaultFoodsForHousehold(mockHousehold.id);
-        await _dishService.seedDefaultDishesForHousehold(mockHousehold.id, foodMap);
+        final foodMap = await _foodService.seedDefaultFoodsForHousehold(
+          mockHousehold.id,
+        );
+        await _dishService.seedDefaultDishesForHousehold(
+          mockHousehold.id,
+          foodMap,
+        );
 
         _state = HouseholdState.loaded;
         _errorMessage = null;
@@ -90,9 +83,7 @@ class HouseholdProvider extends ChangeNotifier {
         return;
       }
 
-      final result = await _householdService.fetchUserHouseholdsWithRoles();
-      _households = result.households;
-      _userRoles = result.roles;
+      _households = await _householdService.fetchUserHouseholds();
 
       if (_households.isNotEmpty) {
         // Fetch default household from profile
@@ -117,7 +108,9 @@ class HouseholdProvider extends ChangeNotifier {
 
         // Fetch members safely without crashing or triggering extra loops
         try {
-          _members = await _householdService.fetchMembers(_currentHousehold!.id);
+          _members = await _householdService.fetchMembers(
+            _currentHousehold!.id,
+          );
         } catch (e) {
           debugPrint('Members load info: $e');
         }
@@ -209,11 +202,12 @@ class HouseholdProvider extends ChangeNotifier {
         );
 
         if (dishes.length < 10) {
-          throw Exception('Nicht alle Standardgerichte konnten initialisiert werden.');
+          throw Exception(
+            'Nicht alle Standardgerichte konnten initialisiert werden.',
+          );
         }
 
         _households.add(newH);
-        _userRoles[newH.id] = 'owner';
         _currentHousehold = newH;
         if (_defaultHouseholdId == null || _households.length == 1) {
           _defaultHouseholdId = newH.id;
@@ -229,7 +223,6 @@ class HouseholdProvider extends ChangeNotifier {
         color: color,
       );
       _households.add(household);
-      _userRoles[household.id] = 'owner';
       _currentHousehold = household;
 
       // If this is the user's first household, set it as default
@@ -250,7 +243,8 @@ class HouseholdProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('Household creation failed: $e');
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
-      _state = HouseholdState.loaded; // keep current state loaded so UI stays interactive
+      _state = HouseholdState
+          .loaded; // keep current state loaded so UI stays interactive
       notifyListeners();
       return false;
     }
@@ -270,7 +264,6 @@ class HouseholdProvider extends ChangeNotifier {
       if (!_households.any((h) => h.id == household.id)) {
         _households.add(household);
       }
-      _userRoles[household.id] = 'member';
       _currentHousehold = household;
 
       // If this is the user's first household, set it as default
@@ -304,12 +297,6 @@ class HouseholdProvider extends ChangeNotifier {
       return false;
     }
 
-    if (!isOwnerOf(householdId)) {
-      _errorMessage = 'Nur der Inhaber darf den Haushalt löschen.';
-      notifyListeners();
-      return false;
-    }
-
     _state = HouseholdState.loading;
     _errorMessage = null;
     notifyListeners();
@@ -320,7 +307,6 @@ class HouseholdProvider extends ChangeNotifier {
       }
 
       _households.removeWhere((h) => h.id == householdId);
-      _userRoles.remove(householdId);
 
       // If deleted household was the default/favorite
       if (_defaultHouseholdId == householdId) {
@@ -347,7 +333,9 @@ class HouseholdProvider extends ChangeNotifier {
             orElse: () => _households.first,
           );
           try {
-            _members = await _householdService.fetchMembers(_currentHousehold!.id);
+            _members = await _householdService.fetchMembers(
+              _currentHousehold!.id,
+            );
           } catch (e) {
             debugPrint('Error loading members after delete: $e');
           }
@@ -408,7 +396,6 @@ class HouseholdProvider extends ChangeNotifier {
     _households = [];
     _defaultHouseholdId = null;
     _currentHousehold = null;
-    _userRoles = {};
     _members = [];
     _errorMessage = null;
     notifyListeners();

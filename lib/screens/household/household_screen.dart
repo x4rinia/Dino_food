@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
+
 import '../../config/app_theme.dart';
 import '../../config/supabase_config.dart';
 import '../../models/household.dart';
@@ -26,7 +27,10 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final householdProvider = Provider.of<HouseholdProvider>(context, listen: false);
+      final householdProvider = Provider.of<HouseholdProvider>(
+        context,
+        listen: false,
+      );
       if (householdProvider.currentHousehold != null) {
         householdProvider.loadMembers();
       }
@@ -42,29 +46,39 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
 
   Future<void> _pickAndUploadUserImage() async {
     if (_isUploadingUserAvatar) return;
-    
+
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    
+
     if (pickedFile != null) {
       setState(() => _isUploadingUserAvatar = true);
       try {
         final bytes = await pickedFile.readAsBytes();
         final ext = pickedFile.name.split('.').last;
-        
+
         if (!mounted) return;
         final authProvider = Provider.of<AuthProvider>(context, listen: false);
         final success = await authProvider.uploadAvatar(bytes, ext);
-        
+
         if (mounted) {
           if (success) {
-            context.read<HouseholdProvider>().loadMembers(); // Refresh members list to show new avatar
+            context
+                .read<HouseholdProvider>()
+                .loadMembers(); // Refresh members list to show new avatar
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Profilbild erfolgreich hochgeladen!'), backgroundColor: AppTheme.primaryGreen),
+              const SnackBar(
+                content: Text('Profilbild erfolgreich hochgeladen!'),
+                backgroundColor: AppTheme.primaryGreen,
+              ),
             );
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(authProvider.errorMessage ?? 'Fehler beim Upload'), backgroundColor: AppTheme.errorRed),
+              SnackBar(
+                content: Text(
+                  authProvider.errorMessage ?? 'Fehler beim Upload',
+                ),
+                backgroundColor: AppTheme.errorRed,
+              ),
             );
           }
         }
@@ -84,7 +98,9 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
   ) {
     final currentUserId = SupabaseConfig.currentUserId;
     final hasOtherMembers = householdProvider.members
-        .where((m) => m.householdId == household.id && m.userId != currentUserId)
+        .where(
+          (m) => m.householdId == household.id && m.userId != currentUserId,
+        )
         .isNotEmpty;
 
     showDialog(
@@ -127,7 +143,10 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Abbrechen', style: TextStyle(color: AppTheme.textMuted)),
+            child: const Text(
+              'Abbrechen',
+              style: TextStyle(color: AppTheme.textMuted),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -136,7 +155,9 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
             ),
             onPressed: () async {
               Navigator.pop(ctx);
-              final success = await householdProvider.deleteHousehold(household.id);
+              final success = await householdProvider.deleteHousehold(
+                household.id,
+              );
               if (context.mounted) {
                 if (success) {
                   final active = householdProvider.currentHousehold;
@@ -154,7 +175,10 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(householdProvider.errorMessage ?? 'Der Haushalt konnte nicht gelöscht werden.'),
+                      content: Text(
+                        householdProvider.errorMessage ??
+                            'Der Haushalt konnte nicht gelöscht werden.',
+                      ),
                       backgroundColor: AppTheme.errorRed,
                     ),
                   );
@@ -172,20 +196,24 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final householdProvider = Provider.of<HouseholdProvider>(context);
-    final shoppingProvider = Provider.of<ShoppingProvider>(context, listen: false);
+    final shoppingProvider = Provider.of<ShoppingProvider>(
+      context,
+      listen: false,
+    );
     final stockProvider = Provider.of<StockProvider>(context, listen: false);
     final foodProvider = Provider.of<FoodProvider>(context, listen: false);
     final dishProvider = Provider.of<DishProvider>(context, listen: false);
     final currentHousehold = householdProvider.currentHousehold;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Haushalt & Profil 🏠'),
-      ),
+      appBar: AppBar(title: const Text('Haushalt & Profil 🏠')),
       body: householdProvider.isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 12.0,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -214,11 +242,16 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                   const SizedBox(height: 10),
 
                   ...householdProvider.households.map((household) {
-                    final isActive = householdProvider.isCurrentHousehold(household.id);
-                    final isDefault = householdProvider.isDefaultHousehold(household.id);
-                    final isOwner = householdProvider.isOwnerOf(household.id);
-                    final canDelete = isOwner && householdProvider.households.length > 1;
-                    final color = Color(int.parse(household.color.replaceFirst('#', '0xFF')));
+                    final isActive = householdProvider.isCurrentHousehold(
+                      household.id,
+                    );
+                    final isDefault = householdProvider.isDefaultHousehold(
+                      household.id,
+                    );
+                    final canDelete = householdProvider.households.length > 1;
+                    final color = Color(
+                      int.parse(household.color.replaceFirst('#', '0xFF')),
+                    );
 
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 10.0),
@@ -240,7 +273,9 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: isActive ? AppTheme.primaryGreen : Colors.black.withValues(alpha: 0.06),
+                                color: isActive
+                                    ? AppTheme.primaryGreen
+                                    : Colors.black.withValues(alpha: 0.06),
                                 width: isActive ? 2 : 1,
                               ),
                               boxShadow: [
@@ -251,7 +286,10 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                                 ),
                               ],
                             ),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
                             child: Row(
                               children: [
                                 // Favorite Star Button (★ / ☆)
@@ -260,17 +298,28 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                                   constraints: const BoxConstraints(),
                                   icon: Icon(
                                     isDefault ? Icons.star : Icons.star_border,
-                                    color: isDefault ? const Color(0xFFF4A261) : AppTheme.textMuted.withValues(alpha: 0.45),
+                                    color: isDefault
+                                        ? const Color(0xFFF4A261)
+                                        : AppTheme.textMuted.withValues(
+                                            alpha: 0.45,
+                                          ),
                                     size: 26,
                                   ),
-                                  tooltip: isDefault ? 'Standardhaushalt (Favorit)' : 'Als Standardhaushalt setzen',
+                                  tooltip: isDefault
+                                      ? 'Standardhaushalt (Favorit)'
+                                      : 'Als Standardhaushalt setzen',
                                   onPressed: () async {
                                     if (!isDefault) {
-                                      final success = await householdProvider.setDefaultHousehold(household.id);
+                                      final success = await householdProvider
+                                          .setDefaultHousehold(household.id);
                                       if (context.mounted && !success) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
                                           SnackBar(
-                                            content: Text(householdProvider.errorMessage ?? 'Der Standardhaushalt konnte nicht geändert werden.'),
+                                            content: Text(
+                                              householdProvider.errorMessage ?? 'Der Standardhaushalt konnte nicht geändert werden.',
+                                            ),
                                             backgroundColor: AppTheme.errorRed,
                                           ),
                                         );
@@ -289,21 +338,27 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: const Center(
-                                    child: Text('🏠', style: TextStyle(fontSize: 18)),
+                                    child: Text(
+                                      '🏠',
+                                      style: TextStyle(fontSize: 18),
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(width: 12),
 
-                                // Household info: Name & Code / Role
+                                // Household info: Name & invite code
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         household.name,
                                         style: TextStyle(
                                           fontSize: 15,
-                                          fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
+                                          fontWeight: isActive
+                                              ? FontWeight.w800
+                                              : FontWeight.w600,
                                           color: AppTheme.textDark,
                                         ),
                                         maxLines: 1,
@@ -314,23 +369,13 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                                         children: [
                                           if (household.inviteCode.isNotEmpty)
                                             Text(
-                                              household.inviteCode.toUpperCase(),
+                                              household.inviteCode
+                                                  .toUpperCase(),
                                               style: const TextStyle(
                                                 fontSize: 11,
                                                 color: AppTheme.textMuted,
                                                 fontWeight: FontWeight.w500,
                                                 letterSpacing: 0.5,
-                                              ),
-                                            ),
-                                          if (household.inviteCode.isNotEmpty && isOwner)
-                                            const Text(' • ', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
-                                          if (isOwner)
-                                            const Text(
-                                              'Inhaber',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                color: AppTheme.primaryGreen,
-                                                fontWeight: FontWeight.w600,
                                               ),
                                             ),
                                         ],
@@ -342,7 +387,10 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                                 // Active indicator badge
                                 if (isActive) ...[
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: AppTheme.primarySoft,
                                       borderRadius: BorderRadius.circular(6),
@@ -359,12 +407,16 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                                   const SizedBox(width: 6),
                                 ],
 
-                                // Delete button (only for owner and when user has > 1 household)
+                                // Every member has the same household permissions.
                                 if (canDelete)
                                   IconButton(
                                     padding: EdgeInsets.zero,
                                     constraints: const BoxConstraints(),
-                                    icon: const Icon(Icons.delete_outline, size: 20, color: AppTheme.errorRed),
+                                    icon: const Icon(
+                                      Icons.delete_outline,
+                                      size: 20,
+                                      color: AppTheme.errorRed,
+                                    ),
                                     tooltip: 'Haushalt löschen',
                                     onPressed: () {
                                       _confirmDeleteHousehold(
@@ -395,10 +447,14 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                           onPressed: () async {
                             final result = await showDialog<bool>(
                               context: context,
-                              builder: (_) => const CreateOrJoinHouseholdDialog(isJoining: false),
+                              builder: (_) => const CreateOrJoinHouseholdDialog(
+                                isJoining: false,
+                              ),
                             );
-                            if (result == true && householdProvider.currentHousehold != null) {
-                              final active = householdProvider.currentHousehold!;
+                            if (result == true &&
+                                householdProvider.currentHousehold != null) {
+                              final active =
+                                  householdProvider.currentHousehold!;
                               shoppingProvider.bindToHousehold(active.id);
                               stockProvider.bindToHousehold(active.id);
                               foodProvider.bindToHousehold(active.id);
@@ -415,10 +471,14 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                           onPressed: () async {
                             final result = await showDialog<bool>(
                               context: context,
-                              builder: (_) => const CreateOrJoinHouseholdDialog(isJoining: true),
+                              builder: (_) => const CreateOrJoinHouseholdDialog(
+                                isJoining: true,
+                              ),
                             );
-                            if (result == true && householdProvider.currentHousehold != null) {
-                              final active = householdProvider.currentHousehold!;
+                            if (result == true &&
+                                householdProvider.currentHousehold != null) {
+                              final active =
+                                  householdProvider.currentHousehold!;
                               shoppingProvider.bindToHousehold(active.id);
                               stockProvider.bindToHousehold(active.id);
                               foodProvider.bindToHousehold(active.id);
@@ -448,10 +508,22 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                                 height: 52,
                                 padding: const EdgeInsets.all(10),
                                 decoration: BoxDecoration(
-                                  color: Color(int.parse(currentHousehold.color.replaceFirst('#', '0xFF'))),
+                                  color: Color(
+                                    int.parse(
+                                      currentHousehold.color.replaceFirst(
+                                        '#',
+                                        '0xFF',
+                                      ),
+                                    ),
+                                  ),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: const Center(child: Text('🏠', style: TextStyle(fontSize: 22))),
+                                child: const Center(
+                                  child: Text(
+                                    '🏠',
+                                    style: TextStyle(fontSize: 22),
+                                  ),
+                                ),
                               ),
                               const SizedBox(width: 14),
                               Expanded(
@@ -480,7 +552,11 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                                         ),
                                         const SizedBox(width: 4),
                                         IconButton(
-                                          icon: const Icon(Icons.edit_outlined, size: 18, color: AppTheme.primaryGreen),
+                                          icon: const Icon(
+                                            Icons.edit_outlined,
+                                            size: 18,
+                                            color: AppTheme.primaryGreen,
+                                          ),
                                           tooltip: 'Haushalt umbenennen',
                                           constraints: const BoxConstraints(),
                                           padding: const EdgeInsets.all(4),
@@ -504,25 +580,43 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                             const Divider(height: 1),
                             const SizedBox(height: 14),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
                               decoration: BoxDecoration(
-                                color: AppTheme.primarySoft.withValues(alpha: 0.5),
+                                color: AppTheme.primarySoft.withValues(
+                                  alpha: 0.5,
+                                ),
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: AppTheme.primaryLight.withValues(alpha: 0.3)),
+                                border: Border.all(
+                                  color: AppTheme.primaryLight.withValues(
+                                    alpha: 0.3,
+                                  ),
+                                ),
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.group_add_outlined, color: AppTheme.primaryGreen, size: 20),
+                                  const Icon(
+                                    Icons.group_add_outlined,
+                                    color: AppTheme.primaryGreen,
+                                    size: 20,
+                                  ),
                                   const SizedBox(width: 10),
                                   Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       const Text(
                                         'Einladungscode für Mitbewohner:',
-                                        style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: AppTheme.textMuted,
+                                        ),
                                       ),
                                       Text(
-                                        currentHousehold.inviteCode.toUpperCase(),
+                                        currentHousehold.inviteCode
+                                            .toUpperCase(),
                                         style: const TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w800,
@@ -534,18 +628,28 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                                   ),
                                   const Spacer(),
                                   IconButton(
-                                    icon: const Icon(Icons.copy, size: 18, color: AppTheme.primaryGreen),
+                                    icon: const Icon(
+                                      Icons.copy,
+                                      size: 18,
+                                      color: AppTheme.primaryGreen,
+                                    ),
                                     tooltip: 'Code kopieren',
                                     onPressed: () {
                                       Clipboard.setData(
-                                        ClipboardData(text: currentHousehold.inviteCode.toUpperCase()),
-                                      );
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Einladungscode in die Zwischenablage kopiert!'),
-                                          duration: Duration(seconds: 2),
+                                        ClipboardData(
+                                          text: currentHousehold.inviteCode
+                                              .toUpperCase(),
                                         ),
                                       );
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'Einladungscode in die Zwischenablage kopiert!',
+                                              ),
+                                              duration: Duration(seconds: 2),
+                                            ),
+                                          );
                                     },
                                   ),
                                 ],
@@ -580,31 +684,21 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                             authProvider.profile?.displayName ?? 'Du',
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
-                          const Spacer(),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primarySoft,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Text(
-                              'Inhaber',
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.primaryGreen),
-                            ),
-                          ),
                         ],
                       ),
                     )
                   else
                     Column(
                       children: householdProvider.members.map((member) {
-                        final isOwner = member.role == 'owner';
                         final name = member.profile?.displayName ?? 'Mitglied';
                         final avatarUrl = member.profile?.avatarUrl;
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 8.0),
                           child: DinoCard(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
                             child: Row(
                               children: [
                                 if (avatarUrl != null)
@@ -618,7 +712,9 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                                     radius: 18,
                                     backgroundColor: AppTheme.primarySoft,
                                     child: Text(
-                                      name.isNotEmpty ? name[0].toUpperCase() : 'U',
+                                      name.isNotEmpty
+                                          ? name[0].toUpperCase()
+                                          : 'U',
                                       style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                         color: AppTheme.primaryGreen,
@@ -629,21 +725,9 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                                 Expanded(
                                   child: Text(
                                     name,
-                                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: isOwner ? AppTheme.primarySoft : AppTheme.checkedGray,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    isOwner ? 'Inhaber' : 'Mitglied',
-                                    style: TextStyle(
-                                      fontSize: 11,
+                                    style: const TextStyle(
+                                      fontSize: 15,
                                       fontWeight: FontWeight.w600,
-                                      color: isOwner ? AppTheme.primaryGreen : AppTheme.textMuted,
                                     ),
                                   ),
                                 ),
@@ -681,7 +765,9 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                                   if (authProvider.profile?.avatarUrl != null)
                                     CircleAvatar(
                                       radius: 26,
-                                      backgroundImage: NetworkImage(authProvider.profile!.avatarUrl!),
+                                      backgroundImage: NetworkImage(
+                                        authProvider.profile!.avatarUrl!,
+                                      ),
                                       backgroundColor: AppTheme.primaryGreen,
                                     )
                                   else
@@ -706,9 +792,15 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                                           ? const SizedBox(
                                               width: 12,
                                               height: 12,
-                                              child: CircularProgressIndicator(strokeWidth: 2),
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                              ),
                                             )
-                                          : const Icon(Icons.camera_alt, size: 12, color: AppTheme.primaryGreen),
+                                          : const Icon(
+                                              Icons.camera_alt,
+                                              size: 12,
+                                              color: AppTheme.primaryGreen,
+                                            ),
                                     ),
                                   ),
                                 ],
@@ -720,13 +812,20 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    authProvider.profile?.displayName ?? 'Dino-Nutzer',
-                                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                                    authProvider.profile?.displayName ??
+                                        'Dino-Nutzer',
+                                    style: const TextStyle(
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
                                   const SizedBox(height: 2),
                                   const Text(
                                     'Dino_food Account',
-                                    style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: AppTheme.textMuted,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -739,10 +838,18 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                           child: OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AppTheme.textDark,
-                              side: BorderSide(color: AppTheme.textMuted.withValues(alpha: 0.3)),
+                              side: BorderSide(
+                                color: AppTheme.textMuted.withValues(
+                                  alpha: 0.3,
+                                ),
+                              ),
                             ),
                             onPressed: () {
-                              _showEditDisplayNameDialog(context, authProvider, householdProvider);
+                              _showEditDisplayNameDialog(
+                                context,
+                                authProvider,
+                                householdProvider,
+                              );
                             },
                             icon: const Icon(Icons.badge_outlined, size: 18),
                             label: const Text('Anzeigename ändern'),
@@ -754,10 +861,17 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                           child: OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AppTheme.textDark,
-                              side: BorderSide(color: AppTheme.textMuted.withValues(alpha: 0.3)),
+                              side: BorderSide(
+                                color: AppTheme.textMuted.withValues(
+                                  alpha: 0.3,
+                                ),
+                              ),
                             ),
                             onPressed: _pickAndUploadUserImage,
-                            icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                            icon: const Icon(
+                              Icons.photo_camera_outlined,
+                              size: 18,
+                            ),
                             label: const Text('Profilbild ändern'),
                           ),
                         ),
@@ -767,7 +881,11 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                           child: OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AppTheme.textDark,
-                              side: BorderSide(color: AppTheme.textMuted.withValues(alpha: 0.3)),
+                              side: BorderSide(
+                                color: AppTheme.textMuted.withValues(
+                                  alpha: 0.3,
+                                ),
+                              ),
                             ),
                             onPressed: () {
                               _showChangePasswordDialog(context, authProvider);
@@ -782,7 +900,11 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                           child: OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AppTheme.textDark,
-                              side: BorderSide(color: AppTheme.textMuted.withValues(alpha: 0.3)),
+                              side: BorderSide(
+                                color: AppTheme.textMuted.withValues(
+                                  alpha: 0.3,
+                                ),
+                              ),
                             ),
                             onPressed: () {
                               shoppingProvider.bindToHousehold(null);
@@ -796,11 +918,22 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                         const SizedBox(height: 14),
                         TextButton(
                           onPressed: () {
-                            _handleDeleteAccount(context, authProvider, householdProvider, shoppingProvider);
+                            _handleDeleteAccount(
+                              context,
+                              authProvider,
+                              householdProvider,
+                              shoppingProvider,
+                              foodProvider,
+                              stockProvider,
+                              dishProvider,
+                            );
                           },
                           child: const Text(
                             'Account unwiderruflich löschen',
-                            style: TextStyle(color: AppTheme.errorRed, fontSize: 12),
+                            style: TextStyle(
+                              color: AppTheme.errorRed,
+                              fontSize: 12,
+                            ),
                           ),
                         ),
                       ],
@@ -851,8 +984,13 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: const Text('Haushalt bearbeiten', style: TextStyle(fontWeight: FontWeight.w700)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: const Text(
+              'Haushalt bearbeiten',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -867,15 +1005,22 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                 const SizedBox(height: 20),
                 const Text(
                   'Farbe wählen',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textDark),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textDark,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 Wrap(
                   spacing: 10,
                   runSpacing: 10,
                   children: householdColors.map((hexColor) {
-                    final isSelected = selectedColor.toUpperCase() == hexColor.toUpperCase();
-                    final color = Color(int.parse(hexColor.replaceFirst('#', '0xFF')));
+                    final isSelected =
+                        selectedColor.toUpperCase() == hexColor.toUpperCase();
+                    final color = Color(
+                      int.parse(hexColor.replaceFirst('#', '0xFF')),
+                    );
                     return GestureDetector(
                       onTap: () {
                         setDialogState(() {
@@ -899,7 +1044,11 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                           ],
                         ),
                         child: isSelected
-                            ? const Icon(Icons.check, color: Colors.white, size: 20)
+                            ? const Icon(
+                                Icons.check,
+                                color: Colors.white,
+                                size: 20,
+                              )
                             : null,
                       ),
                     );
@@ -910,20 +1059,26 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Abbrechen', style: TextStyle(color: AppTheme.textMuted)),
+                child: const Text(
+                  'Abbrechen',
+                  style: TextStyle(color: AppTheme.textMuted),
+                ),
               ),
               ElevatedButton(
                 onPressed: () async {
                   if (controller.text.trim().isNotEmpty) {
-                    final success = await householdProvider.updateHouseholdDetails(
-                      controller.text.trim(),
-                      selectedColor,
-                    );
+                    final success = await householdProvider
+                        .updateHouseholdDetails(
+                          controller.text.trim(),
+                          selectedColor,
+                        );
                     if (ctx.mounted) Navigator.pop(ctx);
                     if (context.mounted && !success) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Fehler beim Aktualisieren des Haushalts.'),
+                          content: Text(
+                            'Fehler beim Aktualisieren des Haushalts.',
+                          ),
                           backgroundColor: AppTheme.errorRed,
                         ),
                       );
@@ -990,7 +1145,10 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Abbrechen', style: TextStyle(color: AppTheme.textMuted)),
+            child: const Text(
+              'Abbrechen',
+              style: TextStyle(color: AppTheme.textMuted),
+            ),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -1011,7 +1169,10 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                 } else if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(authProvider.errorMessage ?? 'Fehler beim Ändern des Namens.'),
+                      content: Text(
+                        authProvider.errorMessage ??
+                            'Fehler beim Ändern des Namens.',
+                      ),
                       backgroundColor: AppTheme.errorRed,
                     ),
                   );
@@ -1025,7 +1186,10 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
     );
   }
 
-  void _showChangePasswordDialog(BuildContext context, AuthProvider authProvider) {
+  void _showChangePasswordDialog(
+    BuildContext context,
+    AuthProvider authProvider,
+  ) {
     final passwordController = TextEditingController();
     final confirmController = TextEditingController();
     final formKey = GlobalKey<FormState>();
@@ -1063,7 +1227,10 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                 decoration: const InputDecoration(
                   labelText: 'Neues Passwort',
                   hintText: 'Mindestens 6 Zeichen',
-                  prefixIcon: Icon(Icons.lock_outline, color: AppTheme.textMuted),
+                  prefixIcon: Icon(
+                    Icons.lock_outline,
+                    color: AppTheme.textMuted,
+                  ),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -1081,7 +1248,10 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                 obscureText: true,
                 decoration: const InputDecoration(
                   labelText: 'Neues Passwort wiederholen',
-                  prefixIcon: Icon(Icons.lock_outline, color: AppTheme.textMuted),
+                  prefixIcon: Icon(
+                    Icons.lock_outline,
+                    color: AppTheme.textMuted,
+                  ),
                 ),
                 validator: (value) {
                   if (value != passwordController.text) {
@@ -1096,7 +1266,10 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Abbrechen', style: TextStyle(color: AppTheme.textMuted)),
+            child: const Text(
+              'Abbrechen',
+              style: TextStyle(color: AppTheme.textMuted),
+            ),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -1115,7 +1288,10 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text(authProvider.errorMessage ?? 'Passwort konnte nicht geändert werden.'),
+                        content: Text(
+                          authProvider.errorMessage ??
+                              'Passwort konnte nicht geändert werden.',
+                        ),
                         backgroundColor: AppTheme.errorRed,
                       ),
                     );
@@ -1135,38 +1311,10 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
     AuthProvider authProvider,
     HouseholdProvider householdProvider,
     ShoppingProvider shoppingProvider,
+    FoodProvider foodProvider,
+    StockProvider stockProvider,
+    DishProvider dishProvider,
   ) {
-    final currentUserId = authProvider.currentUser?.id;
-    final isOwner = householdProvider.members.any((m) => m.userId == currentUserId && m.role == 'owner');
-    final hasOtherMembers = householdProvider.members.where((m) => m.userId != currentUserId).isNotEmpty;
-
-    if (isOwner && hasOtherMembers) {
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Row(
-            children: [
-              Icon(Icons.info_outline, color: AppTheme.accentYellow, size: 24),
-              SizedBox(width: 10),
-              Text('Inhaberschaft übertragen', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-            ],
-          ),
-          content: const Text(
-            'Du bist Inhaber dieses Haushalts.\nÜbertrage zuerst die Inhaberschaft auf ein anderes Mitglied.',
-            style: TextStyle(fontSize: 14, height: 1.4),
-          ),
-          actions: [
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Verstanden'),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
-
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1175,27 +1323,51 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
           children: [
             Icon(Icons.warning_amber_rounded, color: AppTheme.errorRed),
             SizedBox(width: 10),
-            Text('Account löschen', style: TextStyle(color: AppTheme.errorRed, fontSize: 18, fontWeight: FontWeight.w700)),
+            Text(
+              'Account löschen',
+              style: TextStyle(
+                color: AppTheme.errorRed,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ],
         ),
-        content: const Text('Möchtest du deinen Dino_food-Account wirklich unwiderruflich löschen?'),
+        content: const Text(
+          'Möchtest du deinen Dino_food-Account wirklich unwiderruflich '
+          'löschen? Deine Mitgliedschaften werden entfernt. Haushalte mit '
+          'weiteren Mitgliedern und deren Daten bleiben bestehen; nur danach '
+          'leere Haushalte werden gelöscht.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Abbrechen', style: TextStyle(color: AppTheme.textMuted)),
+            child: const Text(
+              'Abbrechen',
+              style: TextStyle(color: AppTheme.textMuted),
+            ),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorRed, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.errorRed,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () async {
               Navigator.pop(ctx);
               final success = await authProvider.deleteAccount();
               if (success) {
                 householdProvider.reset();
                 shoppingProvider.bindToHousehold(null);
+                foodProvider.bindToHousehold(null);
+                stockProvider.bindToHousehold(null);
+                dishProvider.reset();
               } else if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(authProvider.errorMessage ?? 'Account konnte nicht gelöscht werden.'),
+                    content: Text(
+                      authProvider.errorMessage ??
+                          'Account konnte nicht gelöscht werden.',
+                    ),
                     backgroundColor: AppTheme.errorRed,
                   ),
                 );

@@ -467,13 +467,8 @@ class FoodService {
         return (data as List).map((f) => Food.fromJson(f)).toList();
       }
 
-      // Fallback query if no householdId specified
-      final data = await _client
-          .from('foods')
-          .select()
-          .order('name', ascending: true);
-
-      return (data as List).map((f) => Food.fromJson(f)).toList();
+      // A configured app must never issue an unscoped catalogue query.
+      return [];
     } catch (e) {
       debugPrint('Error fetching foods: $e');
       return [];
@@ -539,29 +534,34 @@ class FoodService {
       }
     }
 
-    // Standard insert without household_id
-    try {
-      final data = await _client
-          .from('foods')
-          .insert({
-            'name': name,
-            'note': note,
-            'icon_key': resolvedIconKey,
-            'default_unit': defaultUnit,
-          })
-          .select()
-          .single();
+    throw ArgumentError.value(
+      householdId,
+      'householdId',
+      'Ein Lebensmittel muss einem Haushalt zugeordnet sein.',
+    );
+  }
 
-      return Food.fromJson(data);
-    } catch (innerError) {
-      debugPrint('Food insert error: $innerError');
-      final raw = innerError.toString().replaceFirst('Exception: ', '');
-      if (raw.contains('duplicate') ||
-          raw.contains('23505') ||
-          raw.contains('already exists')) {
-        throw Exception('Dieses Lebensmittel gibt es bereits.');
-      }
-      throw Exception('Fehler beim Speichern: $raw');
+  Future<bool> foodBelongsToHousehold(String foodId, String householdId) async {
+    if (foodId.isEmpty || householdId.isEmpty) return false;
+    if (!SupabaseConfig.isConfigured) {
+      return (_householdMockFoods[householdId] ?? const <Food>[]).any(
+            (food) => food.id == foodId && food.householdId == householdId,
+          ) ||
+          defaultFoods.any((food) => food.id == foodId);
+    }
+
+    final row = await _client
+        .from('foods')
+        .select('id')
+        .eq('id', foodId)
+        .eq('household_id', householdId)
+        .maybeSingle();
+    return row != null;
+  }
+
+  Future<void> requireFoodInHousehold(String foodId, String householdId) async {
+    if (!await foodBelongsToHousehold(foodId, householdId)) {
+      throw StateError('Das Lebensmittel gehört nicht zum aktiven Haushalt.');
     }
   }
 
@@ -572,11 +572,33 @@ class FoodService {
     String? iconKey,
     String? householdId,
   }) async {
+    if (SupabaseConfig.isConfigured &&
+        (householdId == null || householdId.isEmpty)) {
+      throw ArgumentError('householdId is required');
+    }
     final resolvedIconKey = iconKey == null
         ? null
         : FoodIconCatalog.normalizeKey(iconKey);
     if (!SupabaseConfig.isConfigured) {
-      if (householdId != null && _householdMockFoods.containsKey(householdId)) {
+      if (householdId == null || householdId.isEmpty) {
+        final index = defaultFoods.indexWhere((food) => food.id == id);
+        final previous = index == -1 ? null : defaultFoods[index];
+        final updated = Food(
+          id: id,
+          name: name,
+          note: note,
+          iconKey: resolvedIconKey ?? previous?.iconKey,
+          defaultUnit: previous?.defaultUnit ?? '',
+          createdAt: previous?.createdAt ?? DateTime.now(),
+        );
+        if (index == -1) {
+          defaultFoods.insert(0, updated);
+        } else {
+          defaultFoods[index] = updated;
+        }
+        return updated;
+      }
+      if (_householdMockFoods.containsKey(householdId)) {
         final list = _householdMockFoods[householdId]!;
         final index = list.indexWhere((f) => f.id == id);
         final previous = index == -1 ? null : list[index];
@@ -596,22 +618,7 @@ class FoodService {
         }
         return updated;
       }
-      final index = defaultFoods.indexWhere((f) => f.id == id);
-      final previous = index == -1 ? null : defaultFoods[index];
-      final updated = Food(
-        id: id,
-        name: name,
-        note: note,
-        iconKey: resolvedIconKey ?? previous?.iconKey,
-        defaultUnit: '',
-        createdAt: index != -1 ? defaultFoods[index].createdAt : DateTime.now(),
-      );
-      if (index != -1) {
-        defaultFoods[index] = updated;
-      } else {
-        defaultFoods.insert(0, updated);
-      }
-      return updated;
+      throw StateError('Das Lebensmittel gehört nicht zum aktiven Haushalt.');
     }
 
     final values = <String, dynamic>{'name': name, 'note': note};
@@ -620,13 +627,14 @@ class FoodService {
         .from('foods')
         .update(values)
         .eq('id', id)
+        .eq('household_id', householdId!)
         .select()
         .single();
 
     return Food.fromJson(data);
   }
 
-  Future<bool> isFoodInUse(String foodId) async {
+  Future<bool> isFoodInUse(String foodId, String householdId) async {
     if (!SupabaseConfig.isConfigured) {
       return false;
     }
@@ -637,14 +645,16 @@ class FoodService {
           .from('shopping_items')
           .select('id')
           .eq('food_id', foodId)
+          .eq('household_id', householdId)
           .limit(1);
       if ((shoppingData as List).isNotEmpty) return true;
 
       // 2. Check dish_items
       final dishData = await _client
           .from('dish_items')
-          .select('id')
+          .select('id, dishes!inner(household_id)')
           .eq('food_id', foodId)
+          .eq('dishes.household_id', householdId)
           .limit(1);
       if ((dishData as List).isNotEmpty) return true;
 
@@ -653,6 +663,7 @@ class FoodService {
           .from('household_stock')
           .select('food_id')
           .eq('food_id', foodId)
+          .eq('household_id', householdId)
           .limit(1);
       if ((stockData as List).isNotEmpty) return true;
 
@@ -668,11 +679,18 @@ class FoodService {
     String? foodName,
     String? householdId,
   }) async {
+    if (SupabaseConfig.isConfigured &&
+        (householdId == null || householdId.isEmpty)) {
+      throw ArgumentError('householdId is required');
+    }
     if (!SupabaseConfig.isConfigured) {
-      if (householdId != null && _householdMockFoods.containsKey(householdId)) {
+      if (householdId == null || householdId.isEmpty) {
+        defaultFoods.removeWhere((food) => food.id == foodId);
+        return;
+      }
+      if (_householdMockFoods.containsKey(householdId)) {
         _householdMockFoods[householdId]!.removeWhere((f) => f.id == foodId);
       }
-      defaultFoods.removeWhere((f) => f.id == foodId);
       return;
     }
 
@@ -684,6 +702,7 @@ class FoodService {
               .from('shopping_items')
               .update({'custom_name': foodName.trim()})
               .eq('food_id', foodId)
+              .eq('household_id', householdId!)
               .or('custom_name.is.null,custom_name.eq.');
         } catch (_) {}
       }
@@ -693,25 +712,50 @@ class FoodService {
         await _client
             .from('shopping_items')
             .update({'food_id': null})
-            .eq('food_id', foodId);
+            .eq('food_id', foodId)
+            .eq('household_id', householdId!);
       } catch (_) {}
 
       // 2. Delete dish_items for this food (keeps the rest of the dish intact)
       try {
-        await _client.from('dish_items').delete().eq('food_id', foodId);
+        final householdDishes = await _client
+            .from('dishes')
+            .select('id')
+            .eq('household_id', householdId!);
+        for (final row in householdDishes as List) {
+          final dishId = row['id'] as String?;
+          if (dishId == null) continue;
+          await _client
+              .from('dish_items')
+              .delete()
+              .eq('dish_id', dishId)
+              .eq('food_id', foodId);
+        }
       } catch (_) {}
 
       // 3. Delete household_stock entries for this food
       try {
-        await _client.from('household_stock').delete().eq('food_id', foodId);
+        await _client
+            .from('household_stock')
+            .delete()
+            .eq('food_id', foodId)
+            .eq('household_id', householdId!);
       } catch (_) {}
 
       // 4. Delete the food record completely from foods table
-      await _client.from('foods').delete().eq('id', foodId);
+      await _client
+          .from('foods')
+          .delete()
+          .eq('id', foodId)
+          .eq('household_id', householdId!);
     } catch (e) {
       debugPrint('Error deleting food: $e');
       // Direct fallback
-      await _client.from('foods').delete().eq('id', foodId);
+      await _client
+          .from('foods')
+          .delete()
+          .eq('id', foodId)
+          .eq('household_id', householdId!);
     }
   }
 }

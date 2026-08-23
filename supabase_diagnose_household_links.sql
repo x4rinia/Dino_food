@@ -82,3 +82,24 @@ SELECT
 FROM public.shopping_items si
 LEFT JOIN public.foods f ON si.food_id = f.id
 WHERE si.food_id IS NOT NULL AND (f.id IS NULL OR f.household_id IS NULL OR f.household_id != si.household_id);
+
+-- 7. Gerichte ohne Haushalt (werden von der App nicht angezeigt)
+SELECT d.id, d.name, d.created_by, d.created_at
+FROM public.dishes d
+WHERE d.household_id IS NULL;
+
+-- 8. Favoriten, deren Benutzer kein Mitglied des Gericht-Haushalts ist
+SELECT df.user_id, df.dish_id, d.household_id, d.name AS dish_name
+FROM public.dish_favorites df
+JOIN public.dishes d ON d.id = df.dish_id
+LEFT JOIN public.household_members hm
+  ON hm.household_id = d.household_id AND hm.user_id = df.user_id
+WHERE hm.user_id IS NULL;
+
+-- 9. Haushalte ohne irgendeine Mitgliedschaft
+SELECT h.id AS household_id, h.name, h.created_by
+FROM public.households h
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.household_members hm
+  WHERE hm.household_id = h.id
+);

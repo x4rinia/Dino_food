@@ -153,6 +153,7 @@ class DishProvider extends ChangeNotifier {
     if (_currentHouseholdId != householdId) {
       _selectedHungerFood = null;
       _currentHouseholdId = householdId;
+      _dishes = [];
     }
 
     _isLoading = true;
@@ -161,14 +162,18 @@ class DishProvider extends ChangeNotifier {
 
     try {
       final list = await _dishService.fetchDishes(householdId);
+      if (_currentHouseholdId != householdId) return;
       _dishes = list;
     } catch (e) {
+      if (_currentHouseholdId != householdId) return;
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
       debugPrint('Error loading dishes: $e');
       _dishes = [];
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      if (_currentHouseholdId == householdId) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -177,6 +182,11 @@ class DishProvider extends ChangeNotifier {
     required String name,
     required List<Map<String, dynamic>> items,
   }) async {
+    if (_currentHouseholdId != householdId) {
+      _currentHouseholdId = householdId;
+      _selectedHungerFood = null;
+      _dishes = [];
+    }
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -187,6 +197,7 @@ class DishProvider extends ChangeNotifier {
         name: name,
         items: items,
       );
+      if (_currentHouseholdId != householdId) return true;
       _dishes.add(dish);
       _isLoading = false;
       notifyListeners();
@@ -204,6 +215,8 @@ class DishProvider extends ChangeNotifier {
     required String name,
     required List<Map<String, dynamic>> items,
   }) async {
+    final householdId = _currentHouseholdId;
+    if (householdId == null) return false;
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -213,8 +226,9 @@ class DishProvider extends ChangeNotifier {
         dishId: dishId,
         name: name,
         items: items,
-        householdId: _currentHouseholdId,
+        householdId: householdId,
       );
+      if (_currentHouseholdId != householdId) return true;
 
       final index = _dishes.indexWhere((d) => d.id == dishId);
       if (index != -1) {
@@ -234,14 +248,18 @@ class DishProvider extends ChangeNotifier {
   }
 
   Future<void> deleteDish(String dishId) async {
+    final householdId = _currentHouseholdId;
+    if (householdId == null) return;
     _dishes.removeWhere((d) => d.id == dishId);
     notifyListeners();
 
-    await _dishService.deleteDish(dishId, householdId: _currentHouseholdId);
+    await _dishService.deleteDish(dishId, householdId: householdId);
   }
 
   /// Toggles favorite status. Returns false if limit of 5 favorites is reached.
   Future<bool> toggleFavorite(String dishId) async {
+    final householdId = _currentHouseholdId;
+    if (householdId == null) return false;
     final index = _dishes.indexWhere((d) => d.id == dishId);
     if (index == -1) return false;
 
@@ -259,7 +277,7 @@ class DishProvider extends ChangeNotifier {
     await _dishService.toggleFavorite(
       dishId,
       willBeFav,
-      householdId: _currentHouseholdId,
+      householdId: householdId,
     );
     return true;
   }
@@ -268,6 +286,7 @@ class DishProvider extends ChangeNotifier {
     required String householdId,
     required List<DishItem> items,
   }) async {
+    if (_currentHouseholdId != householdId) return 0;
     try {
       return await _dishService.addItemsToShoppingList(
         householdId: householdId,
@@ -277,5 +296,14 @@ class DishProvider extends ChangeNotifier {
       debugPrint('Error transferring dish items to shopping list: $e');
       return 0;
     }
+  }
+
+  void reset() {
+    _dishes = [];
+    _currentHouseholdId = null;
+    _selectedHungerFood = null;
+    _isLoading = false;
+    _errorMessage = null;
+    notifyListeners();
   }
 }

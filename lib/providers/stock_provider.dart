@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../config/supabase_config.dart';
 import '../services/stock_service.dart';
+import '../services/food_service.dart';
 
 class StockProvider extends ChangeNotifier {
   final StockService _stockService = StockService();
@@ -16,6 +17,7 @@ class StockProvider extends ChangeNotifier {
   bool _isLoading = false;
 
   Set<String> get inStockFoodIds => _inStockFoodIds;
+  String? get currentHouseholdId => _currentHouseholdId;
   bool get isLoading => _isLoading;
 
   bool isInStock(String foodId) => _inStockFoodIds.contains(foodId);
@@ -56,6 +58,7 @@ class StockProvider extends ChangeNotifier {
 
     // Initial fetch
     _stockService.fetchStock(householdId).then((set) {
+      if (_currentHouseholdId != householdId) return;
       _inStockFoodIds = set;
       _isLoading = false;
       notifyListeners();
@@ -63,6 +66,7 @@ class StockProvider extends ChangeNotifier {
 
     // Realtime stream
     _subscription = _stockService.streamStock(householdId).listen((set) {
+      if (_currentHouseholdId != householdId) return;
       _inStockFoodIds = set;
       _isLoading = false;
       notifyListeners();
@@ -76,6 +80,12 @@ class StockProvider extends ChangeNotifier {
       return true;
     }
 
+    final householdId = _currentHouseholdId!;
+    if (!await FoodService().foodBelongsToHousehold(foodId, householdId)) {
+      return false;
+    }
+    if (_currentHouseholdId != householdId) return false;
+
     _inStockFoodIds.add(foodId);
     if (!SupabaseConfig.isConfigured) {
       _householdMockStock[_currentHouseholdId!] = _inStockFoodIds;
@@ -85,13 +95,14 @@ class StockProvider extends ChangeNotifier {
     if (SupabaseConfig.isConfigured) {
       try {
         await _stockService.setInStock(
-          householdId: _currentHouseholdId!,
+          householdId: householdId,
           foodId: foodId,
           inStock: true,
         );
         return true;
       } catch (e) {
         debugPrint('Error adding food $foodId to stock: $e');
+        if (_currentHouseholdId != householdId) return false;
         _inStockFoodIds.remove(foodId);
         notifyListeners();
         return false;
@@ -104,7 +115,13 @@ class StockProvider extends ChangeNotifier {
   Future<void> toggleStock(String foodId) async {
     if (_currentHouseholdId == null || foodId.isEmpty) return;
 
+    final householdId = _currentHouseholdId!;
     final willBeInStock = !_inStockFoodIds.contains(foodId);
+    if (willBeInStock &&
+        !await FoodService().foodBelongsToHousehold(foodId, householdId)) {
+      return;
+    }
+    if (_currentHouseholdId != householdId) return;
 
     // Optimistic update
     if (willBeInStock) {
@@ -119,7 +136,7 @@ class StockProvider extends ChangeNotifier {
 
     if (SupabaseConfig.isConfigured) {
       await _stockService.setInStock(
-        householdId: _currentHouseholdId!,
+        householdId: householdId,
         foodId: foodId,
         inStock: willBeInStock,
       );

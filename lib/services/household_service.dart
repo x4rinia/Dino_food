@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../config/supabase_config.dart';
 import '../models/household.dart';
 import '../models/household_member.dart';
@@ -7,50 +8,35 @@ import '../models/profile.dart';
 import 'dish_service.dart';
 import 'food_service.dart';
 
-class UserHouseholdsResult {
-  final List<Household> households;
-  final Map<String, String> roles; // householdId -> role ('owner' or 'member')
-
-  UserHouseholdsResult({required this.households, required this.roles});
-}
 class HouseholdService {
   SupabaseClient get _client => SupabaseConfig.client;
 
-  Future<UserHouseholdsResult> fetchUserHouseholdsWithRoles() async {
+  Future<List<Household>> fetchUserHouseholds() async {
     if (!SupabaseConfig.isConfigured || SupabaseConfig.currentUserId == null) {
-      return UserHouseholdsResult(households: [], roles: {});
+      return [];
     }
 
     final userId = SupabaseConfig.currentUserId!;
     try {
       final memberRows = await _client
           .from('household_members')
-          .select('household_id, role, households(*)')
+          .select('household_id, households(*)')
           .eq('user_id', userId);
 
       final List<Household> households = [];
-      final Map<String, String> roles = {};
 
       for (final row in memberRows) {
-        final householdId = row['household_id'] as String?;
-        final role = row['role'] as String? ?? 'member';
-        if (householdId != null) {
-          roles[householdId] = role;
-        }
         if (row['households'] != null) {
-          households.add(Household.fromJson(row['households'] as Map<String, dynamic>));
+          households.add(
+            Household.fromJson(row['households'] as Map<String, dynamic>),
+          );
         }
       }
-      return UserHouseholdsResult(households: households, roles: roles);
+      return households;
     } catch (e) {
-      debugPrint('Error fetching households with roles: $e');
+      debugPrint('Error fetching households: $e');
       rethrow;
     }
-  }
-
-  Future<List<Household>> fetchUserHouseholds() async {
-    final result = await fetchUserHouseholdsWithRoles();
-    return result.households;
   }
 
   Future<String?> fetchDefaultHouseholdId() async {
@@ -78,9 +64,10 @@ class HouseholdService {
     }
 
     try {
-      await _client.from('profiles').update({
-        'default_household_id': householdId,
-      }).eq('id', SupabaseConfig.currentUserId!);
+      await _client
+          .from('profiles')
+          .update({'default_household_id': householdId})
+          .eq('id', SupabaseConfig.currentUserId!);
     } catch (e) {
       debugPrint('Error updating default_household_id in profile: $e');
       rethrow;
@@ -109,16 +96,18 @@ class HouseholdService {
     }
 
     try {
-      final response = await _client.rpc('create_household_and_join', params: {
-        'name': name.trim(),
-        'color': color,
-      });
+      final response = await _client.rpc(
+        'create_household_and_join',
+        params: {'name': name.trim(), 'color': color},
+      );
 
       Household household;
       final userId = SupabaseConfig.currentUserId;
 
       if (response != null) {
-        household = Household.fromJson(Map<String, dynamic>.from(response as Map));
+        household = Household.fromJson(
+          Map<String, dynamic>.from(response as Map),
+        );
       } else {
         throw Exception('Haushalt konnte nicht erstellt werden.');
       }
@@ -129,48 +118,63 @@ class HouseholdService {
           household.id,
           replaceExistingDefaults: true,
         );
-        final dishes = await DishService().seedDefaultDishesForHousehold(household.id, foodMap, userId: userId);
+        final dishes = await DishService().seedDefaultDishesForHousehold(
+          household.id,
+          foodMap,
+          userId: userId,
+        );
 
         // Validation: verify all 10 standard dishes exist and have all expected ingredients
         if (dishes.length < 10) {
-          throw Exception('Nicht alle Standardgerichte konnten erstellt werden (${dishes.length} von 10).');
+          throw Exception(
+            'Nicht alle Standardgerichte konnten erstellt werden (${dishes.length} von 10).',
+          );
         }
 
         for (final dish in dishes) {
           final template = DishService.defaultDishesTemplate.firstWhere(
-            (t) => (t['name'] as String).toLowerCase() == dish.name.toLowerCase(),
+            (t) =>
+                (t['name'] as String).toLowerCase() == dish.name.toLowerCase(),
             orElse: () => {},
           );
           final expectedCount = (template['items'] as List?)?.length ?? 0;
           if (expectedCount > 0 && dish.items.length < expectedCount) {
-            throw Exception('Gericht "${dish.name}" ist unvollständig (${dish.items.length} von $expectedCount Zutaten).');
+            throw Exception(
+              'Gericht "${dish.name}" ist unvollständig (${dish.items.length} von $expectedCount Zutaten).',
+            );
           }
         }
       } catch (seedErr) {
-        debugPrint('Household initial seeding failed: $seedErr. Rolling back household ${household.id}...');
+        debugPrint(
+          'Household initial seeding failed: $seedErr. Rolling back household ${household.id}...',
+        );
         try {
           await deleteHousehold(household.id);
         } catch (rollbackErr) {
-          debugPrint('Error rolling back household ${household.id}: $rollbackErr');
+          debugPrint(
+            'Error rolling back household ${household.id}: $rollbackErr',
+          );
         }
-        throw Exception('Haushalt konnte nicht vollständig initialisiert werden ($seedErr). Bitte versuche es erneut.');
+        throw Exception(
+          'Haushalt konnte nicht vollständig initialisiert werden ($seedErr). Bitte versuche es erneut.',
+        );
       }
 
       return household;
     } catch (e) {
-      if (e.toString().contains('Haushalt konnte nicht vollständig initialisiert werden')) {
+      if (e.toString().contains(
+        'Haushalt konnte nicht vollständig initialisiert werden',
+      )) {
         rethrow;
       }
 
-      debugPrint('RPC create_household_and_join failed: $e. Falling back to direct insert.');
+      debugPrint(
+        'RPC create_household_and_join failed: $e. Falling back to direct insert.',
+      );
       final userId = SupabaseConfig.currentUserId!;
       final householdData = await _client
           .from('households')
-          .insert({
-            'name': name.trim(),
-            'color': color,
-            'created_by': userId,
-          })
+          .insert({'name': name.trim(), 'color': color, 'created_by': userId})
           .select()
           .single();
 
@@ -179,7 +183,7 @@ class HouseholdService {
       await _client.from('household_members').upsert({
         'household_id': household.id,
         'user_id': userId,
-        'role': 'owner',
+        'role': 'member',
       });
 
       // Seed standard food catalogue and dishes for this newly created household
@@ -188,30 +192,45 @@ class HouseholdService {
           household.id,
           replaceExistingDefaults: true,
         );
-        final dishes = await DishService().seedDefaultDishesForHousehold(household.id, foodMap, userId: userId);
+        final dishes = await DishService().seedDefaultDishesForHousehold(
+          household.id,
+          foodMap,
+          userId: userId,
+        );
 
         if (dishes.length < 10) {
-          throw Exception('Nicht alle Standardgerichte konnten erstellt werden (${dishes.length} von 10).');
+          throw Exception(
+            'Nicht alle Standardgerichte konnten erstellt werden (${dishes.length} von 10).',
+          );
         }
 
         for (final dish in dishes) {
           final template = DishService.defaultDishesTemplate.firstWhere(
-            (t) => (t['name'] as String).toLowerCase() == dish.name.toLowerCase(),
+            (t) =>
+                (t['name'] as String).toLowerCase() == dish.name.toLowerCase(),
             orElse: () => {},
           );
           final expectedCount = (template['items'] as List?)?.length ?? 0;
           if (expectedCount > 0 && dish.items.length < expectedCount) {
-            throw Exception('Gericht "${dish.name}" ist unvollständig (${dish.items.length} von $expectedCount Zutaten).');
+            throw Exception(
+              'Gericht "${dish.name}" ist unvollständig (${dish.items.length} von $expectedCount Zutaten).',
+            );
           }
         }
       } catch (seedErr) {
-        debugPrint('Household direct initial seeding failed: $seedErr. Rolling back household ${household.id}...');
+        debugPrint(
+          'Household direct initial seeding failed: $seedErr. Rolling back household ${household.id}...',
+        );
         try {
           await deleteHousehold(household.id);
         } catch (rollbackErr) {
-          debugPrint('Error rolling back household ${household.id}: $rollbackErr');
+          debugPrint(
+            'Error rolling back household ${household.id}: $rollbackErr',
+          );
         }
-        throw Exception('Haushalt konnte nicht vollständig initialisiert werden ($seedErr). Bitte versuche es erneut.');
+        throw Exception(
+          'Haushalt konnte nicht vollständig initialisiert werden ($seedErr). Bitte versuche es erneut.',
+        );
       }
 
       return household;
@@ -229,46 +248,30 @@ class HouseholdService {
     }
 
     try {
-      final response = await _client.rpc('join_household_by_code', params: {
-        'code': code,
-      });
+      final response = await _client.rpc(
+        'join_household_by_code',
+        params: {'code': code},
+      );
 
       if (response != null) {
         return Household.fromJson(Map<String, dynamic>.from(response as Map));
       }
       throw Exception('Ungültiger Einladungscode.');
     } catch (e) {
-      debugPrint('RPC join_household_by_code failed: $e. Falling back to query.');
-      final householdData = await _client
-          .from('households')
-          .select()
-          .ilike('invite_code', code)
-          .maybeSingle();
-
-      if (householdData == null) {
-        throw Exception('Kein Haushalt mit dem Code "$code" gefunden.');
-      }
-
-      final household = Household.fromJson(householdData);
-      final userId = SupabaseConfig.currentUserId!;
-
-      await _client.from('household_members').upsert({
-        'household_id': household.id,
-        'user_id': userId,
-        'role': 'member',
-      });
-
-      return household;
+      debugPrint('RPC join_household_by_code failed: $e');
+      throw Exception(
+        'Der Haushalt konnte nicht sicher per Einladungscode beigetreten werden.',
+      );
     }
   }
 
   Future<void> updateHousehold(Household household) async {
     if (!SupabaseConfig.isConfigured) return;
 
-    await _client.from('households').update({
-      'name': household.name,
-      'color': household.color,
-    }).eq('id', household.id);
+    await _client
+        .from('households')
+        .update({'name': household.name, 'color': household.color})
+        .eq('id', household.id);
   }
 
   /// Robust 2-step member and profile fetcher
@@ -279,14 +282,15 @@ class HouseholdService {
       // Step 1: fetch raw household_members
       final membersData = await _client
           .from('household_members')
-          .select('household_id, user_id, role, joined_at')
+          .select('household_id, user_id, joined_at')
           .eq('household_id', householdId)
           .order('joined_at', ascending: true);
 
       final List<dynamic> rawList = membersData as List;
       if (rawList.isEmpty) return [];
 
-      final List<Map<String, dynamic>> rawMembers = rawList.cast<Map<String, dynamic>>();
+      final List<Map<String, dynamic>> rawMembers = rawList
+          .cast<Map<String, dynamic>>();
 
       // Step 2: fetch profiles for these user_ids
       final userIds = rawMembers
@@ -319,8 +323,9 @@ class HouseholdService {
         return HouseholdMember(
           householdId: m['household_id'] as String,
           userId: uid,
-          role: m['role'] as String? ?? 'member',
-          joinedAt: m['joined_at'] != null ? DateTime.parse(m['joined_at'] as String) : DateTime.now(),
+          joinedAt: m['joined_at'] != null
+              ? DateTime.parse(m['joined_at'] as String)
+              : DateTime.now(),
           profile: profile,
         );
       }).toList();

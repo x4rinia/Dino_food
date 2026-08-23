@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/supabase_config.dart';
 import '../models/shopping_item.dart';
+import 'food_service.dart';
 
 class ShoppingService {
   SupabaseClient get _client => SupabaseConfig.client;
@@ -19,8 +20,17 @@ class ShoppingService {
           .eq('household_id', householdId)
           .order('checked', ascending: true)
           .order('created_at', ascending: false)
-          .map((dataList) {
-            return dataList.map((item) => ShoppingItem.fromJson(item)).toList();
+          .asyncMap((dataList) async {
+            final householdFoodIds = (await FoodService().fetchFoods(
+              householdId,
+            )).map((food) => food.id).toSet();
+            return dataList
+                .where((item) {
+                  final foodId = item['food_id'] as String?;
+                  return foodId == null || householdFoodIds.contains(foodId);
+                })
+                .map((item) => ShoppingItem.fromJson(item))
+                .toList();
           });
     } catch (e) {
       debugPrint('Error streaming shopping items: $e');
@@ -39,7 +49,15 @@ class ShoppingService {
           .order('checked', ascending: true)
           .order('created_at', ascending: false);
 
-      return (data as List).map((i) => ShoppingItem.fromJson(i)).toList();
+      return (data as List)
+          .where((raw) {
+            final item = raw as Map<String, dynamic>;
+            final foodId = item['food_id'] as String?;
+            final food = item['foods'] as Map<String, dynamic>?;
+            return foodId == null || food?['household_id'] == householdId;
+          })
+          .map((i) => ShoppingItem.fromJson(i))
+          .toList();
     } catch (e) {
       debugPrint('Error fetching shopping items: $e');
       try {
@@ -68,6 +86,10 @@ class ShoppingService {
   }) async {
     if (!SupabaseConfig.isConfigured) {
       throw Exception('Supabase ist nicht konfiguriert');
+    }
+
+    if (foodId != null && foodId.trim().isNotEmpty) {
+      await FoodService().requireFoodInHousehold(foodId.trim(), householdId);
     }
 
     final userId = SupabaseConfig.currentUserId;
@@ -106,6 +128,7 @@ class ShoppingService {
 
   Future<void> updateItem({
     required String itemId,
+    required String householdId,
     String? customName,
     String? note,
     int? quantity,
@@ -122,10 +145,18 @@ class ShoppingService {
     if (replaceQuantity) updates['quantity'] = quantity;
     if (checked != null) updates['checked'] = checked;
 
-    await _client.from('shopping_items').update(updates).eq('id', itemId);
+    await _client
+        .from('shopping_items')
+        .update(updates)
+        .eq('id', itemId)
+        .eq('household_id', householdId);
   }
 
-  Future<void> toggleChecked(String itemId, bool checked) async {
+  Future<void> toggleChecked(
+    String itemId,
+    bool checked, {
+    required String householdId,
+  }) async {
     if (!SupabaseConfig.isConfigured) return;
 
     await _client
@@ -134,13 +165,18 @@ class ShoppingService {
           'checked': checked,
           'updated_at': DateTime.now().toIso8601String(),
         })
-        .eq('id', itemId);
+        .eq('id', itemId)
+        .eq('household_id', householdId);
   }
 
-  Future<void> deleteItem(String itemId) async {
+  Future<void> deleteItem(String itemId, {required String householdId}) async {
     if (!SupabaseConfig.isConfigured) return;
 
-    await _client.from('shopping_items').delete().eq('id', itemId);
+    await _client
+        .from('shopping_items')
+        .delete()
+        .eq('id', itemId)
+        .eq('household_id', householdId);
   }
 
   Future<void> clearCheckedItems(String householdId) async {

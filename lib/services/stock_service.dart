@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../config/supabase_config.dart';
+import 'food_service.dart';
 
 class StockService {
   SupabaseClient get _client => SupabaseConfig.client;
@@ -15,11 +17,14 @@ class StockService {
           .from('household_stock')
           .stream(primaryKey: ['household_id', 'food_id'])
           .eq('household_id', householdId)
-          .map((dataList) {
+          .asyncMap((dataList) async {
+            final householdFoodIds = (await FoodService().fetchFoods(
+              householdId,
+            )).map((food) => food.id).toSet();
             final set = <String>{};
             for (final row in dataList) {
               final foodId = row['food_id'] as String?;
-              if (foodId != null && foodId.isNotEmpty) {
+              if (foodId != null && householdFoodIds.contains(foodId)) {
                 set.add(foodId);
               }
             }
@@ -37,8 +42,9 @@ class StockService {
     try {
       final data = await _client
           .from('household_stock')
-          .select('food_id')
-          .eq('household_id', householdId);
+          .select('food_id, foods!inner(household_id)')
+          .eq('household_id', householdId)
+          .eq('foods.household_id', householdId);
 
       final set = <String>{};
       for (final row in data as List) {
@@ -60,8 +66,12 @@ class StockService {
     required bool inStock,
   }) async {
     if (!SupabaseConfig.isConfigured || householdId.isEmpty || foodId.isEmpty) {
-      return;
+      if (householdId.isEmpty || foodId.isEmpty) return;
     }
+
+    await FoodService().requireFoodInHousehold(foodId, householdId);
+
+    if (!SupabaseConfig.isConfigured) return;
 
     try {
       if (inStock) {
@@ -77,7 +87,9 @@ class StockService {
             .eq('food_id', foodId);
       }
     } catch (e, stackTrace) {
-      debugPrint('Error updating household stock ($householdId, food: $foodId): $e\n$stackTrace');
+      debugPrint(
+        'Error updating household stock ($householdId, food: $foodId): $e\n$stackTrace',
+      );
       rethrow;
     }
   }

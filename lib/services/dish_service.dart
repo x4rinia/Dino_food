@@ -26,6 +26,41 @@ class DishService {
     return note == null || note.isEmpty ? name : '$name ($note)';
   }
 
+  Future<void> _validateFoodIds(
+    String householdId,
+    Iterable<String?> foodIds,
+  ) async {
+    for (final foodId in foodIds.whereType<String>().where(
+      (id) => id.isNotEmpty,
+    )) {
+      await FoodService().requireFoodInHousehold(foodId, householdId);
+    }
+  }
+
+  Future<void> _requireDishInHousehold(
+    String dishId,
+    String householdId,
+  ) async {
+    if (!SupabaseConfig.isConfigured) {
+      final exists = (_householdMockDishes[householdId] ?? const <Dish>[]).any(
+        (dish) => dish.id == dishId,
+      );
+      if (!exists) {
+        throw StateError('Das Gericht gehört nicht zum aktiven Haushalt.');
+      }
+      return;
+    }
+    final row = await _client
+        .from('dishes')
+        .select('id')
+        .eq('id', dishId)
+        .eq('household_id', householdId)
+        .maybeSingle();
+    if (row == null) {
+      throw StateError('Das Gericht gehört nicht zum aktiven Haushalt.');
+    }
+  }
+
   // 10 Standard Dino_food dishes template
   static final List<Map<String, dynamic>> defaultDishesTemplate = [
     {
@@ -382,9 +417,17 @@ class DishService {
       }
 
       final List<Dish> list = (dishesData as List).map((d) {
-        final dId = d['id'] as String;
+        final dishJson = Map<String, dynamic>.from(d as Map);
+        final rawItems = (dishJson['dish_items'] as List?) ?? const [];
+        dishJson['dish_items'] = rawItems.where((raw) {
+          final item = raw as Map<String, dynamic>;
+          final foodId = item['food_id'] as String?;
+          final food = item['foods'] as Map<String, dynamic>?;
+          return foodId == null || food?['household_id'] == householdId;
+        }).toList();
+        final dId = dishJson['id'] as String;
         final isFav = favoriteDishIds.contains(dId);
-        return Dish.fromJson(d, isFavorite: isFav);
+        return Dish.fromJson(dishJson, isFavorite: isFav);
       }).toList();
 
       return list;
@@ -438,6 +481,10 @@ class DishService {
     required String name,
     required List<Map<String, dynamic>> items,
   }) async {
+    await _validateFoodIds(
+      householdId,
+      items.map((item) => item['food_id'] as String?),
+    );
     if (!SupabaseConfig.isConfigured) {
       final dishId = 'dish_${DateTime.now().millisecondsSinceEpoch}';
       final dishItems = items.map((i) {
@@ -516,39 +563,39 @@ class DishService {
     required List<Map<String, dynamic>> items,
     String? householdId,
   }) async {
+    if (householdId == null || householdId.isEmpty) {
+      throw ArgumentError('householdId is required');
+    }
+    await _requireDishInHousehold(dishId, householdId);
+    await _validateFoodIds(
+      householdId,
+      items.map((item) => item['food_id'] as String?),
+    );
     if (!SupabaseConfig.isConfigured) {
-      if (householdId != null &&
-          _householdMockDishes.containsKey(householdId)) {
-        final list = _householdMockDishes[householdId]!;
-        final index = list.indexWhere((d) => d.id == dishId);
-        if (index != -1) {
-          final old = list[index];
-          final dishItems = items.map((i) {
-            final fId = i['food_id'] as String?;
-            return DishItem(
-              id: 'item_${DateTime.now().millisecondsSinceEpoch}_${i['food_id']}',
-              dishId: dishId,
-              foodId: fId,
-              customName:
-                  i['custom_name'] ?? (fId == null ? i['food_name'] : null),
-            );
-          }).toList();
+      final list = _householdMockDishes[householdId]!;
+      final index = list.indexWhere((d) => d.id == dishId);
+      final old = list[index];
+      final dishItems = items.map((i) {
+        final fId = i['food_id'] as String?;
+        return DishItem(
+          id: 'item_${DateTime.now().millisecondsSinceEpoch}_${i['food_id']}',
+          dishId: dishId,
+          foodId: fId,
+          customName: i['custom_name'] ?? (fId == null ? i['food_name'] : null),
+        );
+      }).toList();
 
-          final updated = old.copyWith(name: name.trim(), items: dishItems);
-          list[index] = updated;
-          return updated;
-        }
-      }
-      return Dish(
-        id: dishId,
-        householdId: householdId ?? '',
-        name: name,
-        createdAt: DateTime.now(),
-      );
+      final updated = old.copyWith(name: name.trim(), items: dishItems);
+      list[index] = updated;
+      return updated;
     }
 
     // 1. Update dish name
-    await _client.from('dishes').update({'name': name.trim()}).eq('id', dishId);
+    await _client
+        .from('dishes')
+        .update({'name': name.trim()})
+        .eq('id', dishId)
+        .eq('household_id', householdId);
 
     // 2. Replace dish items: delete old items and insert updated ones
     await _client.from('dish_items').delete().eq('dish_id', dishId);
@@ -578,16 +625,21 @@ class DishService {
   }
 
   Future<void> deleteDish(String dishId, {String? householdId}) async {
+    if (householdId == null || householdId.isEmpty) {
+      throw ArgumentError('householdId is required');
+    }
+    await _requireDishInHousehold(dishId, householdId);
     if (!SupabaseConfig.isConfigured) {
-      if (householdId != null &&
-          _householdMockDishes.containsKey(householdId)) {
-        _householdMockDishes[householdId]!.removeWhere((d) => d.id == dishId);
-      }
+      _householdMockDishes[householdId]!.removeWhere((d) => d.id == dishId);
       return;
     }
 
     try {
-      await _client.from('dishes').delete().eq('id', dishId);
+      await _client
+          .from('dishes')
+          .delete()
+          .eq('id', dishId)
+          .eq('household_id', householdId);
     } catch (e) {
       debugPrint('Error deleting dish: $e');
     }
@@ -598,14 +650,15 @@ class DishService {
     bool isFavorite, {
     String? householdId,
   }) async {
+    if (householdId == null || householdId.isEmpty) {
+      throw ArgumentError('householdId is required');
+    }
+    await _requireDishInHousehold(dishId, householdId);
     if (!SupabaseConfig.isConfigured || SupabaseConfig.currentUserId == null) {
-      if (householdId != null &&
-          _householdMockDishes.containsKey(householdId)) {
-        final list = _householdMockDishes[householdId]!;
-        final idx = list.indexWhere((d) => d.id == dishId);
-        if (idx != -1) {
-          list[idx] = list[idx].copyWith(isFavorite: isFavorite);
-        }
+      final list = _householdMockDishes[householdId]!;
+      final idx = list.indexWhere((d) => d.id == dishId);
+      if (idx != -1) {
+        list[idx] = list[idx].copyWith(isFavorite: isFavorite);
       }
       return;
     }
@@ -634,9 +687,12 @@ class DishService {
     required String householdId,
     required List<DishItem> items,
   }) async {
-    if (!SupabaseConfig.isConfigured || householdId.isEmpty || items.isEmpty) {
+    if (householdId.isEmpty || items.isEmpty) {
       return 0;
     }
+
+    await _validateFoodIds(householdId, items.map((item) => item.foodId));
+    if (!SupabaseConfig.isConfigured) return items.length;
 
     final userId = SupabaseConfig.currentUserId;
 
