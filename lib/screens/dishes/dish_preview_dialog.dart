@@ -187,7 +187,7 @@ class DishPreviewDialog extends StatelessWidget {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      item.displayName,
+                                      item.displayLabel,
                                       style: const TextStyle(
                                         fontWeight: FontWeight.w600,
                                         fontSize: 14,
@@ -239,7 +239,7 @@ class DishPreviewDialog extends StatelessWidget {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      item.displayName,
+                                      item.displayLabel,
                                       style: TextStyle(
                                         color: Colors.grey.shade700,
                                         fontSize: 13,
@@ -299,7 +299,7 @@ class DishPreviewDialog extends StatelessWidget {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      item.displayName,
+                                      item.displayLabel,
                                       style: TextStyle(
                                         color: Colors.grey.shade700,
                                         fontSize: 13,

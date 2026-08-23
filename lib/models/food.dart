@@ -21,6 +21,14 @@ class Food {
          iconKey ?? FoodIconCatalog.defaultForFoodId(id),
        );
 
+  String get displayLabel {
+    final trimmedName = name.trim();
+    final trimmedNote = note?.trim();
+    return trimmedNote == null || trimmedNote.isEmpty
+        ? trimmedName
+        : '$trimmedName ($trimmedNote)';
+  }
+
   factory Food.fromJson(Map<String, dynamic> json) {
     return Food(
       id: json['id'] as String,

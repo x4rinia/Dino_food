@@ -726,8 +726,8 @@ class _DishesScreenState extends State<DishesScreen> {
                           ? const Color(0xFF166534)
                           : const Color(0xFFD97706),
                       nameText: match.isMainInStock
-                          ? '${mainItem.displayName} · vorhanden'
-                          : '${mainItem.displayName} · fehlt',
+                          ? '${mainItem.displayLabel} · vorhanden'
+                          : '${mainItem.displayLabel} · fehlt',
                       isBold: true,
                       textColor: match.isMainInStock
                           ? const Color(0xFF166534)
@@ -757,7 +757,7 @@ class _DishesScreenState extends State<DishesScreen> {
                       iconColor: isInStock
                           ? AppTheme.primaryGreen
                           : AppTheme.textMuted,
-                      nameText: item.displayName,
+                      nameText: item.displayLabel,
                       isBold: isInStock,
                       textColor: isInStock
                           ? AppTheme.textDark
@@ -1211,7 +1211,7 @@ class _DishesScreenState extends State<DishesScreen> {
                       iconColor: isInStock
                           ? AppTheme.primaryGreen
                           : AppTheme.textMuted,
-                      nameText: item.displayName,
+                      nameText: item.displayLabel,
                       isBold: isInStock,
                       textColor: isInStock
                           ? AppTheme.textDark

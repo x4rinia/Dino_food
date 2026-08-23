@@ -21,6 +21,8 @@ class DishItem {
     return 'Zutat';
   }
 
+  String get displayLabel => food?.displayLabel ?? displayName;
+
   factory DishItem.fromJson(Map<String, dynamic> json) {
     return DishItem(
       id: json['id'] as String,

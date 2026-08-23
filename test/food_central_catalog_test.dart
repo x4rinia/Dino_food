@@ -31,7 +31,7 @@ void main() {
       expect(food.iconKey, FoodIconCatalog.fallbackKey);
     });
 
-    test('Allows Reis note variants beside Reis and Basmatireis', () async {
+    test('Seeds normalized Reis variants without legacy rice names', () async {
       final foodProvider = FoodProvider();
       const householdId = 'rice-variant-household';
       await FoodService().seedDefaultFoodsForHousehold(householdId);
@@ -39,19 +39,11 @@ void main() {
       await foodProvider.loadFoods(force: true);
 
       expect(foodProvider.foodExists('Reis'), isTrue);
-      expect(foodProvider.foodExists('Basmatireis'), isTrue);
-      expect(foodProvider.foodExists('Jasminreis'), isTrue);
+      expect(foodProvider.foodExists('Reis', note: 'Basmati'), isTrue);
+      expect(foodProvider.foodExists('Reis', note: 'Jasmin'), isTrue);
+      expect(foodProvider.foodExists('Basmatireis'), isFalse);
+      expect(foodProvider.foodExists('Jasminreis'), isFalse);
 
-      final basmati = await foodProvider.addCustomFood(
-        name: 'Reis',
-        note: 'Basmati',
-      );
-      final jasmin = await foodProvider.addCustomFood(
-        name: 'Reis',
-        note: 'Jasmin',
-      );
-
-      expect(basmati.id, isNot(jasmin.id));
       expect(
         () => foodProvider.addCustomFood(name: 'reis', note: ' basmati '),
         throwsA(isA<Exception>()),

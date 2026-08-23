@@ -33,7 +33,7 @@ class _AddDishDialogState extends State<AddDishDialog> {
       for (final item in widget.dishToEdit!.items) {
         _selectedIngredients.add({
           'food_id': item.foodId,
-          'food_name': item.displayName,
+          'food_name': item.displayLabel,
         });
       }
     }
@@ -99,10 +99,7 @@ class _AddDishDialogState extends State<AddDishDialog> {
     setState(() {
       _selectedIngredients.add({
         'food_id': matchedFood!.id,
-        'food_name':
-            matchedFood.note == null || matchedFood.note!.trim().isEmpty
-            ? matchedFood.name
-            : '${matchedFood.name} — ${matchedFood.note}',
+        'food_name': matchedFood.displayLabel,
       });
       _tempSelectedFood = null;
       _autocompleteTextController?.clear();
@@ -250,9 +247,7 @@ class _AddDishDialogState extends State<AddDishDialog> {
                       });
                     },
                     displayStringForOption: (Food option) =>
-                        option.note == null || option.note!.trim().isEmpty
-                        ? option.name
-                        : '${option.name} — ${option.note}',
+                        option.displayLabel,
                     onSelected: (Food selection) {
                       setState(() {
                         _tempSelectedFood = selection;

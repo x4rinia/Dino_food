@@ -44,7 +44,7 @@ void main() {
         final bolognese = dishProvider.dishes.firstWhere(
           (d) => d.name == 'Spaghetti Bolognese',
         );
-        expect(bolognese.items.length, 6);
+        expect(bolognese.items.length, 7);
         for (final item in bolognese.items) {
           expect(item.foodId, isNotNull);
           expect(item.foodId, endsWith(hh.id));
@@ -198,7 +198,45 @@ void main() {
       await dishProvider.loadDishes(freshHh.id);
       expect(dishProvider.dishes.length, 10);
       expect(foodProvider.foods.length, greaterThanOrEqualTo(100));
-      expect(foodProvider.foods.every((food) => food.note == null), isTrue);
+
+      bool hasVariant(String name, String note) => foodProvider.foods.any(
+        (food) => food.name == name && food.note == note,
+      );
+      expect(hasVariant('Reis', 'Basmati'), isTrue);
+      expect(hasVariant('Reis', 'Jasmin'), isTrue);
+      expect(hasVariant('Tomaten', 'gehackt'), isTrue);
+      expect(hasVariant('Tomaten', 'groß'), isTrue);
+      expect(hasVariant('Nudeln', 'Spaghetti'), isTrue);
+      expect(hasVariant('Nudeln', 'Fusilli'), isTrue);
+      for (final food in foodProvider.foods.where(
+        (food) => const {'Reis', 'Nudeln'}.contains(food.name),
+      )) {
+        expect(food.iconKey, 'grains');
+      }
+      for (final food in foodProvider.foods.where(
+        (food) => food.name == 'Tomaten',
+      )) {
+        expect(food.iconKey, 'vegetables');
+      }
+      expect(
+        foodProvider.foods.any(
+          (food) => const {
+            'Basmatireis',
+            'Jasminreis',
+            'Spaghetti',
+            'Fusilli',
+          }.contains(food.name),
+        ),
+        isFalse,
+      );
+
+      final normalizedVariants = foodProvider.foods
+          .map(
+            (food) =>
+                '${food.name.trim().toLowerCase()}\u001f${(food.note ?? '').trim().toLowerCase()}',
+          )
+          .toList();
+      expect(normalizedVariants.toSet().length, normalizedVariants.length);
 
       // Verify all 10 standard dishes exist
       final expectedNames = [
@@ -221,6 +259,45 @@ void main() {
           reason: '$expected should exist',
         );
       }
+
+      final bolognese = dishProvider.dishes.firstWhere(
+        (dish) => dish.name == 'Spaghetti Bolognese',
+      );
+      expect(bolognese.items.length, 7);
+      expect(
+        bolognese.items.any(
+          (item) => item.food?.displayLabel == 'Nudeln (Spaghetti)',
+        ),
+        isTrue,
+      );
+      expect(
+        bolognese.items.any(
+          (item) => item.food?.displayLabel == 'Tomaten (gehackt)',
+        ),
+        isTrue,
+      );
+      expect(
+        bolognese.items.any((item) => item.displayName == 'Karotten'),
+        isTrue,
+      );
+
+      final expectedPreferredVariants = {
+        'Chili con Carne': 'Tomaten (gehackt)',
+        'Nudelauflauf': 'Nudeln (Penne)',
+        'Gemüse-Reis-Pfanne': 'Reis (Basmati)',
+        'Tomaten-Mozzarella-Pasta': 'Nudeln (Fusilli)',
+        'Hähnchen-Reis-Pfanne': 'Reis (Jasmin)',
+      };
+      for (final entry in expectedPreferredVariants.entries) {
+        final dish = dishProvider.dishes.firstWhere(
+          (dish) => dish.name == entry.key,
+        );
+        expect(
+          dish.items.any((item) => item.displayLabel == entry.value),
+          isTrue,
+          reason: '${entry.key} should use ${entry.value}',
+        );
+      }
     });
 
     test('Damaged standard dish with missing ingredients is detected and repaired with full items', () async {
@@ -230,11 +307,11 @@ void main() {
       await dishProvider.loadDishes(hh.id);
       expect(dishProvider.dishes.length, 10);
 
-      // Verify Spaghetti Bolognese has all 6 items
+      // Verify Spaghetti Bolognese has all 7 items
       final bolognese = dishProvider.dishes.firstWhere(
         (d) => d.name == 'Spaghetti Bolognese',
       );
-      expect(bolognese.items.length, 6);
+      expect(bolognese.items.length, 7);
     });
 
     test(

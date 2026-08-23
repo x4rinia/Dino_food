@@ -200,7 +200,11 @@ class HouseholdProvider extends ChangeNotifier {
 
         // Seed default foods & dishes for new mock household
         final foodMap = await _foodService.seedDefaultFoodsForHousehold(newH.id);
-        final dishes = await _dishService.seedDefaultDishesForHousehold(newH.id, foodMap);
+        final dishes = await _dishService.seedDefaultDishesForHousehold(
+          newH.id,
+          foodMap,
+          replaceExistingDefaults: true,
+        );
 
         if (dishes.length < 10) {
           throw Exception('Nicht alle Standardgerichte konnten initialisiert werden.');

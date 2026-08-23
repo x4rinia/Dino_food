@@ -21,7 +21,7 @@ void main() {
       stockProvider = StockProvider();
     });
 
-    test('Test 1 & 2 & 3: Dish with 5/6 ingredients is not cookable, adding 6th makes it cookable, removing reverts it', () async {
+    test('Test 1 & 2 & 3: Dish missing one ingredient is not cookable, adding it makes it cookable, removing it reverts', () async {
       await householdProvider.loadHouseholds();
       final hh = householdProvider.currentHousehold!;
 
@@ -34,7 +34,7 @@ void main() {
       final bolognese = dishProvider.dishes.firstWhere(
         (d) => d.name == 'Spaghetti Bolognese',
       );
-      expect(bolognese.items.length, 6);
+      expect(bolognese.items.length, 7);
 
       // Helper to compute cookability
       bool isCookable(Dish dish) {
@@ -54,9 +54,11 @@ void main() {
       // Initially stock is empty -> Not cookable
       expect(isCookable(bolognese), isFalse);
 
-      // Put first 5 ingredients into stock
-      final first5 = bolognese.items.take(5).toList();
-      for (final it in first5) {
+      // Put every ingredient except the last one into stock.
+      final allButLast = bolognese.items
+          .take(bolognese.items.length - 1)
+          .toList();
+      for (final it in allButLast) {
         final fId =
             it.foodId ??
             it.food?.id ??
@@ -64,10 +66,10 @@ void main() {
         await stockProvider.toggleStock(fId);
       }
 
-      // Test 1: 5 of 6 ingredients in stock -> NOT cookable
+      // Test 1: one ingredient is missing -> NOT cookable
       expect(isCookable(bolognese), isFalse);
 
-      // Test 2: Add the 6th ingredient to stock -> NOW cookable
+      // Test 2: Add the final ingredient to stock -> NOW cookable
       final lastItem = bolognese.items.last;
       final lastFId =
           lastItem.foodId ??

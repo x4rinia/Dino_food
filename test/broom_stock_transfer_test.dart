@@ -246,9 +246,11 @@ void main() {
           (d) => d.name == 'Spaghetti Bolognese',
         );
 
-        // Put first 5 ingredients into stock
-        final first5 = bolognese.items.take(5).toList();
-        for (final it in first5) {
+        // Put every ingredient except the last one into stock.
+        final allButLast = bolognese.items
+            .take(bolognese.items.length - 1)
+            .toList();
+        for (final it in allButLast) {
           final fId =
               it.foodId ??
               it.food?.id ??
@@ -272,10 +274,10 @@ void main() {
           });
         }
 
-        // 5 of 6 -> NOT cookable
+        // One ingredient is still missing -> NOT cookable
         expect(isCookable(bolognese), isFalse);
 
-        // Buy the 6th ingredient via Shopping List
+        // Buy the final ingredient via Shopping List
         final lastItem = bolognese.items.last;
         final lastFId =
             lastItem.foodId ??
@@ -296,7 +298,7 @@ void main() {
           foodProvider: foodProvider,
         );
 
-        // Now Bolognese is 6 of 6 -> KOCHBAR!
+        // Now every Bolognese ingredient is available -> KOCHBAR!
         expect(isCookable(bolognese), isTrue);
       },
     );

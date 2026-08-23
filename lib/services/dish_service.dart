@@ -10,17 +10,34 @@ import 'food_service.dart';
 class DishService {
   SupabaseClient get _client => SupabaseConfig.client;
 
+  static String? _resolveTemplateFoodId(
+    Map<String, String> foodLookup,
+    Map<String, dynamic> item,
+  ) {
+    final name = item['name'] as String;
+    final note = item['note'] as String?;
+    return foodLookup[FoodService.seedLookupKey(name, note: note)] ??
+        foodLookup[name.trim().toLowerCase()];
+  }
+
+  static String _templateItemLabel(Map<String, dynamic> item) {
+    final name = item['name'] as String;
+    final note = (item['note'] as String?)?.trim();
+    return note == null || note.isEmpty ? name : '$name ($note)';
+  }
+
   // 10 Standard Dino_food dishes template
   static final List<Map<String, dynamic>> defaultDishesTemplate = [
     {
       'name': 'Spaghetti Bolognese',
       'items': [
-        {'name': 'Spaghetti'},
+        {'name': 'Nudeln', 'note': 'Spaghetti'},
         {'name': 'Hackfleisch'},
-        {'name': 'Passierte Tomaten'},
+        {'name': 'Tomaten', 'note': 'gehackt'},
         {'name': 'Tomatenmark'},
         {'name': 'Zwiebeln'},
         {'name': 'Knoblauch'},
+        {'name': 'Karotten'},
       ],
     },
     {
@@ -29,7 +46,7 @@ class DishService {
         {'name': 'Hackfleisch'},
         {'name': 'Kidneybohnen'},
         {'name': 'Mais'},
-        {'name': 'Gehackte Tomaten'},
+        {'name': 'Tomaten', 'note': 'gehackt'},
         {'name': 'Zwiebeln'},
         {'name': 'Paprika'},
       ],
@@ -47,17 +64,17 @@ class DishService {
     {
       'name': 'Nudelauflauf',
       'items': [
-        {'name': 'Penne'},
+        {'name': 'Nudeln', 'note': 'Penne'},
         {'name': 'Kochschinken'},
         {'name': 'Sahne'},
         {'name': 'Reibekäse'},
-        {'name': 'Tomaten'},
+        {'name': 'Tomaten', 'note': 'groß'},
       ],
     },
     {
       'name': 'Gemüse-Reis-Pfanne',
       'items': [
-        {'name': 'Reis'},
+        {'name': 'Reis', 'note': 'Basmati'},
         {'name': 'Paprika'},
         {'name': 'Zucchini'},
         {'name': 'Karotten'},
@@ -79,7 +96,7 @@ class DishService {
       'items': [
         {'name': 'Wraps'},
         {'name': 'Hackfleisch'},
-        {'name': 'Tomaten'},
+        {'name': 'Tomaten', 'note': 'groß'},
         {'name': 'Gurke'},
         {'name': 'Eisbergsalat'},
         {'name': 'Reibekäse'},
@@ -88,8 +105,8 @@ class DishService {
     {
       'name': 'Tomaten-Mozzarella-Pasta',
       'items': [
-        {'name': 'Nudeln'},
-        {'name': 'Tomaten'},
+        {'name': 'Nudeln', 'note': 'Fusilli'},
+        {'name': 'Tomaten', 'note': 'Cherry'},
         {'name': 'Mozzarella'},
         {'name': 'Basilikum'},
         {'name': 'Knoblauch'},
@@ -110,7 +127,7 @@ class DishService {
       'name': 'Hähnchen-Reis-Pfanne',
       'items': [
         {'name': 'Hähnchenbrust'},
-        {'name': 'Reis'},
+        {'name': 'Reis', 'note': 'Jasmin'},
         {'name': 'Paprika'},
         {'name': 'Zucchini'},
         {'name': 'Zwiebeln'},
@@ -136,8 +153,7 @@ class DishService {
       var itemIndex = 1;
 
       final items = rawItems.map((raw) {
-        final itemName = raw['name'] as String;
-        final foodId = foodNameToIdMap[itemName.trim().toLowerCase()];
+        final foodId = _resolveTemplateFoodId(foodNameToIdMap, raw);
         final foodObj = foodId != null && foodsById != null
             ? foodsById[foodId]
             : null;
@@ -146,7 +162,7 @@ class DishService {
           id: 'ditem_${dishId}_$itemIndex',
           dishId: dishId,
           foodId: foodId,
-          customName: foodId == null ? itemName : null,
+          customName: foodId == null ? _templateItemLabel(raw) : null,
           food: foodObj,
         );
       }).toList();
@@ -175,7 +191,11 @@ class DishService {
     String householdId,
     Map<String, String> foodNameToIdMap, {
     String? userId,
+    bool replaceExistingDefaults = false,
   }) async {
+    final shouldReplaceExistingDefaults =
+        replaceExistingDefaults || userId != null;
+
     if (!SupabaseConfig.isConfigured || householdId.isEmpty) {
       final foods = await FoodService().fetchFoods(householdId);
       final foodsById = {for (final f in foods) f.id: f};
@@ -193,7 +213,12 @@ class DishService {
       final foods = await FoodService().fetchFoods(householdId);
       final resolvedFoodMap = <String, String>{};
       for (final f in foods) {
-        resolvedFoodMap[f.name.trim().toLowerCase()] = f.id;
+        FoodService.addToSeedLookup(
+          resolvedFoodMap,
+          id: f.id,
+          name: f.name,
+          note: f.note,
+        );
       }
       foodNameToIdMap.forEach((k, v) {
         resolvedFoodMap.putIfAbsent(k, () => v);
@@ -226,15 +251,20 @@ class DishService {
           final existing = existingDishesByName[normalizedName]!;
           final actualItemCount = existing['item_count'] as int;
 
-          // If the dish is complete with all expected items (or more), skip it!
-          if (actualItemCount >= expectedItemCount) {
+          // Existing households keep their dishes untouched. Replacement is
+          // explicitly enabled only while creating a brand-new household, so
+          // legacy RPC seeds cannot win over the current Flutter templates.
+          if (!shouldReplaceExistingDefaults &&
+              actualItemCount >= expectedItemCount) {
             continue;
           }
 
           // If it is incomplete (e.g. 0 items or fewer than expected items like 2/6),
           // attempt to clean it up before re-creating:
           debugPrint(
-            'Repairing damaged dish "$dishName" (found $actualItemCount of $expectedItemCount expected items)...',
+            shouldReplaceExistingDefaults
+                ? 'Replacing legacy seed dish "$dishName" in newly created household...'
+                : 'Repairing damaged dish "$dishName" (found $actualItemCount of $expectedItemCount expected items)...',
           );
           var deleteSucceeded = false;
           try {
@@ -276,8 +306,7 @@ class DishService {
           createdDishId = dishData['id'] as String;
 
           final itemsToInsert = rawItems.map((raw) {
-            final itemName = raw['name'] as String;
-            final rawFoodId = resolvedFoodMap[itemName.trim().toLowerCase()];
+            final rawFoodId = _resolveTemplateFoodId(resolvedFoodMap, raw);
             final isUuid =
                 rawFoodId != null &&
                 RegExp(
@@ -287,7 +316,7 @@ class DishService {
             return {
               'dish_id': createdDishId,
               'food_id': isUuid ? rawFoodId : null,
-              'custom_name': isUuid ? null : itemName,
+              'custom_name': isUuid ? null : _templateItemLabel(raw),
             };
           }).toList();
 
@@ -375,7 +404,12 @@ class DishService {
     final foodMap = <String, String>{};
     final foods = FoodService.defaultFoods;
     for (final f in foods) {
-      foodMap[f.name.trim().toLowerCase()] = '${f.id}_$householdId';
+      FoodService.addToSeedLookup(
+        foodMap,
+        id: '${f.id}_$householdId',
+        name: f.name,
+        note: f.note,
+      );
     }
     final foodsById = {
       for (final f in foods)
@@ -384,6 +418,7 @@ class DishService {
           householdId: householdId,
           name: f.name,
           note: f.note,
+          iconKey: f.iconKey,
           defaultUnit: f.defaultUnit,
           createdAt: DateTime.now(),
         ),

@@ -53,9 +53,8 @@ void main() {
           createdAt: DateTime.now(),
         );
 
-        // Stock has: Hackfleisch, Zwiebeln, Tomatenmark, Passierte Tomaten (4 out of 6 for Spaghetti Bolognese = 66.7%)
-        // Stock has: Hackfleisch, Zwiebeln (2 out of 6 for Chili con Carne = 33.3%)
-        // Stock has: Hackfleisch (1 out of 6 for Wraps = 16.7%)
+        // Stock has a different tomato variant than the preferred recipe
+        // variant. Name-based matching must still count it.
         final inStockIds = {
           'f_71_demo-household-id', // Hackfleisch
           'f_5_demo-household-id', // Zwiebeln
@@ -66,24 +65,36 @@ void main() {
         final matches = dishProvider.getRankedDishesForHunger(
           hungerFood: hackfleischFood,
           inStockFoodIds: inStockIds,
+          foodIdsByName: {
+            'hackfleisch': {'f_71_demo-household-id'},
+            'zwiebeln': {'f_5_demo-household-id'},
+            'tomatenmark': {'f_156_demo-household-id'},
+            'tomaten': {
+              'f_1_demo-household-id',
+              'f_2_demo-household-id',
+              'f_154_demo-household-id',
+              'f_155_demo-household-id',
+              'f_246_demo-household-id',
+            },
+          },
         );
 
         expect(matches.length, 3);
 
-        // 1st place: Spaghetti Bolognese (4/6 in stock)
+        // 1st place: Spaghetti Bolognese (4/7 in stock)
         expect(matches[0].dish.name, 'Spaghetti Bolognese');
         expect(matches[0].inStockCount, 4);
-        expect(matches[0].totalCount, 6);
+        expect(matches[0].totalCount, 7);
         expect(matches[0].isMainInStock, isTrue);
 
-        // 2nd place: Chili con Carne (2/6 in stock)
+        // 2nd place: Chili con Carne (3/6, including the tomato variant)
         expect(matches[1].dish.name, 'Chili con Carne');
-        expect(matches[1].inStockCount, 2);
+        expect(matches[1].inStockCount, 3);
         expect(matches[1].totalCount, 6);
 
-        // 3rd place: Wraps (1/6 in stock)
+        // 3rd place: Wraps (2/6, including the tomato variant)
         expect(matches[2].dish.name, 'Wraps');
-        expect(matches[2].inStockCount, 1);
+        expect(matches[2].inStockCount, 2);
         expect(matches[2].totalCount, 6);
       },
     );
@@ -247,10 +258,10 @@ void main() {
       final chiliMatch = matches.firstWhere(
         (m) => m.dish.name == 'Chili con Carne',
       );
-      // Chili has 6 items: Hackfleisch (in stock), Kidneybohnen, Mais, Gehackte Tomaten, Zwiebeln (in stock), Paprika (in stock)
-      expect(chiliMatch.inStockCount, 3);
+      // The stocked Tomaten variant also satisfies Tomaten (gehackt).
+      expect(chiliMatch.inStockCount, 4);
       expect(chiliMatch.totalCount, 6);
-      expect(chiliMatch.scorePercentageText, '50%');
+      expect(chiliMatch.scorePercentageText, '67%');
       expect(chiliMatch.isMainInStock, isTrue);
 
       // Wraps has 6 items: Wraps, Hackfleisch (in stock), Tomaten (in stock), Gurke, Eisbergsalat, Reibekäse

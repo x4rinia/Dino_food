@@ -112,6 +112,61 @@ void main() {
       );
 
       expect(item.displayName.trim(), 'Reis');
+      expect(item.displayLabel, 'Reis (Basmati)');
+    });
+
+    test('preferred tomato and noodle variants match stock by name', () {
+      final now = DateTime(2026);
+      final choppedTomatoes = Food(
+        id: 'tomatoes-chopped',
+        name: 'Tomaten',
+        note: 'gehackt',
+        createdAt: now,
+      );
+      final largeTomatoes = Food(
+        id: 'tomatoes-large',
+        name: 'Tomaten',
+        note: 'groß',
+        createdAt: now,
+      );
+      final spaghetti = Food(
+        id: 'pasta-spaghetti',
+        name: 'Nudeln',
+        note: 'Spaghetti',
+        createdAt: now,
+      );
+      final fusilli = Food(
+        id: 'pasta-fusilli',
+        name: 'Nudeln',
+        note: 'Fusilli',
+        createdAt: now,
+      );
+      final index = RecipeIngredientMatcher.indexFoods([
+        choppedTomatoes,
+        largeTomatoes,
+        spaghetti,
+        fusilli,
+      ]);
+
+      for (final pair in [
+        (recipe: choppedTomatoes, stocked: largeTomatoes),
+        (recipe: spaghetti, stocked: fusilli),
+      ]) {
+        final item = DishItem(
+          id: 'ingredient-${pair.recipe.id}',
+          dishId: 'dish',
+          foodId: pair.recipe.id,
+          food: pair.recipe,
+        );
+        expect(
+          RecipeIngredientMatcher.isInStock(
+            item: item,
+            inStockFoodIds: {pair.stocked.id},
+            foodIdsByName: index,
+          ),
+          isTrue,
+        );
+      }
     });
   });
 }

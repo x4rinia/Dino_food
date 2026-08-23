@@ -8,11 +8,40 @@ import '../models/food_icon.dart';
 class FoodService {
   SupabaseClient get _client => SupabaseConfig.client;
 
+  static String _normalizeSeedValue(String value) =>
+      value.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+
+  static String seedLookupKey(String name, {String? note}) {
+    return '${_normalizeSeedValue(name)}\u001f${_normalizeSeedValue(note ?? '')}';
+  }
+
+  static void addToSeedLookup(
+    Map<String, String> lookup, {
+    required String id,
+    required String name,
+    String? note,
+  }) {
+    lookup[seedLookupKey(name, note: note)] = id;
+    final normalizedName = _normalizeSeedValue(name);
+    if (note == null || note.trim().isEmpty) {
+      lookup[normalizedName] = id;
+    } else {
+      lookup.putIfAbsent(normalizedName, () => id);
+    }
+  }
+
   // Fallback / default catalogue with 170+ common German household foods
   static final List<Food> defaultFoods = [
     // Gemüse
     Food(id: 'f_1', name: 'Tomaten', createdAt: DateTime.now()),
-    Food(id: 'f_2', name: 'Cherrytomaten', createdAt: DateTime.now()),
+    Food(id: 'f_2', name: 'Tomaten', note: 'Cherry', createdAt: DateTime.now()),
+    Food(
+      id: 'f_246',
+      name: 'Tomaten',
+      note: 'groß',
+      iconKey: 'vegetables',
+      createdAt: DateTime.now(),
+    ),
     Food(id: 'f_3', name: 'Gurke', createdAt: DateTime.now()),
     Food(id: 'f_4', name: 'Paprika', createdAt: DateTime.now()),
     Food(id: 'f_5', name: 'Zwiebeln', createdAt: DateTime.now()),
@@ -172,22 +201,49 @@ class FoodService {
 
     // Nudeln & Reis
     Food(id: 'f_141', name: 'Nudeln', createdAt: DateTime.now()),
-    Food(id: 'f_142', name: 'Spaghetti', createdAt: DateTime.now()),
-    Food(id: 'f_143', name: 'Penne', createdAt: DateTime.now()),
-    Food(id: 'f_144', name: 'Fusilli', createdAt: DateTime.now()),
-    Food(id: 'f_145', name: 'Makkaroni', createdAt: DateTime.now()),
+    Food(
+      id: 'f_142',
+      name: 'Nudeln',
+      note: 'Spaghetti',
+      createdAt: DateTime.now(),
+    ),
+    Food(id: 'f_143', name: 'Nudeln', note: 'Penne', createdAt: DateTime.now()),
+    Food(
+      id: 'f_144',
+      name: 'Nudeln',
+      note: 'Fusilli',
+      createdAt: DateTime.now(),
+    ),
+    Food(
+      id: 'f_145',
+      name: 'Nudeln',
+      note: 'Makkaroni',
+      createdAt: DateTime.now(),
+    ),
     Food(id: 'f_146', name: 'Lasagneplatten', createdAt: DateTime.now()),
     Food(id: 'f_147', name: 'Tortellini', createdAt: DateTime.now()),
     Food(id: 'f_148', name: 'Reis', createdAt: DateTime.now()),
-    Food(id: 'f_149', name: 'Basmatireis', createdAt: DateTime.now()),
-    Food(id: 'f_150', name: 'Jasminreis', createdAt: DateTime.now()),
-    Food(id: 'f_151', name: 'Risottoreis', createdAt: DateTime.now()),
+    Food(id: 'f_149', name: 'Reis', note: 'Basmati', createdAt: DateTime.now()),
+    Food(id: 'f_150', name: 'Reis', note: 'Jasmin', createdAt: DateTime.now()),
+    Food(id: 'f_151', name: 'Reis', note: 'Risotto', createdAt: DateTime.now()),
     Food(id: 'f_152', name: 'Couscous', createdAt: DateTime.now()),
     Food(id: 'f_153', name: 'Bulgur', createdAt: DateTime.now()),
 
     // Konserven & Gläser
-    Food(id: 'f_154', name: 'Passierte Tomaten', createdAt: DateTime.now()),
-    Food(id: 'f_155', name: 'Gehackte Tomaten', createdAt: DateTime.now()),
+    Food(
+      id: 'f_154',
+      name: 'Tomaten',
+      note: 'passiert',
+      iconKey: 'vegetables',
+      createdAt: DateTime.now(),
+    ),
+    Food(
+      id: 'f_155',
+      name: 'Tomaten',
+      note: 'gehackt',
+      iconKey: 'vegetables',
+      createdAt: DateTime.now(),
+    ),
     Food(id: 'f_156', name: 'Tomatenmark', createdAt: DateTime.now()),
     Food(id: 'f_157', name: 'Weiße Bohnen', createdAt: DateTime.now()),
     Food(id: 'f_158', name: 'Gewürzgurken', createdAt: DateTime.now()),
@@ -308,6 +364,7 @@ class FoodService {
         householdId: householdId,
         name: f.name,
         note: f.note,
+        iconKey: f.iconKey,
         defaultUnit: f.defaultUnit,
         createdAt: DateTime.now(),
       );
@@ -327,7 +384,7 @@ class FoodService {
         () => _createDefaultFoodsForHousehold(householdId),
       );
       for (final f in seeded) {
-        nameToIdMap[f.name.trim().toLowerCase()] = f.id;
+        addToSeedLookup(nameToIdMap, id: f.id, name: f.name, note: f.note);
       }
       return nameToIdMap;
     }
@@ -355,12 +412,17 @@ class FoodService {
         final inserted = await _client
             .from('foods')
             .insert(chunk)
-            .select('id, name');
+            .select('id, name, note');
         for (final row in inserted as List) {
           final id = row['id'] as String?;
           final name = row['name'] as String?;
           if (id != null && name != null) {
-            nameToIdMap[name.trim().toLowerCase()] = id;
+            addToSeedLookup(
+              nameToIdMap,
+              id: id,
+              name: name,
+              note: row['note'] as String?,
+            );
           }
         }
       }
