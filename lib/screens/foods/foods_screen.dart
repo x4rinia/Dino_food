@@ -10,6 +10,7 @@ import '../../providers/shopping_provider.dart';
 import '../../providers/stock_provider.dart';
 import '../../widgets/dino_card.dart';
 import '../../widgets/empty_state.dart';
+import '../../widgets/load_error_state.dart';
 import '../shopping_list/add_edit_item_dialog.dart';
 import 'add_food_dialog.dart';
 import 'edit_food_dialog.dart';
@@ -158,6 +159,11 @@ class _FoodsScreenState extends State<FoodsScreen> {
           Expanded(
             child: foodProvider.isLoading
                 ? const Center(child: CircularProgressIndicator())
+                : foodProvider.errorMessage != null
+                ? LoadErrorState(
+                    message: foodProvider.errorMessage!,
+                    onRetry: () => foodProvider.loadFoods(force: true),
+                  )
                 : filteredFoods.isEmpty
                 ? EmptyState(
                     emoji: '🔍',

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../config/supabase_config.dart';
@@ -5,17 +7,25 @@ import '../models/food.dart';
 import '../services/food_service.dart';
 
 class FoodProvider extends ChangeNotifier {
-  final FoodService _foodService = FoodService();
+  FoodProvider({
+    FoodService? foodService,
+    this.loadTimeout = const Duration(seconds: 15),
+  }) : _foodService = foodService ?? FoodService();
+
+  final FoodService _foodService;
+  final Duration loadTimeout;
 
   List<Food> _foods = [];
   String _searchQuery = '';
   String? _currentHouseholdId;
   bool _isLoading = false;
   bool _hasLoaded = false;
+  String? _errorMessage;
 
   List<Food> get foods => _foods;
   String get searchQuery => _searchQuery;
   bool get isLoading => _isLoading;
+  String? get errorMessage => _errorMessage;
 
   List<Food> get filteredFoods {
     final query = normalizeForComparison(_searchQuery);
@@ -33,6 +43,7 @@ class FoodProvider extends ChangeNotifier {
       _currentHouseholdId = null;
       _foods = [];
       _hasLoaded = false;
+      _errorMessage = null;
       notifyListeners();
       return;
     }
@@ -42,6 +53,7 @@ class FoodProvider extends ChangeNotifier {
     _currentHouseholdId = householdId;
     _foods = [];
     _hasLoaded = false;
+    _errorMessage = null;
     loadFoods(force: true);
   }
 
@@ -73,18 +85,27 @@ class FoodProvider extends ChangeNotifier {
     if (_hasLoaded && !force && _foods.isNotEmpty) return;
 
     _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
 
     final requestedHouseholdId = _currentHouseholdId;
 
     try {
-      final loaded = await _foodService.fetchFoods(requestedHouseholdId);
+      final loaded = await _foodService
+          .fetchFoods(requestedHouseholdId)
+          .timeout(loadTimeout);
       if (_currentHouseholdId != requestedHouseholdId) return;
       _foods = loaded;
       _sortFoods();
       _hasLoaded = true;
-    } catch (e) {
-      debugPrint('Error loading foods: $e');
+    } on TimeoutException catch (e, stackTrace) {
+      if (_currentHouseholdId != requestedHouseholdId) return;
+      _errorMessage = 'Lebensmittel konnten nicht rechtzeitig geladen werden.';
+      debugPrint('Food load timeout: $e\n$stackTrace');
+    } catch (e, stackTrace) {
+      if (_currentHouseholdId != requestedHouseholdId) return;
+      _errorMessage = 'Lebensmittel konnten nicht geladen werden: $e';
+      debugPrint('Error loading foods: $e\n$stackTrace');
     } finally {
       if (_currentHouseholdId == requestedHouseholdId) {
         _isLoading = false;

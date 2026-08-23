@@ -9,6 +9,7 @@ import '../../providers/stock_provider.dart';
 import '../../providers/food_provider.dart';
 import '../../widgets/dino_card.dart';
 import '../../widgets/empty_state.dart';
+import '../../widgets/load_error_state.dart';
 import 'add_edit_item_dialog.dart';
 
 class ShoppingListScreen extends StatefulWidget {
@@ -61,6 +62,11 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
       ),
       body: shoppingProvider.isLoading
           ? const Center(child: CircularProgressIndicator())
+          : shoppingProvider.errorMessage != null
+          ? LoadErrorState(
+              message: shoppingProvider.errorMessage!,
+              onRetry: shoppingProvider.retryLoad,
+            )
           : shoppingProvider.allItems.isEmpty
           ? EmptyState(
               emoji: '🦖',

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../config/supabase_config.dart';
@@ -10,9 +12,25 @@ import '../services/household_service.dart';
 enum HouseholdState { initial, loading, loaded, error }
 
 class HouseholdProvider extends ChangeNotifier {
-  final HouseholdService _householdService = HouseholdService();
-  final FoodService _foodService = FoodService();
-  final DishService _dishService = DishService();
+  HouseholdProvider({
+    HouseholdService? householdService,
+    FoodService? foodService,
+    DishService? dishService,
+    bool? isSupabaseConfigured,
+    this.startupTimeout = const Duration(seconds: 15),
+  }) : _householdService = householdService ?? HouseholdService(),
+       _foodService = foodService ?? FoodService(),
+       _dishService = dishService ?? DishService(),
+       _isSupabaseConfiguredOverride = isSupabaseConfigured;
+
+  final HouseholdService _householdService;
+  final FoodService _foodService;
+  final DishService _dishService;
+  final bool? _isSupabaseConfiguredOverride;
+  final Duration startupTimeout;
+
+  bool get _isSupabaseConfigured =>
+      _isSupabaseConfiguredOverride ?? SupabaseConfig.isConfigured;
 
   HouseholdState _state = HouseholdState.initial;
   List<Household> _households = [];
@@ -50,7 +68,7 @@ class HouseholdProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      if (!SupabaseConfig.isConfigured) {
+      if (!_isSupabaseConfigured) {
         final mockHousehold = Household(
           id: 'demo-household-id',
           name: 'Dino Zuhause 🦕',
@@ -83,20 +101,25 @@ class HouseholdProvider extends ChangeNotifier {
         return;
       }
 
-      _households = await _householdService.fetchUserHouseholds();
+      _households = await _startupStep(
+        _householdService.fetchUserHouseholds(),
+        'Haushaltszuordnungen',
+      );
 
       if (_households.isNotEmpty) {
         // Fetch default household from profile
-        String? defaultId = await _householdService.fetchDefaultHouseholdId();
+        String? defaultId = await _startupStep(
+          _householdService.fetchDefaultHouseholdId(),
+          'Standardhaushalt',
+        );
 
         // If default household is not valid or not set, pick the first household and persist
         if (defaultId == null || !_households.any((h) => h.id == defaultId)) {
           defaultId = _households.first.id;
-          try {
-            await _householdService.setDefaultHousehold(defaultId);
-          } catch (e) {
-            debugPrint('Error setting initial default household: $e');
-          }
+          await _startupStep(
+            _householdService.setDefaultHousehold(defaultId),
+            'Standardhaushalt speichern',
+          );
         }
         _defaultHouseholdId = defaultId;
 
@@ -106,14 +129,10 @@ class HouseholdProvider extends ChangeNotifier {
           orElse: () => _households.first,
         );
 
-        // Fetch members safely without crashing or triggering extra loops
-        try {
-          _members = await _householdService.fetchMembers(
-            _currentHousehold!.id,
-          );
-        } catch (e) {
-          debugPrint('Members load info: $e');
-        }
+        _members = await _startupStep(
+          _householdService.fetchMembers(_currentHousehold!.id),
+          'Haushaltsmitglieder',
+        );
       } else {
         _currentHousehold = null;
         _defaultHouseholdId = null;
@@ -123,12 +142,36 @@ class HouseholdProvider extends ChangeNotifier {
       _state = HouseholdState.loaded;
       _errorMessage = null;
       notifyListeners();
-    } catch (e) {
-      debugPrint('Household load failed: $e');
+    } catch (e, stackTrace) {
+      debugPrint('Household load failed: $e\n$stackTrace');
       _state = HouseholdState.error;
-      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      _errorMessage = _friendlyStartupError(e);
       notifyListeners();
     }
+  }
+
+  Future<T> _startupStep<T>(Future<T> future, String label) async {
+    debugPrint('Household startup: $label...');
+    try {
+      final result = await future.timeout(startupTimeout);
+      debugPrint('Household startup: $label loaded.');
+      return result;
+    } on TimeoutException catch (e, stackTrace) {
+      debugPrint('Household startup timeout at $label: $e\n$stackTrace');
+      throw HouseholdStartupException(
+        '$label konnte nicht rechtzeitig geladen werden.',
+      );
+    } catch (e, stackTrace) {
+      debugPrint('Household startup failed at $label: $e\n$stackTrace');
+      rethrow;
+    }
+  }
+
+  String _friendlyStartupError(Object error) {
+    if (error is HouseholdStartupException) {
+      return '${error.message} Bitte prüfe deine Verbindung und versuche es erneut.';
+    }
+    return 'Der Haushalt konnte nicht geladen werden. Bitte versuche es erneut. (${error.toString().replaceFirst('Exception: ', '')})';
   }
 
   void setCurrentHousehold(Household household) {
@@ -162,7 +205,7 @@ class HouseholdProvider extends ChangeNotifier {
 
   Future<void> loadMembers() async {
     if (_currentHousehold == null) return;
-    if (!SupabaseConfig.isConfigured) return;
+    if (!_isSupabaseConfigured) return;
 
     try {
       _members = await _householdService.fetchMembers(_currentHousehold!.id);
@@ -400,4 +443,13 @@ class HouseholdProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
   }
+}
+
+class HouseholdStartupException implements Exception {
+  const HouseholdStartupException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
 }

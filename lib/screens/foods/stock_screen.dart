@@ -7,6 +7,7 @@ import '../../providers/food_provider.dart';
 import '../../providers/stock_provider.dart';
 import '../../widgets/dino_card.dart';
 import '../../widgets/empty_state.dart';
+import '../../widgets/load_error_state.dart';
 
 class StockScreen extends StatefulWidget {
   const StockScreen({super.key});
@@ -45,7 +46,14 @@ class _StockScreenState extends State<StockScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Mein Vorrat 📦')),
-      body: inStockFoods.isEmpty
+      body: stockProvider.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : stockProvider.errorMessage != null
+          ? LoadErrorState(
+              message: stockProvider.errorMessage!,
+              onRetry: stockProvider.retryLoad,
+            )
+          : inStockFoods.isEmpty
           ? EmptyState(
               emoji: '📦',
               title: 'Noch nichts im Vorrat 🦕',

@@ -94,6 +94,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
     HouseholdProvider householdProvider,
     ShoppingProvider shoppingProvider,
     StockProvider stockProvider,
+    FoodProvider foodProvider,
     DishProvider dishProvider,
   ) {
     final currentUserId = SupabaseConfig.currentUserId;
@@ -164,6 +165,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                   if (active != null) {
                     shoppingProvider.bindToHousehold(active.id);
                     stockProvider.bindToHousehold(active.id);
+                    foodProvider.bindToHousehold(active.id);
                     dishProvider.loadDishes(active.id);
                   }
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -425,6 +427,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                                         householdProvider,
                                         shoppingProvider,
                                         stockProvider,
+                                        foodProvider,
                                         dishProvider,
                                       );
                                     },

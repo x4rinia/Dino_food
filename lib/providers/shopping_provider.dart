@@ -11,7 +11,13 @@ import 'stock_provider.dart';
 import 'food_provider.dart';
 
 class ShoppingProvider extends ChangeNotifier {
-  final ShoppingService _shoppingService = ShoppingService();
+  ShoppingProvider({
+    ShoppingService? shoppingService,
+    this.loadTimeout = const Duration(seconds: 15),
+  }) : _shoppingService = shoppingService ?? ShoppingService();
+
+  final ShoppingService _shoppingService;
+  final Duration loadTimeout;
 
   static final Map<String, List<ShoppingItem>> _householdMockItems = {};
 
@@ -33,12 +39,23 @@ class ShoppingProvider extends ChangeNotifier {
   int get activeCount => activeItems.length;
   int get checkedCount => checkedItems.length;
 
+  void retryLoad() {
+    final householdId = _currentHouseholdId;
+    if (householdId == null) return;
+    _streamSubscription?.cancel();
+    _streamSubscription = null;
+    _currentHouseholdId = null;
+    bindToHousehold(householdId);
+  }
+
   void bindToHousehold(String? householdId) {
     if (householdId == null || householdId.isEmpty) {
       _items = [];
       _streamSubscription?.cancel();
       _streamSubscription = null;
       _currentHouseholdId = null;
+      _isLoading = false;
+      _errorMessage = null;
       notifyListeners();
       return;
     }
@@ -62,12 +79,25 @@ class ShoppingProvider extends ChangeNotifier {
     notifyListeners();
 
     // Initial fetch to get relational data
-    _shoppingService.fetchShoppingItems(householdId).then((initialList) {
-      if (_currentHouseholdId != householdId) return;
-      _items = initialList;
-      _isLoading = false;
-      notifyListeners();
-    });
+    _shoppingService
+        .fetchShoppingItems(householdId)
+        .timeout(loadTimeout)
+        .then((initialList) {
+          if (_currentHouseholdId != householdId) return;
+          _items = initialList;
+          _isLoading = false;
+          notifyListeners();
+        })
+        .catchError((Object error, StackTrace stackTrace) {
+          if (_currentHouseholdId != householdId) return null;
+          _errorMessage = error is TimeoutException
+              ? 'Die Einkaufsliste konnte nicht rechtzeitig geladen werden.'
+              : 'Die Einkaufsliste konnte nicht geladen werden: $error';
+          _isLoading = false;
+          debugPrint('Shopping load failed: $error\n$stackTrace');
+          notifyListeners();
+          return null;
+        });
 
     _streamSubscription = _shoppingService
         .streamShoppingItems(householdId)

@@ -18,21 +18,29 @@ class HouseholdService {
 
     final userId = SupabaseConfig.currentUserId!;
     try {
+      // Fetch memberships first. This is the sole authorization source: no
+      // legacy role or households.created_by condition participates here.
       final memberRows = await _client
           .from('household_members')
-          .select('household_id, households(*)')
+          .select('household_id')
           .eq('user_id', userId);
 
-      final List<Household> households = [];
+      final householdIds = memberRows
+          .map((row) => row['household_id'] as String?)
+          .whereType<String>()
+          .toSet()
+          .toList();
+      if (householdIds.isEmpty) return [];
 
-      for (final row in memberRows) {
-        if (row['households'] != null) {
-          households.add(
-            Household.fromJson(row['households'] as Map<String, dynamic>),
-          );
-        }
-      }
-      return households;
+      final householdRows = await _client
+          .from('households')
+          .select()
+          .inFilter('id', householdIds)
+          .order('created_at', ascending: true);
+
+      return householdRows
+          .map((row) => Household.fromJson(row))
+          .toList(growable: false);
     } catch (e) {
       debugPrint('Error fetching households: $e');
       rethrow;
@@ -54,7 +62,7 @@ class HouseholdService {
       return data?['default_household_id'] as String?;
     } catch (e) {
       debugPrint('Error fetching default_household_id: $e');
-      return null;
+      rethrow;
     }
   }
 
@@ -331,7 +339,7 @@ class HouseholdService {
       }).toList();
     } catch (e) {
       debugPrint('Error fetching household members: $e');
-      return [];
+      rethrow;
     }
   }
 }

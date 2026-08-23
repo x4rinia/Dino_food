@@ -192,6 +192,7 @@ class _AuthGateState extends State<AuthGate> {
                       if (current != null) {
                         shoppingProvider.bindToHousehold(current.id);
                         stockProvider.bindToHousehold(current.id);
+                        foodProvider.bindToHousehold(current.id);
                         dishProvider.loadDishes(current.id);
                       }
                     });

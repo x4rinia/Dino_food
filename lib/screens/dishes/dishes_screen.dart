@@ -10,6 +10,7 @@ import '../../providers/dish_provider.dart';
 import '../../providers/food_provider.dart';
 import '../../providers/household_provider.dart';
 import '../../providers/stock_provider.dart';
+import '../../widgets/load_error_state.dart';
 import '../../utils/recipe_ingredient_matcher.dart';
 import '../../widgets/dino_card.dart';
 import '../../widgets/empty_state.dart';
@@ -96,6 +97,15 @@ class _DishesScreenState extends State<DishesScreen> {
       ),
       body: dishProvider.isLoading
           ? const Center(child: CircularProgressIndicator())
+          : dishProvider.errorMessage != null
+          ? LoadErrorState(
+              message: dishProvider.errorMessage!,
+              onRetry: () {
+                if (household != null) {
+                  dishProvider.loadDishes(household.id);
+                }
+              },
+            )
           : Column(
               children: [
                 // --- "Worauf hast du Hunger? 🦕" Bar ---

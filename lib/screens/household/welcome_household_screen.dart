@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../config/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/dish_provider.dart';
+import '../../providers/food_provider.dart';
 import '../../providers/household_provider.dart';
 import '../../providers/shopping_provider.dart';
 import '../../providers/stock_provider.dart';
@@ -17,6 +18,7 @@ class WelcomeHouseholdScreen extends StatelessWidget {
     final householdProvider = Provider.of<HouseholdProvider>(context);
     final shoppingProvider = Provider.of<ShoppingProvider>(context, listen: false);
     final stockProvider = Provider.of<StockProvider>(context, listen: false);
+    final foodProvider = Provider.of<FoodProvider>(context, listen: false);
     final dishProvider = Provider.of<DishProvider>(context, listen: false);
 
     final displayName = authProvider.profile?.displayName ??
@@ -106,6 +108,7 @@ class WelcomeHouseholdScreen extends StatelessWidget {
                         final active = householdProvider.currentHousehold!;
                         shoppingProvider.bindToHousehold(active.id);
                         stockProvider.bindToHousehold(active.id);
+                        foodProvider.bindToHousehold(active.id);
                         dishProvider.loadDishes(active.id);
                       }
                     },
@@ -147,6 +150,7 @@ class WelcomeHouseholdScreen extends StatelessWidget {
                         final active = householdProvider.currentHousehold!;
                         shoppingProvider.bindToHousehold(active.id);
                         stockProvider.bindToHousehold(active.id);
+                        foodProvider.bindToHousehold(active.id);
                         dishProvider.loadDishes(active.id);
                       }
                     },

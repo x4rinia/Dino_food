@@ -182,7 +182,9 @@ class _CreateOrJoinHouseholdDialogState extends State<CreateOrJoinHouseholdDialo
                     prefixIcon: Icon(Icons.home_outlined, color: AppTheme.textMuted),
                   ),
                   validator: (val) {
-                    if (val == null || val.trim().isEmpty) return 'Bitte Name eingeben';
+                    if (val == null || val.trim().isEmpty) {
+                      return 'Bitte Name eingeben';
+                    }
                     return null;
                   },
                 ),
@@ -233,7 +235,9 @@ class _CreateOrJoinHouseholdDialogState extends State<CreateOrJoinHouseholdDialo
                     prefixIcon: Icon(Icons.key_outlined, color: AppTheme.textMuted),
                   ),
                   validator: (val) {
-                    if (val == null || val.trim().isEmpty) return 'Bitte Code eingeben';
+                    if (val == null || val.trim().isEmpty) {
+                      return 'Bitte Code eingeben';
+                    }
                     return null;
                   },
                 ),

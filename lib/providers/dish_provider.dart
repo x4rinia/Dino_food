@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../models/dish.dart';
@@ -27,7 +29,13 @@ class HungerDishMatch {
 }
 
 class DishProvider extends ChangeNotifier {
-  final DishService _dishService = DishService();
+  DishProvider({
+    DishService? dishService,
+    this.loadTimeout = const Duration(seconds: 15),
+  }) : _dishService = dishService ?? DishService();
+
+  final DishService _dishService;
+  final Duration loadTimeout;
 
   List<Dish> _dishes = [];
   String? _currentHouseholdId;
@@ -161,13 +169,20 @@ class DishProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final list = await _dishService.fetchDishes(householdId);
+      final list = await _dishService
+          .fetchDishes(householdId)
+          .timeout(loadTimeout);
       if (_currentHouseholdId != householdId) return;
       _dishes = list;
-    } catch (e) {
+    } on TimeoutException catch (e, stackTrace) {
+      if (_currentHouseholdId != householdId) return;
+      _errorMessage = 'Gerichte konnten nicht rechtzeitig geladen werden.';
+      debugPrint('Dish load timeout: $e\n$stackTrace');
+      _dishes = [];
+    } catch (e, stackTrace) {
       if (_currentHouseholdId != householdId) return;
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
-      debugPrint('Error loading dishes: $e');
+      debugPrint('Error loading dishes: $e\n$stackTrace');
       _dishes = [];
     } finally {
       if (_currentHouseholdId == householdId) {

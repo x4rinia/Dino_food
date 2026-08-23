@@ -7,7 +7,13 @@ import '../services/stock_service.dart';
 import '../services/food_service.dart';
 
 class StockProvider extends ChangeNotifier {
-  final StockService _stockService = StockService();
+  StockProvider({
+    StockService? stockService,
+    this.loadTimeout = const Duration(seconds: 15),
+  }) : _stockService = stockService ?? StockService();
+
+  final StockService _stockService;
+  final Duration loadTimeout;
 
   static final Map<String, Set<String>> _householdMockStock = {};
 
@@ -15,15 +21,26 @@ class StockProvider extends ChangeNotifier {
   StreamSubscription<Set<String>>? _subscription;
   String? _currentHouseholdId;
   bool _isLoading = false;
+  String? _errorMessage;
 
   Set<String> get inStockFoodIds => _inStockFoodIds;
   String? get currentHouseholdId => _currentHouseholdId;
   bool get isLoading => _isLoading;
+  String? get errorMessage => _errorMessage;
 
   bool isInStock(String foodId) => _inStockFoodIds.contains(foodId);
 
   int countForFoodIds(Iterable<String> foodIds) =>
       foodIds.where(_inStockFoodIds.contains).toSet().length;
+
+  void retryLoad() {
+    final householdId = _currentHouseholdId;
+    if (householdId == null) return;
+    _subscription?.cancel();
+    _subscription = null;
+    _currentHouseholdId = null;
+    bindToHousehold(householdId);
+  }
 
   void bindToHousehold(String? householdId) {
     if (householdId == null || householdId.isEmpty) {
@@ -31,6 +48,8 @@ class StockProvider extends ChangeNotifier {
       _subscription?.cancel();
       _subscription = null;
       _currentHouseholdId = null;
+      _isLoading = false;
+      _errorMessage = null;
       notifyListeners();
       return;
     }
@@ -42,6 +61,7 @@ class StockProvider extends ChangeNotifier {
     _currentHouseholdId = householdId;
     _subscription?.cancel();
     _inStockFoodIds = {};
+    _errorMessage = null;
 
     if (!SupabaseConfig.isConfigured) {
       // Demo mock stock starts empty per household
@@ -57,20 +77,45 @@ class StockProvider extends ChangeNotifier {
     notifyListeners();
 
     // Initial fetch
-    _stockService.fetchStock(householdId).then((set) {
-      if (_currentHouseholdId != householdId) return;
-      _inStockFoodIds = set;
-      _isLoading = false;
-      notifyListeners();
-    });
+    _stockService
+        .fetchStock(householdId)
+        .timeout(loadTimeout)
+        .then((set) {
+          if (_currentHouseholdId != householdId) return;
+          _inStockFoodIds = set;
+          _isLoading = false;
+          notifyListeners();
+        })
+        .catchError((Object error, StackTrace stackTrace) {
+          if (_currentHouseholdId != householdId) return null;
+          _errorMessage = error is TimeoutException
+              ? 'Der Vorrat konnte nicht rechtzeitig geladen werden.'
+              : 'Der Vorrat konnte nicht geladen werden: $error';
+          _isLoading = false;
+          debugPrint('Stock load failed: $error\n$stackTrace');
+          notifyListeners();
+          return null;
+        });
 
     // Realtime stream
-    _subscription = _stockService.streamStock(householdId).listen((set) {
-      if (_currentHouseholdId != householdId) return;
-      _inStockFoodIds = set;
-      _isLoading = false;
-      notifyListeners();
-    });
+    _subscription = _stockService
+        .streamStock(householdId)
+        .listen(
+          (set) {
+            if (_currentHouseholdId != householdId) return;
+            _inStockFoodIds = set;
+            _isLoading = false;
+            notifyListeners();
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            if (_currentHouseholdId != householdId) return;
+            _errorMessage =
+                'Der Vorrat konnte nicht aktualisiert werden: $error';
+            _isLoading = false;
+            debugPrint('Stock stream failed: $error\n$stackTrace');
+            notifyListeners();
+          },
+        );
   }
 
   Future<bool> addToStock(String foodId) async {
