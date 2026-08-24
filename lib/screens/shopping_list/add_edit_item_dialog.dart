@@ -132,14 +132,13 @@ class _AddEditItemDialogState extends State<AddEditItemDialog> {
 
     bool success = false;
     if (widget.itemToEdit != null) {
-      await shoppingProvider.updateItem(
+      success = await shoppingProvider.updateItem(
         itemId: widget.itemToEdit!.id,
         customName: finalCustomName,
         note: note.isNotEmpty ? note : null,
         quantity: quantity,
         replaceQuantity: true,
       );
-      success = true;
     } else {
       success = await shoppingProvider.addItem(
         foodId: finalFoodId,
@@ -156,7 +155,8 @@ class _AddEditItemDialogState extends State<AddEditItemDialog> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            shoppingProvider.errorMessage ??
+            shoppingProvider.lastMutationError ??
+                shoppingProvider.errorMessage ??
                 'Fehler beim Speichern des Artikels.',
           ),
           backgroundColor: AppTheme.errorRed,

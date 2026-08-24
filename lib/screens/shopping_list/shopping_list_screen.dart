@@ -231,12 +231,19 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
           padding: const EdgeInsets.only(right: 20),
           child: const Icon(Icons.delete_outline, color: Colors.white),
         ),
-        onDismissed: (_) {
-          provider.deleteItem(item.id);
+        onDismissed: (_) async {
+          final deleted = await provider.deleteItem(item.id);
+          if (!context.mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('${item.displayName} gelöscht'),
-              duration: const Duration(seconds: 2),
+              content: Text(
+                deleted
+                    ? '${item.displayName} gelöscht'
+                    : provider.lastMutationError ??
+                          '${item.displayName} konnte nicht gelöscht werden.',
+              ),
+              backgroundColor: deleted ? null : AppTheme.errorRed,
+              duration: Duration(seconds: deleted ? 2 : 4),
             ),
           );
         },
@@ -399,9 +406,20 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
                 'Artikel löschen',
                 style: TextStyle(color: AppTheme.errorRed),
               ),
-              onTap: () {
+              onTap: () async {
                 Navigator.pop(ctx);
-                provider.deleteItem(item.id);
+                final deleted = await provider.deleteItem(item.id);
+                if (!context.mounted || deleted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      provider.lastMutationError ??
+                          '${item.displayName} konnte nicht gelöscht werden.',
+                    ),
+                    backgroundColor: AppTheme.errorRed,
+                    duration: const Duration(seconds: 4),
+                  ),
+                );
               },
             ),
           ],

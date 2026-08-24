@@ -11,6 +11,20 @@ import '../services/food_service.dart';
 import 'stock_provider.dart';
 import 'food_provider.dart';
 
+class AddFoodToShoppingResult {
+  const AddFoodToShoppingResult({
+    required this.success,
+    required this.wasIncremented,
+    this.quantity,
+    this.errorMessage,
+  });
+
+  final bool success;
+  final bool wasIncremented;
+  final int? quantity;
+  final String? errorMessage;
+}
+
 class ShoppingProvider extends ChangeNotifier {
   ShoppingProvider({
     ShoppingService? shoppingService,
@@ -27,6 +41,9 @@ class ShoppingProvider extends ChangeNotifier {
   String? _currentHouseholdId;
   bool _isLoading = false;
   String? _errorMessage;
+  String? _lastMutationError;
+  final Set<String> _deletedItemIds = <String>{};
+  final Map<String, Future<void>> _mutationTails = <String, Future<void>>{};
 
   List<ShoppingItem> get allItems => _items;
   List<ShoppingItem> get activeItems =>
@@ -35,6 +52,7 @@ class ShoppingProvider extends ChangeNotifier {
       _items.where((i) => i.checked).toList();
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  String? get lastMutationError => _lastMutationError;
 
   int get totalCount => _items.length;
   int get activeCount => activeItems.length;
@@ -69,7 +87,7 @@ class ShoppingProvider extends ChangeNotifier {
             .fetchShoppingItems(householdId)
             .timeout(loadTimeout);
         if (_currentHouseholdId != householdId) return false;
-        _items = refreshed;
+        _acceptAuthoritativeItems(refreshed);
         _errorMessage = null;
         await _streamSubscription?.cancel();
         if (_currentHouseholdId == householdId) {
@@ -97,6 +115,8 @@ class ShoppingProvider extends ChangeNotifier {
   void bindToHousehold(String? householdId) {
     if (householdId == null || householdId.isEmpty) {
       _items = [];
+      _deletedItemIds.clear();
+      _lastMutationError = null;
       _streamSubscription?.cancel();
       _streamSubscription = null;
       _currentHouseholdId = null;
@@ -113,6 +133,8 @@ class ShoppingProvider extends ChangeNotifier {
     _currentHouseholdId = householdId;
     _streamSubscription?.cancel();
     _items = [];
+    _deletedItemIds.clear();
+    _lastMutationError = null;
 
     if (!SupabaseConfig.isConfigured) {
       _items = _householdMockItems.putIfAbsent(householdId, () => []);
@@ -130,7 +152,7 @@ class ShoppingProvider extends ChangeNotifier {
         .timeout(loadTimeout)
         .then((initialList) {
           if (_currentHouseholdId != householdId) return;
-          _items = initialList;
+          _acceptAuthoritativeItems(initialList);
           _isLoading = false;
           notifyListeners();
         })
@@ -158,12 +180,13 @@ class ShoppingProvider extends ChangeNotifier {
               for (final item in _items)
                 if (item.food != null) item.id: item.food,
             };
-            _items = items.map((i) {
+            final hydratedItems = items.map((i) {
               if (i.food == null && foodMap.containsKey(i.id)) {
                 return i.copyWith(food: foodMap[i.id]);
               }
               return i;
             }).toList();
+            _acceptAuthoritativeItems(hydratedItems);
             _isLoading = false;
             notifyListeners();
           },
@@ -187,13 +210,84 @@ class ShoppingProvider extends ChangeNotifier {
     String? customName,
     String? note,
     int? quantity,
+  }) {
+    final householdId = _currentHouseholdId;
+    if (foodId == null || householdId == null) {
+      return _addItemInternal(
+        foodId: foodId,
+        food: food,
+        customName: customName,
+        note: note,
+        quantity: quantity,
+      );
+    }
+    return _serializeMutation(
+      '$householdId:$foodId',
+      () => _addItemInternal(
+        foodId: foodId,
+        food: food,
+        customName: customName,
+        note: note,
+        quantity: quantity,
+      ),
+    );
+  }
+
+  Future<AddFoodToShoppingResult> addOrIncrementFood(Food food) {
+    final householdId = _currentHouseholdId;
+    if (householdId == null) {
+      return Future.value(
+        const AddFoodToShoppingResult(
+          success: false,
+          wasIncremented: false,
+          errorMessage: 'Kein aktiver Haushalt.',
+        ),
+      );
+    }
+
+    return _serializeMutation('$householdId:${food.id}', () async {
+      final existingItem = itemForFood(food.id);
+      if (existingItem == null) {
+        final success = await _addItemInternal(
+          foodId: food.id,
+          food: food,
+          customName: food.name,
+        );
+        return AddFoodToShoppingResult(
+          success: success,
+          wasIncremented: false,
+          errorMessage: success ? null : _lastMutationError,
+        );
+      }
+
+      final nextQuantity = (existingItem.quantity ?? 1) + 1;
+      final success = await _updateItemInternal(
+        itemId: existingItem.id,
+        quantity: nextQuantity,
+        replaceQuantity: true,
+      );
+      return AddFoodToShoppingResult(
+        success: success,
+        wasIncremented: success,
+        quantity: success ? nextQuantity : existingItem.quantity,
+        errorMessage: success ? null : _lastMutationError,
+      );
+    });
+  }
+
+  Future<bool> _addItemInternal({
+    String? foodId,
+    Food? food,
+    String? customName,
+    String? note,
+    int? quantity,
   }) async {
     if (_currentHouseholdId == null) return false;
     final householdId = _currentHouseholdId!;
 
     if (foodId != null && itemForFood(foodId) != null) {
-      _errorMessage = '${food?.name ?? 'Dieses Lebensmittel'} ist bereits im Einkaufswagen.';
-      notifyListeners();
+      _lastMutationError =
+          '${food?.name ?? 'Dieses Lebensmittel'} ist bereits im Einkaufswagen.';
       return false;
     }
 
@@ -217,6 +311,7 @@ class ShoppingProvider extends ChangeNotifier {
       );
       _items.insert(0, newItem);
       _householdMockItems[householdId] = _items;
+      _lastMutationError = null;
       notifyListeners();
       return true;
     }
@@ -239,11 +334,12 @@ class ShoppingProvider extends ChangeNotifier {
       } else {
         _items.insert(0, hydratedItem);
       }
+      _lastMutationError = null;
       notifyListeners();
       return true;
     } catch (e) {
       debugPrint('Error adding shopping item: $e');
-      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      _lastMutationError = e.toString().replaceFirst('Exception: ', '');
       notifyListeners();
       return false;
     }
@@ -280,7 +376,31 @@ class ShoppingProvider extends ChangeNotifier {
     await toggleItem(itemId, !_items[index].checked);
   }
 
-  Future<void> updateItem({
+  Future<bool> updateItem({
+    required String itemId,
+    String? customName,
+    String? note,
+    int? quantity,
+    bool replaceQuantity = false,
+  }) {
+    final item = _items.where((entry) => entry.id == itemId).firstOrNull;
+    final householdId = _currentHouseholdId;
+    final mutationKey = householdId == null
+        ? itemId
+        : '$householdId:${item?.foodId ?? itemId}';
+    return _serializeMutation(
+      mutationKey,
+      () => _updateItemInternal(
+        itemId: itemId,
+        customName: customName,
+        note: note,
+        quantity: quantity,
+        replaceQuantity: replaceQuantity,
+      ),
+    );
+  }
+
+  Future<bool> _updateItemInternal({
     required String itemId,
     String? customName,
     String? note,
@@ -288,8 +408,10 @@ class ShoppingProvider extends ChangeNotifier {
     bool replaceQuantity = false,
   }) async {
     final householdId = _currentHouseholdId;
-    if (householdId == null) return;
+    if (householdId == null) return false;
     final index = _items.indexWhere((i) => i.id == itemId);
+    if (index == -1) return false;
+    final previousItem = _items[index];
     if (index != -1) {
       _items[index] = _items[index].copyWith(
         customName: customName,
@@ -303,8 +425,8 @@ class ShoppingProvider extends ChangeNotifier {
       notifyListeners();
     }
 
-    if (SupabaseConfig.isConfigured) {
-      try {
+    try {
+      if (SupabaseConfig.isConfigured) {
         await _shoppingService.updateItem(
           itemId: itemId,
           householdId: householdId,
@@ -313,28 +435,95 @@ class ShoppingProvider extends ChangeNotifier {
           quantity: quantity,
           replaceQuantity: replaceQuantity,
         );
-      } catch (e) {
-        debugPrint('Error updating item: $e');
       }
+      if (_currentHouseholdId != householdId) return false;
+      _lastMutationError = null;
+      return true;
+    } catch (e, stackTrace) {
+      debugPrint('Error updating item: $e\n$stackTrace');
+      if (_currentHouseholdId == householdId) {
+        final rollbackIndex = _items.indexWhere((i) => i.id == itemId);
+        if (rollbackIndex != -1) {
+          _items[rollbackIndex] = previousItem;
+        }
+        _lastMutationError =
+            'Der Einkaufsartikel konnte nicht aktualisiert werden.';
+        notifyListeners();
+      }
+      return false;
     }
   }
 
-  Future<void> deleteItem(String itemId) async {
+  Future<bool> deleteItem(String itemId) {
+    final item = _items.where((entry) => entry.id == itemId).firstOrNull;
     final householdId = _currentHouseholdId;
-    if (householdId == null) return;
-    _items.removeWhere((i) => i.id == itemId);
+    final mutationKey = householdId == null
+        ? itemId
+        : '$householdId:${item?.foodId ?? itemId}';
+    return _serializeMutation(mutationKey, () => _deleteItemInternal(itemId));
+  }
+
+  Future<bool> _deleteItemInternal(String itemId) async {
+    final householdId = _currentHouseholdId;
+    if (householdId == null) return false;
+    final index = _items.indexWhere((item) => item.id == itemId);
+    if (index == -1) return false;
+    final deletedItem = _items[index];
+    _deletedItemIds.add(itemId);
+    _items.removeAt(index);
     if (!SupabaseConfig.isConfigured && _currentHouseholdId != null) {
       _householdMockItems[_currentHouseholdId!] = _items;
     }
     notifyListeners();
 
-    if (SupabaseConfig.isConfigured) {
-      try {
+    try {
+      if (SupabaseConfig.isConfigured) {
         await _shoppingService.deleteItem(itemId, householdId: householdId);
-      } catch (e) {
-        debugPrint('Error deleting item: $e');
       }
+      if (_currentHouseholdId != householdId) return false;
+      _lastMutationError = null;
+      return true;
+    } catch (e, stackTrace) {
+      debugPrint('Error deleting item: $e\n$stackTrace');
+      if (_currentHouseholdId == householdId) {
+        _deletedItemIds.remove(itemId);
+        if (!_items.any((item) => item.id == itemId)) {
+          final rollbackIndex = index > _items.length ? _items.length : index;
+          _items.insert(rollbackIndex, deletedItem);
+        }
+        _lastMutationError =
+            'Der Einkaufsartikel konnte nicht gelöscht werden.';
+        notifyListeners();
+      }
+      return false;
     }
+  }
+
+  void _acceptAuthoritativeItems(List<ShoppingItem> items) {
+    _items = items.where((item) => !_deletedItemIds.contains(item.id)).toList();
+  }
+
+  Future<T> _serializeMutation<T>(String key, Future<T> Function() mutation) {
+    final completer = Completer<T>();
+    final previous = _mutationTails[key] ?? Future<void>.value();
+    final ready = previous.then<void>((_) {}, onError: (_, _) {});
+    late final Future<void> tail;
+    tail = ready.then<void>((_) async {
+      try {
+        completer.complete(await mutation());
+      } catch (error, stackTrace) {
+        completer.completeError(error, stackTrace);
+      }
+    });
+    _mutationTails[key] = tail;
+    unawaited(
+      tail.whenComplete(() {
+        if (identical(_mutationTails[key], tail)) {
+          _mutationTails.remove(key);
+        }
+      }),
+    );
+    return completer.future;
   }
 
   Future<int> clearCheckedItems({
@@ -437,6 +626,7 @@ class ShoppingProvider extends ChangeNotifier {
                 householdId: householdId,
               );
             }
+            _deletedItemIds.add(item.id);
             successfullyHandledIds.add(item.id);
           } else {
             debugPrint(

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dino_food/config/supabase_config.dart';
 import 'package:dino_food/models/shopping_item.dart';
 import 'package:dino_food/providers/auth_provider.dart';
@@ -34,6 +36,28 @@ class _RetryShoppingService extends ShoppingService {
       const Stream.empty();
 }
 
+class _DeleteShoppingService extends ShoppingService {
+  _DeleteShoppingService(this.rows, {this.failDelete = false});
+
+  List<ShoppingItem> rows;
+  final bool failDelete;
+  final streamController = StreamController<List<ShoppingItem>>.broadcast();
+
+  @override
+  Future<List<ShoppingItem>> fetchShoppingItems(String householdId) async =>
+      List<ShoppingItem>.of(rows);
+
+  @override
+  Stream<List<ShoppingItem>> streamShoppingItems(String householdId) =>
+      streamController.stream;
+
+  @override
+  Future<void> deleteItem(String itemId, {required String householdId}) async {
+    if (failDelete) throw Exception('delete failed');
+    rows = rows.where((item) => item.id != itemId).toList();
+  }
+}
+
 void main() {
   group('Food variants on the shopping list', () {
     test('matches duplicates by food id and keeps variants separate', () async {
@@ -43,33 +67,26 @@ void main() {
       final jasmine = await foods.addCustomFood(name: 'Reis', note: 'Jasmin');
       final shopping = ShoppingProvider()..bindToHousehold(householdId);
 
-      expect(
-        await shopping.addItem(
-          foodId: basmati.id,
-          food: basmati,
-          customName: basmati.name,
-        ),
-        isTrue,
-      );
-      expect(
-        await shopping.addItem(
-          foodId: basmati.id,
-          food: basmati,
-          customName: basmati.name,
-        ),
-        isFalse,
-      );
+      final first = await shopping.addOrIncrementFood(basmati);
+      expect(first.success, isTrue);
+      expect(first.wasIncremented, isFalse);
+      expect(shopping.allItems.single.quantity, isNull);
+
+      final second = await shopping.addOrIncrementFood(basmati);
+      expect(second.success, isTrue);
+      expect(second.quantity, 2);
       expect(shopping.allItems, hasLength(1));
+      expect(shopping.allItems.single.quantity, 2);
       expect(shopping.itemForFood(basmati.id)?.detailsText, 'Basmati');
 
-      expect(
-        await shopping.addItem(
-          foodId: jasmine.id,
-          food: jasmine,
-          customName: jasmine.name,
-          note: 'Im Angebot nehmen',
-        ),
-        isTrue,
+      final third = await shopping.addOrIncrementFood(basmati);
+      expect(third.quantity, 3);
+      expect(shopping.allItems.single.quantity, 3);
+
+      expect((await shopping.addOrIncrementFood(jasmine)).success, isTrue);
+      await shopping.updateItem(
+        itemId: shopping.itemForFood(jasmine.id)!.id,
+        note: 'Im Angebot nehmen',
       );
       expect(shopping.allItems, hasLength(2));
       expect(
@@ -78,25 +95,19 @@ void main() {
       );
     });
 
-    testWidgets('duplicate quick-add offers the current quantity for editing', (
+    testWidgets('quick-add increments directly without opening a dialog', (
       tester,
     ) async {
       final household = HouseholdProvider();
       await household.loadHouseholds();
       final householdId = household.currentHousehold!.id;
       final foods = FoodProvider()..bindToHousehold(householdId);
-      final baguette = await foods.addCustomFood(
+      await foods.addCustomFood(
         name: 'Baguette',
         note: 'Testvariante',
       );
       foods.setSearchQuery('Testvariante');
       final shopping = ShoppingProvider()..bindToHousehold(householdId);
-      await shopping.addItem(
-        foodId: baguette.id,
-        food: baguette,
-        customName: baguette.name,
-        quantity: 2,
-      );
       final stock = StockProvider()..bindToHousehold(householdId);
 
       await tester.pumpWidget(
@@ -112,20 +123,44 @@ void main() {
       );
       await tester.pumpAndSettle();
       await tester.tap(find.byIcon(Icons.add_shopping_cart));
-      await tester.pump();
-
-      expect(find.text('Baguette ist bereits im Einkaufswagen.'), findsOne);
-      expect(find.text('Artikel bearbeiten'), findsOne);
-      final quantityField = find.widgetWithText(
-        TextFormField,
-        'Anzahl (optional)',
-      );
-      expect(tester.widget<TextFormField>(quantityField).controller?.text, '2');
-
-      await tester.enterText(quantityField, '4');
-      await tester.tap(find.text('Speichern'));
       await tester.pumpAndSettle();
-      expect(shopping.allItems.single.quantity, 4);
+
+      expect(find.textContaining('wurde zum Einkaufswagen'), findsOneWidget);
+      expect(find.text('Artikel bearbeiten'), findsNothing);
+      expect(find.byType(Dialog), findsNothing);
+      expect(shopping.allItems.single.quantity, isNull);
+
+      await tester.tap(find.byIcon(Icons.add_shopping_cart));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Anzahl auf 2 erhöht'), findsOneWidget);
+      expect(find.byType(Dialog), findsNothing);
+      expect(shopping.allItems.single.quantity, 2);
+    });
+
+    test('rapid quick-adds are serialized without duplicates', () async {
+      const householdId = 'rapid-add-household';
+      final foods = FoodProvider()..bindToHousehold(householdId);
+      final spaghetti = await foods.addCustomFood(
+        name: 'Nudeln',
+        note: 'Spaghetti',
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 2));
+      final fusilli = await foods.addCustomFood(
+        name: 'Nudeln',
+        note: 'Fusilli',
+      );
+      final shopping = ShoppingProvider()..bindToHousehold(householdId);
+
+      await Future.wait(
+        List.generate(5, (_) => shopping.addOrIncrementFood(spaghetti)),
+      );
+      final fusilliResult = await shopping.addOrIncrementFood(fusilli);
+
+      expect(fusilliResult.success, isTrue, reason: fusilliResult.errorMessage);
+      expect(shopping.allItems, hasLength(2));
+      expect(shopping.itemForFood(spaghetti.id)?.quantity, 5);
+      expect(shopping.itemForFood(spaghetti.id)?.detailsText, 'Spaghetti');
+      expect(shopping.itemForFood(fusilli.id)?.quantity, isNull);
     });
   });
 
@@ -171,7 +206,58 @@ void main() {
     expect(provider.errorMessage, contains('aktualisiert'));
   });
 
-  testWidgets('resume keeps loaded shopping data visible', (tester) async {
+  test('deleted item is not restored by stale stream or refresh', () async {
+    const householdId = 'delete-stale-event-household';
+    final item = ShoppingItem(
+      id: 'deleted-item',
+      householdId: householdId,
+      foodId: 'food-spaghetti',
+      customName: 'Nudeln',
+      createdAt: DateTime(2026),
+      updatedAt: DateTime(2026),
+    );
+    final service = _DeleteShoppingService([item]);
+    addTearDown(service.streamController.close);
+    SupabaseConfig.isConfigured = true;
+    addTearDown(() => SupabaseConfig.isConfigured = false);
+    final provider = ShoppingProvider(shoppingService: service)
+      ..bindToHousehold(householdId);
+    await Future<void>.delayed(Duration.zero);
+    expect(provider.allItems, hasLength(1));
+
+    final staleRows = List<ShoppingItem>.of(service.rows);
+    expect(await provider.deleteItem(item.id), isTrue);
+    expect(provider.allItems, isEmpty);
+    service.streamController.add(staleRows);
+    await Future<void>.delayed(Duration.zero);
+    expect(provider.allItems, isEmpty);
+    expect(await provider.refresh(attempts: 1), isTrue);
+    expect(provider.allItems, isEmpty);
+  });
+
+  test('failed delete rolls the optimistic removal back', () async {
+    const householdId = 'delete-rollback-household';
+    final item = ShoppingItem(
+      id: 'rollback-item',
+      householdId: householdId,
+      customName: 'Baguette',
+      createdAt: DateTime(2026),
+      updatedAt: DateTime(2026),
+    );
+    final service = _DeleteShoppingService([item], failDelete: true);
+    addTearDown(service.streamController.close);
+    SupabaseConfig.isConfigured = true;
+    addTearDown(() => SupabaseConfig.isConfigured = false);
+    final provider = ShoppingProvider(shoppingService: service)
+      ..bindToHousehold(householdId);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(await provider.deleteItem(item.id), isFalse);
+    expect(provider.allItems.single.id, item.id);
+    expect(provider.lastMutationError, contains('gelöscht'));
+  });
+
+  testWidgets('deleted item stays absent after resume', (tester) async {
     final household = HouseholdProvider();
     await household.loadHouseholds();
     final householdId = household.currentHousehold!.id;
@@ -194,12 +280,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Resume-Baguette'), findsOneWidget);
 
+    final resumeItem = shopping.allItems.firstWhere(
+      (item) => item.displayName == 'Resume-Baguette',
+    );
+    expect(await shopping.deleteItem(resumeItem.id), isTrue);
+    await tester.pump();
+    expect(find.text('Resume-Baguette'), findsNothing);
+
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pump();
-    expect(find.text('Resume-Baguette'), findsOneWidget);
+    expect(find.text('Resume-Baguette'), findsNothing);
     expect(find.textContaining('Fehler beim Laden'), findsNothing);
     await tester.pumpAndSettle();
-    expect(find.text('Resume-Baguette'), findsOneWidget);
+    expect(find.text('Resume-Baguette'), findsNothing);
   });
 }

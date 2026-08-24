@@ -11,7 +11,6 @@ import '../../providers/stock_provider.dart';
 import '../../widgets/dino_card.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/load_error_state.dart';
-import '../shopping_list/add_edit_item_dialog.dart';
 import 'add_food_dialog.dart';
 import 'edit_food_dialog.dart';
 import 'stock_screen.dart';
@@ -475,28 +474,28 @@ class _FoodsScreenState extends State<FoodsScreen> {
     );
   }
 
-  void _quickAddFoodToShopping(
+  Future<void> _quickAddFoodToShopping(
     BuildContext context,
     Food food,
     ShoppingProvider shoppingProvider,
-  ) {
-    final existingItem = shoppingProvider.itemForFood(food.id);
-    if (existingItem != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${food.name} ist bereits im Einkaufswagen.'),
-          duration: const Duration(seconds: 2),
+  ) async {
+    final result = await shoppingProvider.addOrIncrementFood(food);
+    if (!context.mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context)..hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          result.success
+              ? result.wasIncremented
+                    ? '${food.name} ist bereits im Einkaufswagen – Anzahl auf ${result.quantity} erhöht.'
+                    : '${food.name} wurde zum Einkaufswagen hinzugefügt.'
+              : result.errorMessage ??
+                    'Das Lebensmittel konnte nicht hinzugefügt werden.',
         ),
-      );
-      showDialog(
-        context: context,
-        builder: (_) => AddEditItemDialog(itemToEdit: existingItem),
-      );
-      return;
-    }
-    showDialog(
-      context: context,
-      builder: (_) => AddEditItemDialog(preselectedFood: food),
+        backgroundColor: result.success ? null : AppTheme.errorRed,
+        duration: const Duration(seconds: 2),
+      ),
     );
   }
 }
