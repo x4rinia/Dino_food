@@ -38,6 +38,7 @@ class HouseholdProvider extends ChangeNotifier {
   Household? _currentHousehold;
   List<HouseholdMember> _members = [];
   String? _errorMessage;
+  bool _isRefreshing = false;
 
   HouseholdState get state => _state;
   List<Household> get households => _households;
@@ -147,6 +148,70 @@ class HouseholdProvider extends ChangeNotifier {
       _state = HouseholdState.error;
       _errorMessage = _friendlyStartupError(e);
       notifyListeners();
+    }
+  }
+
+  Future<bool> refreshOnResume({int attempts = 2}) async {
+    if (_isRefreshing) return false;
+    if (!_isSupabaseConfigured) return true;
+    final activeHouseholdId = _currentHousehold?.id;
+    if (activeHouseholdId == null) return false;
+
+    _isRefreshing = true;
+    Object? lastError;
+    StackTrace? lastStackTrace;
+    try {
+      for (var attempt = 0; attempt < attempts; attempt++) {
+        try {
+          final households = await _startupStep(
+            _householdService.fetchUserHouseholds(),
+            'Haushaltszuordnungen',
+          );
+          final defaultId = await _startupStep(
+            _householdService.fetchDefaultHouseholdId(),
+            'Standardhaushalt',
+          );
+          if (!households.any(
+            (household) => household.id == activeHouseholdId,
+          )) {
+            throw const HouseholdStartupException(
+              'Der aktive Haushalt ist nicht mehr verfügbar.',
+            );
+          }
+          final activeHousehold = households.firstWhere(
+            (household) => household.id == activeHouseholdId,
+          );
+          final members = await _startupStep(
+            _householdService.fetchMembers(activeHouseholdId),
+            'Haushaltsmitglieder',
+          );
+
+          _households = households;
+          _defaultHouseholdId = defaultId;
+          _currentHousehold = activeHousehold;
+          _members = members;
+          _state = HouseholdState.loaded;
+          _errorMessage = null;
+          notifyListeners();
+          return true;
+        } catch (error, stackTrace) {
+          lastError = error;
+          lastStackTrace = stackTrace;
+          if (attempt + 1 < attempts) {
+            await Future<void>.delayed(const Duration(milliseconds: 500));
+          }
+        }
+      }
+
+      debugPrint(
+        'Household resume refresh failed: $lastError\n$lastStackTrace',
+      );
+      _state = HouseholdState.error;
+      _errorMessage = _friendlyStartupError(lastError ?? Exception());
+      notifyListeners();
+      return false;
+    } finally {
+      _isRefreshing = false;
     }
   }
 

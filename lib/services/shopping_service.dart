@@ -72,7 +72,7 @@ class ShoppingService {
             .toList();
       } catch (e2) {
         debugPrint('Fallback fetch also failed: $e2');
-        return [];
+        rethrow;
       }
     }
   }

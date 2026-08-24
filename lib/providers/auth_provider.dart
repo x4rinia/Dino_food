@@ -57,6 +57,28 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<bool> refreshSessionOnResume({int attempts = 2}) async {
+    if (!SupabaseConfig.isConfigured) return true;
+    final session = SupabaseConfig.client.auth.currentSession;
+    if (session == null) return false;
+
+    for (var attempt = 0; attempt < attempts; attempt++) {
+      try {
+        final response = await SupabaseConfig.client.auth.refreshSession();
+        if (response.session != null) {
+          _status = AuthStatus.authenticated;
+          return true;
+        }
+      } catch (error, stackTrace) {
+        debugPrint('Session refresh attempt ${attempt + 1} failed: $error\n$stackTrace');
+      }
+      if (attempt + 1 < attempts) {
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+      }
+    }
+    return false;
+  }
+
   Future<bool> updateDisplayName(String newDisplayName) async {
     _setLoading();
     try {

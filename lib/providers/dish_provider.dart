@@ -192,6 +192,42 @@ class DishProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> refresh(String householdId, {int attempts = 2}) async {
+    if (_currentHouseholdId != householdId || householdId.isEmpty) {
+      return false;
+    }
+
+    _errorMessage = null;
+    notifyListeners();
+    Object? lastError;
+    StackTrace? lastStackTrace;
+    for (var attempt = 0; attempt < attempts; attempt++) {
+      try {
+        final refreshed = await _dishService
+            .fetchDishes(householdId)
+            .timeout(loadTimeout);
+        if (_currentHouseholdId != householdId) return false;
+        _dishes = refreshed;
+        _errorMessage = null;
+        notifyListeners();
+        return true;
+      } catch (error, stackTrace) {
+        lastError = error;
+        lastStackTrace = stackTrace;
+        if (attempt + 1 < attempts) {
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+        }
+      }
+    }
+    if (_currentHouseholdId != householdId) return false;
+    _errorMessage = lastError is TimeoutException
+        ? 'Gerichte konnten nicht rechtzeitig aktualisiert werden.'
+        : lastError.toString().replaceFirst('Exception: ', '');
+    debugPrint('Dish refresh failed: $lastError\n$lastStackTrace');
+    notifyListeners();
+    return false;
+  }
+
   Future<bool> createDish({
     required String householdId,
     required String name,

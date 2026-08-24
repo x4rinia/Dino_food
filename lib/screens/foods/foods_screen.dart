@@ -480,6 +480,20 @@ class _FoodsScreenState extends State<FoodsScreen> {
     Food food,
     ShoppingProvider shoppingProvider,
   ) {
+    final existingItem = shoppingProvider.itemForFood(food.id);
+    if (existingItem != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${food.name} ist bereits im Einkaufswagen.'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      showDialog(
+        context: context,
+        builder: (_) => AddEditItemDialog(itemToEdit: existingItem),
+      );
+      return;
+    }
     showDialog(
       context: context,
       builder: (_) => AddEditItemDialog(preselectedFood: food),

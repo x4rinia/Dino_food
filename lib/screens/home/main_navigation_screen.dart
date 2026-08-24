@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
+import '../../providers/auth_provider.dart';
 import '../../providers/dish_provider.dart';
 import '../../providers/food_provider.dart';
 import '../../providers/household_provider.dart';
@@ -17,8 +19,10 @@ class MainNavigationScreen extends StatefulWidget {
   State<MainNavigationScreen> createState() => _MainNavigationScreenState();
 }
 
-class _MainNavigationScreenState extends State<MainNavigationScreen> {
+class _MainNavigationScreenState extends State<MainNavigationScreen>
+    with WidgetsBindingObserver {
   int _currentIndex = 0;
+  bool _resumeRefreshRunning = false;
 
   final List<Widget> _screens = const [
     ShoppingListScreen(),
@@ -30,14 +34,68 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initAppData();
     });
   }
 
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshAfterResume();
+    }
+  }
+
+  Future<void> _refreshAfterResume() async {
+    if (_resumeRefreshRunning || !mounted) return;
+    _resumeRefreshRunning = true;
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final householdProvider = Provider.of<HouseholdProvider>(
+        context,
+        listen: false,
+      );
+      final shoppingProvider = Provider.of<ShoppingProvider>(
+        context,
+        listen: false,
+      );
+      final stockProvider = Provider.of<StockProvider>(context, listen: false);
+      final foodProvider = Provider.of<FoodProvider>(context, listen: false);
+      final dishProvider = Provider.of<DishProvider>(context, listen: false);
+
+      await authProvider.refreshSessionOnResume();
+      if (!mounted) return;
+      if (!await householdProvider.refreshOnResume()) return;
+      final householdId = householdProvider.currentHousehold?.id;
+      if (householdId == null || !mounted) return;
+
+      await Future.wait([
+        shoppingProvider.refresh(),
+        stockProvider.refresh(),
+        foodProvider.refresh(),
+        dishProvider.refresh(householdId),
+      ]);
+    } finally {
+      _resumeRefreshRunning = false;
+    }
+  }
+
   void _initAppData() async {
-    final householdProvider = Provider.of<HouseholdProvider>(context, listen: false);
-    final shoppingProvider = Provider.of<ShoppingProvider>(context, listen: false);
+    final householdProvider = Provider.of<HouseholdProvider>(
+      context,
+      listen: false,
+    );
+    final shoppingProvider = Provider.of<ShoppingProvider>(
+      context,
+      listen: false,
+    );
     final stockProvider = Provider.of<StockProvider>(context, listen: false);
     final foodProvider = Provider.of<FoodProvider>(context, listen: false);
     final dishProvider = Provider.of<DishProvider>(context, listen: false);
@@ -56,10 +114,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
+      body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           boxShadow: [

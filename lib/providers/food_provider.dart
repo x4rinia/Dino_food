@@ -114,6 +114,44 @@ class FoodProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> refresh({int attempts = 2}) async {
+    final householdId = _currentHouseholdId;
+    if (householdId == null || householdId.isEmpty) return false;
+    if (!SupabaseConfig.isConfigured) return true;
+
+    _errorMessage = null;
+    notifyListeners();
+    Object? lastError;
+    StackTrace? lastStackTrace;
+    for (var attempt = 0; attempt < attempts; attempt++) {
+      try {
+        final loaded = await _foodService
+            .fetchFoods(householdId)
+            .timeout(loadTimeout);
+        if (_currentHouseholdId != householdId) return false;
+        _foods = loaded;
+        _sortFoods();
+        _hasLoaded = true;
+        _errorMessage = null;
+        notifyListeners();
+        return true;
+      } catch (error, stackTrace) {
+        lastError = error;
+        lastStackTrace = stackTrace;
+        if (attempt + 1 < attempts) {
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+        }
+      }
+    }
+    if (_currentHouseholdId != householdId) return false;
+    _errorMessage = lastError is TimeoutException
+        ? 'Lebensmittel konnten nicht rechtzeitig aktualisiert werden.'
+        : 'Lebensmittel konnten nicht aktualisiert werden: $lastError';
+    debugPrint('Food refresh failed: $lastError\n$lastStackTrace');
+    notifyListeners();
+    return false;
+  }
+
   void setSearchQuery(String query) {
     _searchQuery = query;
     notifyListeners();

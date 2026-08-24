@@ -37,8 +37,16 @@ class ShoppingItem {
   }
 
   String? get detailsText {
-    final trimmedNote = note?.trim();
-    return trimmedNote == null || trimmedNote.isEmpty ? null : trimmedNote;
+    final foodNote = food?.note?.trim();
+    final shoppingNote = note?.trim();
+    final details = <String>[
+      if (foodNote != null && foodNote.isNotEmpty) foodNote,
+      if (shoppingNote != null &&
+          shoppingNote.isNotEmpty &&
+          shoppingNote != foodNote)
+        shoppingNote,
+    ];
+    return details.isEmpty ? null : details.join(' · ');
   }
 
   ShoppingItem copyWith({

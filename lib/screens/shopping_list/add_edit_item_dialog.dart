@@ -143,6 +143,7 @@ class _AddEditItemDialogState extends State<AddEditItemDialog> {
     } else {
       success = await shoppingProvider.addItem(
         foodId: finalFoodId,
+        food: matchedFood,
         customName: finalCustomName,
         note: note.isNotEmpty ? note : null,
         quantity: quantity,

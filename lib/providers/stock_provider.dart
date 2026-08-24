@@ -42,6 +42,46 @@ class StockProvider extends ChangeNotifier {
     bindToHousehold(householdId);
   }
 
+  Future<bool> refresh({int attempts = 2}) async {
+    final householdId = _currentHouseholdId;
+    if (householdId == null || householdId.isEmpty) return false;
+    if (!SupabaseConfig.isConfigured) return true;
+
+    _errorMessage = null;
+    notifyListeners();
+    Object? lastError;
+    StackTrace? lastStackTrace;
+    for (var attempt = 0; attempt < attempts; attempt++) {
+      try {
+        final refreshed = await _stockService
+            .fetchStock(householdId)
+            .timeout(loadTimeout);
+        if (_currentHouseholdId != householdId) return false;
+        _inStockFoodIds = refreshed;
+        _errorMessage = null;
+        await _subscription?.cancel();
+        if (_currentHouseholdId == householdId) {
+          _listenToHousehold(householdId);
+          notifyListeners();
+        }
+        return true;
+      } catch (error, stackTrace) {
+        lastError = error;
+        lastStackTrace = stackTrace;
+        if (attempt + 1 < attempts) {
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+        }
+      }
+    }
+    if (_currentHouseholdId != householdId) return false;
+    _errorMessage = lastError is TimeoutException
+        ? 'Der Vorrat konnte nicht rechtzeitig aktualisiert werden.'
+        : 'Der Vorrat konnte nicht aktualisiert werden: $lastError';
+    debugPrint('Stock refresh failed: $lastError\n$lastStackTrace');
+    notifyListeners();
+    return false;
+  }
+
   void bindToHousehold(String? householdId) {
     if (householdId == null || householdId.isEmpty) {
       _inStockFoodIds = {};
@@ -98,6 +138,10 @@ class StockProvider extends ChangeNotifier {
         });
 
     // Realtime stream
+    _listenToHousehold(householdId);
+  }
+
+  void _listenToHousehold(String householdId) {
     _subscription = _stockService
         .streamStock(householdId)
         .listen(
@@ -109,11 +153,15 @@ class StockProvider extends ChangeNotifier {
           },
           onError: (Object error, StackTrace stackTrace) {
             if (_currentHouseholdId != householdId) return;
-            _errorMessage =
-                'Der Vorrat konnte nicht aktualisiert werden: $error';
-            _isLoading = false;
             debugPrint('Stock stream failed: $error\n$stackTrace');
-            notifyListeners();
+            if (_inStockFoodIds.isEmpty) {
+              _errorMessage =
+                  'Der Vorrat konnte nicht aktualisiert werden: $error';
+              _isLoading = false;
+              notifyListeners();
+            } else {
+              unawaited(refresh());
+            }
           },
         );
   }

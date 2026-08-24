@@ -215,7 +215,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
     ShoppingProvider provider, {
     required bool isChecked,
   }) {
-    final note = item.note?.trim();
+    final note = item.detailsText;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),

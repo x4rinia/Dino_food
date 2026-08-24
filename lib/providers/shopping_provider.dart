@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../config/supabase_config.dart';
 import '../models/shopping_item.dart';
+import '../models/food.dart';
 import '../services/shopping_service.dart';
 import '../services/stock_service.dart';
 import '../services/food_service.dart';
@@ -39,6 +40,11 @@ class ShoppingProvider extends ChangeNotifier {
   int get activeCount => activeItems.length;
   int get checkedCount => checkedItems.length;
 
+  ShoppingItem? itemForFood(String foodId) {
+    if (foodId.isEmpty) return null;
+    return _items.where((item) => item.foodId == foodId).firstOrNull;
+  }
+
   void retryLoad() {
     final householdId = _currentHouseholdId;
     if (householdId == null) return;
@@ -46,6 +52,46 @@ class ShoppingProvider extends ChangeNotifier {
     _streamSubscription = null;
     _currentHouseholdId = null;
     bindToHousehold(householdId);
+  }
+
+  Future<bool> refresh({int attempts = 2}) async {
+    final householdId = _currentHouseholdId;
+    if (householdId == null || householdId.isEmpty) return false;
+    if (!SupabaseConfig.isConfigured) return true;
+
+    _errorMessage = null;
+    notifyListeners();
+    Object? lastError;
+    StackTrace? lastStackTrace;
+    for (var attempt = 0; attempt < attempts; attempt++) {
+      try {
+        final refreshed = await _shoppingService
+            .fetchShoppingItems(householdId)
+            .timeout(loadTimeout);
+        if (_currentHouseholdId != householdId) return false;
+        _items = refreshed;
+        _errorMessage = null;
+        await _streamSubscription?.cancel();
+        if (_currentHouseholdId == householdId) {
+          _listenToHousehold(householdId);
+          notifyListeners();
+        }
+        return true;
+      } catch (error, stackTrace) {
+        lastError = error;
+        lastStackTrace = stackTrace;
+        if (attempt + 1 < attempts) {
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+        }
+      }
+    }
+    if (_currentHouseholdId != householdId) return false;
+    _errorMessage = lastError is TimeoutException
+        ? 'Die Einkaufsliste konnte nicht rechtzeitig aktualisiert werden.'
+        : 'Die Einkaufsliste konnte nicht aktualisiert werden: $lastError';
+    debugPrint('Shopping refresh failed: $lastError\n$lastStackTrace');
+    notifyListeners();
+    return false;
   }
 
   void bindToHousehold(String? householdId) {
@@ -99,6 +145,10 @@ class ShoppingProvider extends ChangeNotifier {
           return null;
         });
 
+    _listenToHousehold(householdId);
+  }
+
+  void _listenToHousehold(String householdId) {
     _streamSubscription = _shoppingService
         .streamShoppingItems(householdId)
         .listen(
@@ -118,21 +168,34 @@ class ShoppingProvider extends ChangeNotifier {
             notifyListeners();
           },
           onError: (e) {
-            _errorMessage = 'Fehler beim Laden der Einkaufsliste: $e';
-            _isLoading = false;
-            notifyListeners();
+            if (_currentHouseholdId != householdId) return;
+            debugPrint('Shopping stream failed: $e');
+            if (_items.isEmpty) {
+              _errorMessage = 'Fehler beim Laden der Einkaufsliste: $e';
+              _isLoading = false;
+              notifyListeners();
+            } else {
+              unawaited(refresh());
+            }
           },
         );
   }
 
   Future<bool> addItem({
     String? foodId,
+    Food? food,
     String? customName,
     String? note,
     int? quantity,
   }) async {
     if (_currentHouseholdId == null) return false;
     final householdId = _currentHouseholdId!;
+
+    if (foodId != null && itemForFood(foodId) != null) {
+      _errorMessage = '${food?.name ?? 'Dieses Lebensmittel'} ist bereits im Einkaufswagen.';
+      notifyListeners();
+      return false;
+    }
 
     if (!SupabaseConfig.isConfigured) {
       if (foodId != null &&
@@ -150,6 +213,7 @@ class ShoppingProvider extends ChangeNotifier {
         checked: false,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
+        food: food?.id == foodId ? food : null,
       );
       _items.insert(0, newItem);
       _householdMockItems[householdId] = _items;
@@ -166,11 +230,14 @@ class ShoppingProvider extends ChangeNotifier {
         quantity: quantity,
       );
       if (_currentHouseholdId != householdId) return false;
+      final hydratedItem = food?.id == foodId
+          ? newItem.copyWith(food: food)
+          : newItem;
       final existingIndex = _items.indexWhere((i) => i.id == newItem.id);
       if (existingIndex != -1) {
-        _items[existingIndex] = newItem;
+        _items[existingIndex] = hydratedItem;
       } else {
-        _items.insert(0, newItem);
+        _items.insert(0, hydratedItem);
       }
       notifyListeners();
       return true;
