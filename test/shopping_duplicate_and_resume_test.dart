@@ -58,6 +58,44 @@ class _DeleteShoppingService extends ShoppingService {
   }
 }
 
+class _ReconnectShoppingService extends ShoppingService {
+  _ReconnectShoppingService(this.rows);
+
+  List<ShoppingItem> rows;
+  int fetchCount = 0;
+  int streamCount = 0;
+  int activeSubscriptions = 0;
+  int maxActiveSubscriptions = 0;
+  final controllers = <StreamController<List<ShoppingItem>>>[];
+
+  @override
+  Future<List<ShoppingItem>> fetchShoppingItems(String householdId) async {
+    fetchCount++;
+    return List<ShoppingItem>.of(rows);
+  }
+
+  @override
+  Stream<List<ShoppingItem>> streamShoppingItems(String householdId) {
+    streamCount++;
+    final controller = StreamController<List<ShoppingItem>>.broadcast();
+    controller.onListen = () {
+      activeSubscriptions++;
+      if (activeSubscriptions > maxActiveSubscriptions) {
+        maxActiveSubscriptions = activeSubscriptions;
+      }
+    };
+    controller.onCancel = () => activeSubscriptions--;
+    controllers.add(controller);
+    return controller.stream;
+  }
+
+  Future<void> close() async {
+    for (final controller in controllers) {
+      await controller.close();
+    }
+  }
+}
+
 void main() {
   group('Food variants on the shopping list', () {
     test('matches duplicates by food id and keeps variants separate', () async {
@@ -95,18 +133,15 @@ void main() {
       );
     });
 
-    testWidgets('quick-add increments directly without opening a dialog', (
+    testWidgets('quick-add dialog shows food note and suggested quantity', (
       tester,
     ) async {
       final household = HouseholdProvider();
       await household.loadHouseholds();
       final householdId = household.currentHousehold!.id;
       final foods = FoodProvider()..bindToHousehold(householdId);
-      await foods.addCustomFood(
-        name: 'Baguette',
-        note: 'Testvariante',
-      );
-      foods.setSearchQuery('Testvariante');
+      await foods.addCustomFood(name: 'Nudeln Dialogtest', note: 'Spaghetti');
+      foods.setSearchQuery('Nudeln Dialogtest');
       final shopping = ShoppingProvider()..bindToHousehold(householdId);
       final stock = StockProvider()..bindToHousehold(householdId);
 
@@ -123,18 +158,61 @@ void main() {
       );
       await tester.pumpAndSettle();
       await tester.tap(find.byIcon(Icons.add_shopping_cart));
-      await tester.pumpAndSettle();
+      await tester.pump();
 
-      expect(find.textContaining('wurde zum Einkaufswagen'), findsOneWidget);
-      expect(find.text('Artikel bearbeiten'), findsNothing);
-      expect(find.byType(Dialog), findsNothing);
+      expect(find.text('Artikel hinzufügen'), findsOneWidget);
+      var foodNoteField = find.widgetWithText(
+        TextFormField,
+        'Lebensmittel-Notiz',
+      );
+      expect(
+        tester.widget<TextFormField>(foodNoteField).initialValue,
+        'Spaghetti',
+      );
+      expect(
+        tester
+            .widget<TextFormField>(
+              find.widgetWithText(
+                TextFormField,
+                'Einkaufslisten-Notiz (optional)',
+              ),
+            )
+            .controller
+            ?.text,
+        isEmpty,
+      );
+      await tester.tap(find.text('Hinzufügen'));
+      await tester.pumpAndSettle();
       expect(shopping.allItems.single.quantity, isNull);
+      expect(shopping.allItems.single.detailsText, 'Spaghetti');
 
       await tester.tap(find.byIcon(Icons.add_shopping_cart));
+      await tester.pump();
+      expect(
+        find.text('Nudeln Dialogtest ist bereits in der Einkaufsliste.'),
+        findsOneWidget,
+      );
+      expect(find.text('Artikel bearbeiten'), findsOneWidget);
+      foodNoteField = find.widgetWithText(TextFormField, 'Lebensmittel-Notiz');
+      expect(
+        tester.widget<TextFormField>(foodNoteField).initialValue,
+        'Spaghetti',
+      );
+      var quantityField = find.widgetWithText(
+        TextFormField,
+        'Anzahl (optional)',
+      );
+      expect(tester.widget<TextFormField>(quantityField).controller?.text, '2');
+      await tester.tap(find.text('Speichern'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('Anzahl auf 2 erhöht'), findsOneWidget);
-      expect(find.byType(Dialog), findsNothing);
       expect(shopping.allItems.single.quantity, 2);
+
+      await tester.tap(find.byIcon(Icons.add_shopping_cart));
+      await tester.pump();
+      quantityField = find.widgetWithText(TextFormField, 'Anzahl (optional)');
+      expect(tester.widget<TextFormField>(quantityField).controller?.text, '3');
+      await tester.tap(find.text('Abbrechen'));
+      await tester.pumpAndSettle();
     });
 
     test('rapid quick-adds are serialized without duplicates', () async {
@@ -256,6 +334,58 @@ void main() {
     expect(provider.allItems.single.id, item.id);
     expect(provider.lastMutationError, contains('gelöscht'));
   });
+
+  test(
+    'channelError keeps data, fetches fallback and replaces subscription',
+    () async {
+      const householdId = 'realtime-reconnect-household';
+      final item = ShoppingItem(
+        id: 'realtime-item',
+        householdId: householdId,
+        customName: 'Nudeln',
+        createdAt: DateTime(2026),
+        updatedAt: DateTime(2026),
+      );
+      final service = _ReconnectShoppingService([item]);
+      SupabaseConfig.isConfigured = true;
+      addTearDown(() => SupabaseConfig.isConfigured = false);
+      final provider = ShoppingProvider(shoppingService: service)
+        ..bindToHousehold(householdId);
+      addTearDown(() async {
+        provider.dispose();
+        await service.close();
+      });
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      expect(provider.allItems.single.id, item.id);
+      expect(service.fetchCount, 1);
+      expect(service.streamCount, 1);
+      expect(service.activeSubscriptions, 1);
+
+      service.controllers.single.addError(
+        Exception('RealtimeSubscribeException(status: channelError)'),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      expect(provider.allItems.single.id, item.id);
+      expect(provider.errorMessage, isNull);
+      expect(service.fetchCount, 2);
+      expect(service.streamCount, 2);
+      expect(service.activeSubscriptions, 1);
+
+      final realtimeUpdate = item.copyWith(quantity: 2);
+      service.rows = [realtimeUpdate];
+      service.controllers.last.add([realtimeUpdate]);
+      await Future<void>.delayed(Duration.zero);
+      expect(provider.allItems.single.quantity, 2);
+
+      await Future.wait([provider.refresh(), provider.refresh()]);
+      expect(service.fetchCount, 3);
+      expect(service.streamCount, 3);
+      expect(service.activeSubscriptions, 1);
+      expect(service.maxActiveSubscriptions, 1);
+    },
+  );
 
   testWidgets('deleted item stays absent after resume', (tester) async {
     final household = HouseholdProvider();

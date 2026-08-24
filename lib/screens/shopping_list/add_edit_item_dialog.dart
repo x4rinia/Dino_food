@@ -14,8 +14,14 @@ import '../foods/add_food_dialog.dart';
 class AddEditItemDialog extends StatefulWidget {
   final ShoppingItem? itemToEdit;
   final Food? preselectedFood;
+  final int? suggestedQuantity;
 
-  const AddEditItemDialog({super.key, this.itemToEdit, this.preselectedFood});
+  const AddEditItemDialog({
+    super.key,
+    this.itemToEdit,
+    this.preselectedFood,
+    this.suggestedQuantity,
+  });
 
   @override
   State<AddEditItemDialog> createState() => _AddEditItemDialogState();
@@ -28,6 +34,7 @@ class _AddEditItemDialogState extends State<AddEditItemDialog> {
   final _quantityController = TextEditingController();
   Food? _selectedFood;
   TextEditingController? _autocompleteController;
+  bool _resolvedLinkedFood = false;
 
   @override
   void initState() {
@@ -35,12 +42,29 @@ class _AddEditItemDialogState extends State<AddEditItemDialog> {
     if (widget.itemToEdit != null) {
       _nameController.text = widget.itemToEdit!.displayName;
       _noteController.text = widget.itemToEdit!.note ?? '';
-      _quantityController.text = widget.itemToEdit!.quantity?.toString() ?? '';
+      _quantityController.text =
+          widget.suggestedQuantity?.toString() ??
+          widget.itemToEdit!.quantity?.toString() ??
+          '';
       _selectedFood = widget.itemToEdit!.food;
     } else if (widget.preselectedFood != null) {
       _selectedFood = widget.preselectedFood;
       _nameController.text = widget.preselectedFood!.name;
     }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_resolvedLinkedFood || _selectedFood != null) return;
+    _resolvedLinkedFood = true;
+    final foodId = widget.itemToEdit?.foodId;
+    if (foodId == null) return;
+    _selectedFood = context
+        .read<FoodProvider>()
+        .foods
+        .where((food) => food.id == foodId)
+        .firstOrNull;
   }
 
   @override
@@ -291,12 +315,30 @@ class _AddEditItemDialogState extends State<AddEditItemDialog> {
                 ),
                 const SizedBox(height: 8),
 
+                if (_selectedFood?.note?.trim().isNotEmpty ?? false) ...[
+                  TextFormField(
+                    key: ValueKey(
+                      'food-note-${_selectedFood!.id}-${_selectedFood!.note}',
+                    ),
+                    initialValue: _selectedFood!.note!.trim(),
+                    readOnly: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Lebensmittel-Notiz',
+                      prefixIcon: Icon(
+                        Icons.label_outline,
+                        color: AppTheme.textMuted,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
                 // 2. Note (optional text)
                 TextFormField(
                   controller: _noteController,
                   decoration: const InputDecoration(
-                    labelText: 'Notiz (optional)',
-                    hintText: 'z. B. Cherrytomaten oder laktosefrei',
+                    labelText: 'Einkaufslisten-Notiz (optional)',
+                    hintText: 'z. B. Im Angebot nehmen',
                     prefixIcon: Icon(
                       Icons.note_alt_outlined,
                       color: AppTheme.textMuted,

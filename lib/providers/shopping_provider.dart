@@ -44,6 +44,11 @@ class ShoppingProvider extends ChangeNotifier {
   String? _lastMutationError;
   final Set<String> _deletedItemIds = <String>{};
   final Map<String, Future<void>> _mutationTails = <String, Future<void>>{};
+  Future<bool>? _refreshInFlight;
+  String? _refreshHouseholdId;
+  int? _refreshBindingGeneration;
+  int _bindingGeneration = 0;
+  int _subscriptionGeneration = 0;
 
   List<ShoppingItem> get allItems => _items;
   List<ShoppingItem> get activeItems =>
@@ -72,11 +77,40 @@ class ShoppingProvider extends ChangeNotifier {
     bindToHousehold(householdId);
   }
 
-  Future<bool> refresh({int attempts = 2}) async {
+  Future<bool> refresh({int attempts = 2}) {
     final householdId = _currentHouseholdId;
-    if (householdId == null || householdId.isEmpty) return false;
-    if (!SupabaseConfig.isConfigured) return true;
+    if (householdId == null || householdId.isEmpty) {
+      return Future.value(false);
+    }
+    if (!SupabaseConfig.isConfigured) return Future.value(true);
+    final currentRefresh = _refreshInFlight;
+    final bindingGeneration = _bindingGeneration;
+    if (currentRefresh != null &&
+        _refreshHouseholdId == householdId &&
+        _refreshBindingGeneration == bindingGeneration) {
+      return currentRefresh;
+    }
 
+    late final Future<bool> refreshFuture;
+    refreshFuture = _performRefresh(householdId, attempts, bindingGeneration)
+        .whenComplete(() {
+          if (identical(_refreshInFlight, refreshFuture)) {
+            _refreshInFlight = null;
+            _refreshHouseholdId = null;
+            _refreshBindingGeneration = null;
+          }
+        });
+    _refreshInFlight = refreshFuture;
+    _refreshHouseholdId = householdId;
+    _refreshBindingGeneration = bindingGeneration;
+    return refreshFuture;
+  }
+
+  Future<bool> _performRefresh(
+    String householdId,
+    int attempts,
+    int bindingGeneration,
+  ) async {
     _errorMessage = null;
     notifyListeners();
     Object? lastError;
@@ -86,14 +120,15 @@ class ShoppingProvider extends ChangeNotifier {
         final refreshed = await _shoppingService
             .fetchShoppingItems(householdId)
             .timeout(loadTimeout);
-        if (_currentHouseholdId != householdId) return false;
+        if (_currentHouseholdId != householdId ||
+            bindingGeneration != _bindingGeneration) {
+          return false;
+        }
         _acceptAuthoritativeItems(refreshed);
         _errorMessage = null;
-        await _streamSubscription?.cancel();
-        if (_currentHouseholdId == householdId) {
-          _listenToHousehold(householdId);
-          notifyListeners();
-        }
+        _isLoading = false;
+        await _replaceSubscription(householdId);
+        if (_currentHouseholdId == householdId) notifyListeners();
         return true;
       } catch (error, stackTrace) {
         lastError = error;
@@ -103,11 +138,15 @@ class ShoppingProvider extends ChangeNotifier {
         }
       }
     }
-    if (_currentHouseholdId != householdId) return false;
+    if (_currentHouseholdId != householdId ||
+        bindingGeneration != _bindingGeneration) {
+      return false;
+    }
     _errorMessage = lastError is TimeoutException
         ? 'Die Einkaufsliste konnte nicht rechtzeitig aktualisiert werden.'
         : 'Die Einkaufsliste konnte nicht aktualisiert werden: $lastError';
     debugPrint('Shopping refresh failed: $lastError\n$lastStackTrace');
+    _isLoading = false;
     notifyListeners();
     return false;
   }
@@ -117,6 +156,8 @@ class ShoppingProvider extends ChangeNotifier {
       _items = [];
       _deletedItemIds.clear();
       _lastMutationError = null;
+      _bindingGeneration++;
+      _subscriptionGeneration++;
       _streamSubscription?.cancel();
       _streamSubscription = null;
       _currentHouseholdId = null;
@@ -131,7 +172,10 @@ class ShoppingProvider extends ChangeNotifier {
     }
 
     _currentHouseholdId = householdId;
+    _bindingGeneration++;
+    _subscriptionGeneration++;
     _streamSubscription?.cancel();
+    _streamSubscription = null;
     _items = [];
     _deletedItemIds.clear();
     _lastMutationError = null;
@@ -145,37 +189,27 @@ class ShoppingProvider extends ChangeNotifier {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
-
-    // Initial fetch to get relational data
-    _shoppingService
-        .fetchShoppingItems(householdId)
-        .timeout(loadTimeout)
-        .then((initialList) {
-          if (_currentHouseholdId != householdId) return;
-          _acceptAuthoritativeItems(initialList);
-          _isLoading = false;
-          notifyListeners();
-        })
-        .catchError((Object error, StackTrace stackTrace) {
-          if (_currentHouseholdId != householdId) return null;
-          _errorMessage = error is TimeoutException
-              ? 'Die Einkaufsliste konnte nicht rechtzeitig geladen werden.'
-              : 'Die Einkaufsliste konnte nicht geladen werden: $error';
-          _isLoading = false;
-          debugPrint('Shopping load failed: $error\n$stackTrace');
-          notifyListeners();
-          return null;
-        });
-
-    _listenToHousehold(householdId);
+    unawaited(refresh());
   }
 
-  void _listenToHousehold(String householdId) {
+  Future<void> _replaceSubscription(String householdId) async {
+    final generation = ++_subscriptionGeneration;
+    final previousSubscription = _streamSubscription;
+    _streamSubscription = null;
+    await previousSubscription?.cancel();
+    if (_currentHouseholdId != householdId ||
+        generation != _subscriptionGeneration) {
+      return;
+    }
+
     _streamSubscription = _shoppingService
         .streamShoppingItems(householdId)
         .listen(
           (items) {
-            if (_currentHouseholdId != householdId) return;
+            if (_currentHouseholdId != householdId ||
+                generation != _subscriptionGeneration) {
+              return;
+            }
             final foodMap = {
               for (final item in _items)
                 if (item.food != null) item.id: item.food,
@@ -191,15 +225,12 @@ class ShoppingProvider extends ChangeNotifier {
             notifyListeners();
           },
           onError: (e) {
-            if (_currentHouseholdId != householdId) return;
-            debugPrint('Shopping stream failed: $e');
-            if (_items.isEmpty) {
-              _errorMessage = 'Fehler beim Laden der Einkaufsliste: $e';
-              _isLoading = false;
-              notifyListeners();
-            } else {
-              unawaited(refresh());
+            if (_currentHouseholdId != householdId ||
+                generation != _subscriptionGeneration) {
+              return;
             }
+            debugPrint('Shopping stream failed: $e');
+            unawaited(refresh());
           },
         );
   }
@@ -659,6 +690,8 @@ class ShoppingProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _bindingGeneration++;
+    _subscriptionGeneration++;
     _streamSubscription?.cancel();
     super.dispose();
   }

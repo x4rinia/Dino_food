@@ -11,6 +11,7 @@ import '../../providers/stock_provider.dart';
 import '../../widgets/dino_card.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/load_error_state.dart';
+import '../shopping_list/add_edit_item_dialog.dart';
 import 'add_food_dialog.dart';
 import 'edit_food_dialog.dart';
 import 'stock_screen.dart';
@@ -479,22 +480,28 @@ class _FoodsScreenState extends State<FoodsScreen> {
     Food food,
     ShoppingProvider shoppingProvider,
   ) async {
-    final result = await shoppingProvider.addOrIncrementFood(food);
-    if (!context.mounted) return;
+    final existingItem = shoppingProvider.itemForFood(food.id);
+    if (existingItem == null) {
+      await showDialog<void>(
+        context: context,
+        builder: (_) => AddEditItemDialog(preselectedFood: food),
+      );
+      return;
+    }
 
+    final nextQuantity = (existingItem.quantity ?? 1) + 1;
     final messenger = ScaffoldMessenger.of(context)..hideCurrentSnackBar();
     messenger.showSnackBar(
       SnackBar(
-        content: Text(
-          result.success
-              ? result.wasIncremented
-                    ? '${food.name} ist bereits im Einkaufswagen – Anzahl auf ${result.quantity} erhöht.'
-                    : '${food.name} wurde zum Einkaufswagen hinzugefügt.'
-              : result.errorMessage ??
-                    'Das Lebensmittel konnte nicht hinzugefügt werden.',
-        ),
-        backgroundColor: result.success ? null : AppTheme.errorRed,
+        content: Text('${food.name} ist bereits in der Einkaufsliste.'),
         duration: const Duration(seconds: 2),
+      ),
+    );
+    await showDialog<void>(
+      context: context,
+      builder: (_) => AddEditItemDialog(
+        itemToEdit: existingItem,
+        suggestedQuantity: nextQuantity,
       ),
     );
   }
