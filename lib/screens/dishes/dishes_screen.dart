@@ -456,17 +456,6 @@ class _DishesScreenState extends State<DishesScreen> {
                                     fontSize: 15,
                                   ),
                                 ),
-                                subtitle:
-                                    food.note != null &&
-                                        food.note!.trim().isNotEmpty
-                                    ? Text(
-                                        food.note!,
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: AppTheme.textMuted,
-                                        ),
-                                      )
-                                    : null,
                                 trailing: const Icon(
                                   Icons.arrow_forward_ios,
                                   size: 14,

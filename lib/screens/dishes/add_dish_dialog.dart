@@ -7,7 +7,6 @@ import '../../models/food.dart';
 import '../../providers/dish_provider.dart';
 import '../../providers/food_provider.dart';
 import '../../providers/household_provider.dart';
-import '../../widgets/food_variant_text.dart';
 import '../foods/add_food_dialog.dart';
 
 class AddDishDialog extends StatefulWidget {
@@ -249,8 +248,7 @@ class _AddDishDialogState extends State<AddDishDialog> {
                                 false);
                       });
                     },
-                    displayStringForOption: (Food option) =>
-                        option.displayLabel,
+                    displayStringForOption: (Food option) => option.name,
                     onSelected: (Food selection) {
                       setState(() {
                         _tempSelectedFood = selection;
@@ -372,9 +370,9 @@ class _AddDishDialogState extends State<AddDishDialog> {
                               ),
                               const SizedBox(width: 8),
                               Expanded(
-                                child: FoodVariantText(
-                                  name: ing['food_name'] as String? ?? 'Zutat',
-                                  note: ing['food_note'] as String?,
+                                child: Text(
+                                  (ing['food_name'] as String? ?? 'Zutat')
+                                      .trim(),
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w600,
                                     fontSize: 14,

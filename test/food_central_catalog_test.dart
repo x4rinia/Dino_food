@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:dino_food/models/food.dart';
 import 'package:dino_food/models/food_icon.dart';
+import 'package:dino_food/models/dish.dart';
+import 'package:dino_food/models/dish_item.dart';
 import 'package:dino_food/providers/food_provider.dart';
 import 'package:dino_food/providers/household_provider.dart';
 import 'package:dino_food/providers/shopping_provider.dart';
@@ -503,5 +505,49 @@ void main() {
         expect(find.text('Reis'), findsOneWidget);
       },
     );
+
+    testWidgets('AddDishDialog hides notes of existing dish ingredients', (
+      WidgetTester tester,
+    ) async {
+      final food = Food(
+        id: 'rice-basmati',
+        name: 'Reis',
+        note: 'Basmati',
+        createdAt: DateTime(2026),
+      );
+      final dish = Dish(
+        id: 'dish-rice',
+        householdId: 'household',
+        name: 'Reisgericht',
+        createdAt: DateTime(2026),
+        items: [
+          DishItem(
+            id: 'item-rice',
+            dishId: 'dish-rice',
+            foodId: food.id,
+            food: food,
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider.value(value: FoodProvider()),
+            ChangeNotifierProvider.value(value: DishProvider()),
+            ChangeNotifierProvider.value(value: HouseholdProvider()),
+          ],
+          child: MaterialApp(
+            home: Scaffold(body: AddDishDialog(dishToEdit: dish)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Reis'), findsOneWidget);
+      expect(find.textContaining('Basmati'), findsNothing);
+      expect(dish.items.single.foodId, 'rice-basmati');
+      expect(dish.items.single.food?.note, 'Basmati');
+    });
   });
 }

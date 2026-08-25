@@ -21,6 +21,7 @@ class FoodVariantText extends StatelessWidget {
     this.overflow = TextOverflow.clip,
   });
 
+  /// Dish ingredients intentionally hide food variant notes in the UI.
   factory FoodVariantText.forDishItem(
     DishItem item, {
     Key? key,
@@ -32,7 +33,6 @@ class FoodVariantText extends StatelessWidget {
     return FoodVariantText(
       key: key,
       name: item.displayName,
-      note: item.food?.note,
       suffix: suffix,
       style: style,
       maxLines: maxLines,
