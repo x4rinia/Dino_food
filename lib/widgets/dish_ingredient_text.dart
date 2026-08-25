@@ -19,10 +19,23 @@ class DishIngredientText extends StatelessWidget {
     this.overflow = TextOverflow.clip,
   });
 
+  String get _nameOnly {
+    final foodName = item.food?.name.trim();
+    if (foodName != null && foodName.isNotEmpty) return foodName;
+
+    final displayName = item.displayName.trim();
+    final legacyLabel = RegExp(r'^(.*?)\s*\([^()]*\)\s*$')
+        .firstMatch(displayName);
+    final nameWithoutLegacyNote = legacyLabel?.group(1)?.trim();
+    return nameWithoutLegacyNote == null || nameWithoutLegacyNote.isEmpty
+        ? displayName
+        : nameWithoutLegacyNote;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Text(
-      '${item.displayName.trim()}$suffix',
+      '$_nameOnly$suffix',
       style: style,
       maxLines: maxLines,
       overflow: overflow,

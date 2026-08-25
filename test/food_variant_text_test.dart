@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('dish ingredient renders exactly the food name without note', (
+  testWidgets('dish widget renders Tomaten without the note große', (
     tester,
   ) async {
     final item = DishItem(
@@ -16,15 +16,15 @@ void main() {
       foodId: 'food-1',
       food: Food(
         id: 'food-1',
-        name: 'Nudeln',
-        note: 'Fusilli',
+        name: 'Tomaten',
+        note: 'große',
         createdAt: DateTime(2026),
       ),
     );
     final dish = Dish(
       id: 'dish-1',
       householdId: 'household-1',
-      name: 'Nudelgericht',
+      name: 'Tomatengericht',
       createdAt: DateTime(2026),
       items: [item],
     );
@@ -51,12 +51,32 @@ void main() {
         matching: find.byType(Text),
       ),
     );
-    expect(text.data, 'Nudeln');
-    expect(find.text('Nudeln'), findsOneWidget);
-    expect(find.textContaining('Fusilli'), findsNothing);
+    expect(text.data, 'Tomaten');
+    expect(find.text('Tomaten'), findsOneWidget);
+    expect(find.textContaining('große'), findsNothing);
     expect(item.foodId, 'food-1');
-    expect(item.food?.note, 'Fusilli');
+    expect(item.food?.note, 'große');
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('dish widget hides a legacy note embedded in customName', (
+    tester,
+  ) async {
+    final item = DishItem(
+      id: 'legacy-item',
+      dishId: 'legacy-dish',
+      customName: 'Tomaten (große)',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: DishIngredientText(item: item)),
+      ),
+    );
+
+    expect(find.text('Tomaten'), findsOneWidget);
+    expect(find.textContaining('große'), findsNothing);
+    expect(item.customName, 'Tomaten (große)');
   });
 
   testWidgets('generic food variant text still renders its note', (
