@@ -63,6 +63,7 @@ void main() {
         final riceB = foods.foods.firstWhere(
           (food) => food.name == 'Reis' && food.note == 'Jasmin',
         );
+        expect(await stock.addToStock(riceB.id), isTrue);
         expect(await shopping.addItem(customName: 'Brot'), isTrue);
         expect(
           await dishes.createDish(
@@ -97,7 +98,7 @@ void main() {
           dishes.dishes.map((dish) => dish.name),
           isNot(contains('Testgericht A')),
         );
-        expect(stock.isInStock(riceB.id), isFalse);
+        expect(stock.isInStock(riceB.id), isTrue);
         expect(stock.isInStock(riceA.id), isFalse);
         final matchesB = dishes.getRankedDishesForHunger(
           hungerFood: riceB,
@@ -105,7 +106,7 @@ void main() {
           foodIdsByName: RecipeIngredientMatcher.indexFoods(foods.foods),
         );
         expect(matchesB, isNotEmpty);
-        expect(matchesB.every((match) => !match.isMainInStock), isTrue);
+        expect(matchesB.every((match) => match.isMainInStock), isTrue);
 
         await bind(householdA.id);
         expect(
@@ -137,6 +138,11 @@ void main() {
         );
         expect(matchesA, isNotEmpty);
         expect(matchesA.every((match) => match.isMainInStock), isTrue);
+
+        expect(await stock.removeFromStock(riceA.id), isTrue);
+        expect(stock.isInStock(riceA.id), isFalse);
+        await bind(householdB.id);
+        expect(stock.isInStock(riceB.id), isTrue);
       },
     );
 

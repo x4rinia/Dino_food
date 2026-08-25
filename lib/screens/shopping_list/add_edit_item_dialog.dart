@@ -174,7 +174,7 @@ class _AddEditItemDialogState extends State<AddEditItemDialog> {
     }
 
     if (success && mounted) {
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(true);
     } else if (!success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

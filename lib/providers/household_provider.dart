@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/supabase_config.dart';
 import '../models/household.dart';
@@ -16,6 +17,7 @@ class HouseholdProvider extends ChangeNotifier {
     HouseholdService? householdService,
     FoodService? foodService,
     DishService? dishService,
+    this.sessionRefresher,
     bool? isSupabaseConfigured,
     this.startupTimeout = const Duration(seconds: 15),
   }) : _householdService = householdService ?? HouseholdService(),
@@ -26,6 +28,7 @@ class HouseholdProvider extends ChangeNotifier {
   final HouseholdService _householdService;
   final FoodService _foodService;
   final DishService _dishService;
+  final Future<void> Function()? sessionRefresher;
   final bool? _isSupabaseConfiguredOverride;
   final Duration startupTimeout;
 
@@ -68,87 +71,140 @@ class HouseholdProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
-    try {
-      if (!_isSupabaseConfigured) {
-        final mockHousehold = Household(
-          id: 'demo-household-id',
-          name: 'Dino Zuhause 🦕',
-          color: '#2A9D8F',
-          inviteCode: 'DINO-4F8K',
-          createdAt: DateTime.now(),
+    var jwtFutureRetryUsed = false;
+    while (true) {
+      try {
+        if (!_isSupabaseConfigured) {
+          final mockHousehold = Household(
+            id: 'demo-household-id',
+            name: 'Dino Zuhause 🦕',
+            color: '#2A9D8F',
+            inviteCode: 'DINO-4F8K',
+            createdAt: DateTime.now(),
+          );
+          _households = [mockHousehold];
+          _defaultHouseholdId = mockHousehold.id;
+          _currentHousehold = mockHousehold;
+          _members = [
+            HouseholdMember(
+              householdId: mockHousehold.id,
+              userId: 'demo-user-1',
+              joinedAt: DateTime.now(),
+            ),
+          ];
+          // Seed default foods & dishes for demo mock household if not yet seeded
+          final foodMap = await _foodService.seedDefaultFoodsForHousehold(
+            mockHousehold.id,
+          );
+          await _dishService.seedDefaultDishesForHousehold(
+            mockHousehold.id,
+            foodMap,
+          );
+
+          _state = HouseholdState.loaded;
+          _errorMessage = null;
+          notifyListeners();
+          return;
+        }
+
+        _households = await _startupStep(
+          _householdService.fetchUserHouseholds(),
+          'Haushaltszuordnungen',
         );
-        _households = [mockHousehold];
-        _defaultHouseholdId = mockHousehold.id;
-        _currentHousehold = mockHousehold;
-        _members = [
-          HouseholdMember(
-            householdId: mockHousehold.id,
-            userId: 'demo-user-1',
-            joinedAt: DateTime.now(),
-          ),
-        ];
-        // Seed default foods & dishes for demo mock household if not yet seeded
-        final foodMap = await _foodService.seedDefaultFoodsForHousehold(
-          mockHousehold.id,
-        );
-        await _dishService.seedDefaultDishesForHousehold(
-          mockHousehold.id,
-          foodMap,
-        );
+
+        if (_households.isNotEmpty) {
+          // Fetch default household from profile
+          String? defaultId = await _startupStep(
+            _householdService.fetchDefaultHouseholdId(),
+            'Standardhaushalt',
+          );
+
+          // If default household is not valid or not set, pick the first household and persist
+          if (defaultId == null || !_households.any((h) => h.id == defaultId)) {
+            defaultId = _households.first.id;
+            await _startupStep(
+              _householdService.setDefaultHousehold(defaultId),
+              'Standardhaushalt speichern',
+            );
+          }
+          _defaultHouseholdId = defaultId;
+
+          // On app start / fresh load, activate the default / favorite household
+          _currentHousehold = _households.firstWhere(
+            (h) => h.id == _defaultHouseholdId,
+            orElse: () => _households.first,
+          );
+
+          _members = await _startupStep(
+            _householdService.fetchMembers(_currentHousehold!.id),
+            'Haushaltsmitglieder',
+          );
+        } else {
+          _currentHousehold = null;
+          _defaultHouseholdId = null;
+          _members = [];
+        }
 
         _state = HouseholdState.loaded;
         _errorMessage = null;
         notifyListeners();
         return;
-      }
-
-      _households = await _startupStep(
-        _householdService.fetchUserHouseholds(),
-        'Haushaltszuordnungen',
-      );
-
-      if (_households.isNotEmpty) {
-        // Fetch default household from profile
-        String? defaultId = await _startupStep(
-          _householdService.fetchDefaultHouseholdId(),
-          'Standardhaushalt',
-        );
-
-        // If default household is not valid or not set, pick the first household and persist
-        if (defaultId == null || !_households.any((h) => h.id == defaultId)) {
-          defaultId = _households.first.id;
-          await _startupStep(
-            _householdService.setDefaultHousehold(defaultId),
-            'Standardhaushalt speichern',
-          );
+      } catch (e, stackTrace) {
+        _logHouseholdLoadFailure(e, stackTrace);
+        if (!jwtFutureRetryUsed && _isJwtIssuedAtFuture(e)) {
+          jwtFutureRetryUsed = true;
+          try {
+            await _refreshSession();
+          } catch (refreshError, refreshStackTrace) {
+            debugPrint(
+              'Session refresh after JWT-issued-at-future failed: '
+              '$refreshError\n$refreshStackTrace',
+            );
+          }
+          continue;
         }
-        _defaultHouseholdId = defaultId;
-
-        // On app start / fresh load, activate the default / favorite household
-        _currentHousehold = _households.firstWhere(
-          (h) => h.id == _defaultHouseholdId,
-          orElse: () => _households.first,
-        );
-
-        _members = await _startupStep(
-          _householdService.fetchMembers(_currentHousehold!.id),
-          'Haushaltsmitglieder',
-        );
-      } else {
-        _currentHousehold = null;
-        _defaultHouseholdId = null;
-        _members = [];
+        _state = HouseholdState.error;
+        _errorMessage = _friendlyStartupError(e);
+        notifyListeners();
+        return;
       }
-
-      _state = HouseholdState.loaded;
-      _errorMessage = null;
-      notifyListeners();
-    } catch (e, stackTrace) {
-      debugPrint('Household load failed: $e\n$stackTrace');
-      _state = HouseholdState.error;
-      _errorMessage = _friendlyStartupError(e);
-      notifyListeners();
     }
+  }
+
+  Future<void> _refreshSession() async {
+    final refresh = sessionRefresher;
+    if (refresh != null) {
+      await refresh();
+      return;
+    }
+    if (_isSupabaseConfigured) {
+      await SupabaseConfig.client.auth.refreshSession();
+    }
+  }
+
+  bool _isJwtIssuedAtFuture(Object error) {
+    if (error is PostgrestException) {
+      if (error.code?.toUpperCase() == 'PGRST303') return true;
+      if (error.message.toLowerCase().contains('jwt issued at future')) {
+        return true;
+      }
+    }
+    final text = error.toString().toLowerCase();
+    return text.contains('pgrst303') || text.contains('jwt issued at future');
+  }
+
+  void _logHouseholdLoadFailure(Object error, StackTrace stackTrace) {
+    if (error is PostgrestException) {
+      debugPrint(
+        'Household load failed: ${error.runtimeType}; code=${error.code}; '
+        'message=${error.message}; details=${error.details}; '
+        'hint=${error.hint}\n$stackTrace',
+      );
+      return;
+    }
+    debugPrint(
+      'Household load failed: ${error.runtimeType}: $error\n$stackTrace',
+    );
   }
 
   Future<bool> refreshOnResume({int attempts = 2}) async {
@@ -233,10 +289,7 @@ class HouseholdProvider extends ChangeNotifier {
   }
 
   String _friendlyStartupError(Object error) {
-    if (error is HouseholdStartupException) {
-      return '${error.message} Bitte prüfe deine Verbindung und versuche es erneut.';
-    }
-    return 'Der Haushalt konnte nicht geladen werden. Bitte versuche es erneut. (${error.toString().replaceFirst('Exception: ', '')})';
+    return 'Versuch es bitte nochmal.';
   }
 
   void setCurrentHousehold(Household household) {

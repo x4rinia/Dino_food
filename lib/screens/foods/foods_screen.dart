@@ -480,29 +480,72 @@ class _FoodsScreenState extends State<FoodsScreen> {
     Food food,
     ShoppingProvider shoppingProvider,
   ) async {
+    var saved = false;
     final existingItem = shoppingProvider.itemForFood(food.id);
     if (existingItem == null) {
-      await showDialog<void>(
-        context: context,
-        builder: (_) => AddEditItemDialog(preselectedFood: food),
+      saved =
+          await showDialog<bool>(
+            context: context,
+            builder: (_) => AddEditItemDialog(preselectedFood: food),
+          ) ??
+          false;
+    } else {
+      final nextQuantity = (existingItem.quantity ?? 1) + 1;
+      final messenger = ScaffoldMessenger.of(context)..hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('${food.name} ist bereits in der Einkaufsliste.'),
+          duration: const Duration(seconds: 2),
+        ),
       );
-      return;
+      saved =
+          await showDialog<bool>(
+            context: context,
+            builder: (_) => AddEditItemDialog(
+              itemToEdit: existingItem,
+              suggestedQuantity: nextQuantity,
+            ),
+          ) ??
+          false;
     }
 
-    final nextQuantity = (existingItem.quantity ?? 1) + 1;
-    final messenger = ScaffoldMessenger.of(context)..hideCurrentSnackBar();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text('${food.name} ist bereits in der Einkaufsliste.'),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-    await showDialog<void>(
+    if (!saved || !context.mounted) return;
+
+    final stockProvider = context.read<StockProvider>();
+    if (!stockProvider.isInStock(food.id)) return;
+
+    final removeFromStock = await showDialog<bool>(
       context: context,
-      builder: (_) => AddEditItemDialog(
-        itemToEdit: existingItem,
-        suggestedQuantity: nextQuantity,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Lebensmittel im Vorrat'),
+        content: Text(
+          '${food.displayLabel} ist aktuell im Vorrat. '
+          'Aus dem Vorrat entfernen?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Nein'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Ja'),
+          ),
+        ],
       ),
     );
+
+    if (removeFromStock != true || !context.mounted) return;
+    final removed = await stockProvider.removeFromStock(food.id);
+    if (!removed && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Das Lebensmittel konnte nicht aus dem Vorrat entfernt werden.',
+          ),
+          backgroundColor: AppTheme.errorRed,
+        ),
+      );
+    }
   }
 }

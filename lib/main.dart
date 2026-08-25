@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import 'config/app_theme.dart';
 import 'config/supabase_config.dart';
 import 'providers/auth_provider.dart';
@@ -11,6 +12,7 @@ import 'providers/stock_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home/main_navigation_screen.dart';
 import 'screens/household/welcome_household_screen.dart';
+import 'widgets/household_load_error_state.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -55,7 +57,10 @@ class _AuthGateState extends State<AuthGate> {
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final householdProvider = Provider.of<HouseholdProvider>(context);
-    final shoppingProvider = Provider.of<ShoppingProvider>(context, listen: false);
+    final shoppingProvider = Provider.of<ShoppingProvider>(
+      context,
+      listen: false,
+    );
     final stockProvider = Provider.of<StockProvider>(context, listen: false);
     final foodProvider = Provider.of<FoodProvider>(context, listen: false);
     final dishProvider = Provider.of<DishProvider>(context, listen: false);
@@ -165,52 +170,22 @@ class _AuthGateState extends State<AuthGate> {
 
     if (householdProvider.state == HouseholdState.error) {
       return Scaffold(
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 28.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text('⚠️', style: TextStyle(fontSize: 52)),
-                const SizedBox(height: 16),
-                const Text(
-                  'Fehler beim Laden des Haushalts',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textDark),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  householdProvider.errorMessage ?? 'Unbekannter Verbindungsfehler.',
-                  style: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    householdProvider.loadHouseholds(force: true).then((_) {
-                      final current = householdProvider.currentHousehold;
-                      if (current != null) {
-                        shoppingProvider.bindToHousehold(current.id);
-                        stockProvider.bindToHousehold(current.id);
-                        foodProvider.bindToHousehold(current.id);
-                        dishProvider.loadDishes(current.id);
-                      }
-                    });
-                  },
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Erneut versuchen'),
-                ),
-                const SizedBox(height: 12),
-                TextButton(
-                  onPressed: () {
-                    authProvider.signOut();
-                    householdProvider.reset();
-                  },
-                  child: const Text('Abmelden', style: TextStyle(color: AppTheme.textMuted)),
-                ),
-              ],
-            ),
-          ),
+        body: HouseholdLoadErrorState(
+          onRetry: () {
+            householdProvider.loadHouseholds(force: true).then((_) {
+              final current = householdProvider.currentHousehold;
+              if (current != null) {
+                shoppingProvider.bindToHousehold(current.id);
+                stockProvider.bindToHousehold(current.id);
+                foodProvider.bindToHousehold(current.id);
+                dishProvider.loadDishes(current.id);
+              }
+            });
+          },
+          onSignOut: () {
+            authProvider.signOut();
+            householdProvider.reset();
+          },
         ),
       );
     }

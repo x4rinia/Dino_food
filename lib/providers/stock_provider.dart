@@ -205,6 +205,40 @@ class StockProvider extends ChangeNotifier {
     return true;
   }
 
+  Future<bool> removeFromStock(String foodId) async {
+    final householdId = _currentHouseholdId;
+    if (householdId == null || foodId.isEmpty) return false;
+
+    if (!_inStockFoodIds.contains(foodId)) return true;
+
+    _inStockFoodIds.remove(foodId);
+    if (!SupabaseConfig.isConfigured) {
+      _householdMockStock[householdId] = _inStockFoodIds;
+    }
+    notifyListeners();
+
+    if (!SupabaseConfig.isConfigured) return true;
+
+    try {
+      await _stockService.setInStock(
+        householdId: householdId,
+        foodId: foodId,
+        inStock: false,
+      );
+      return true;
+    } catch (e, stackTrace) {
+      debugPrint(
+        'Error removing food $foodId from stock for household '
+        '$householdId: $e\n$stackTrace',
+      );
+      if (_currentHouseholdId == householdId) {
+        _inStockFoodIds.add(foodId);
+        notifyListeners();
+      }
+      return false;
+    }
+  }
+
   Future<void> toggleStock(String foodId) async {
     if (_currentHouseholdId == null || foodId.isEmpty) return;
 

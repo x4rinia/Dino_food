@@ -215,6 +215,89 @@ void main() {
       await tester.pumpAndSettle();
     });
 
+    testWidgets('stock prompt uses exact food id and removes only after Yes', (
+      tester,
+    ) async {
+      final household = HouseholdProvider();
+      await household.loadHouseholds();
+      final householdId = household.currentHousehold!.id;
+      final foods = FoodProvider()..bindToHousehold(householdId);
+      final basmati = await foods.addCustomFood(
+        name: 'Reis Vorratstest',
+        note: 'Basmati',
+      );
+      final jasmine = await foods.addCustomFood(
+        name: 'Reis Vorratstest',
+        note: 'Jasmin',
+      );
+      final shopping = ShoppingProvider()..bindToHousehold(householdId);
+      final stock = StockProvider()..bindToHousehold(householdId);
+      expect(await stock.addToStock(basmati.id), isTrue);
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider.value(value: household),
+            ChangeNotifierProvider.value(value: foods),
+            ChangeNotifierProvider.value(value: shopping),
+            ChangeNotifierProvider.value(value: stock),
+          ],
+          child: const MaterialApp(home: FoodsScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      foods.setSearchQuery('Jasmin');
+      await tester.pump();
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(ValueKey(jasmine.id)),
+          matching: find.byIcon(Icons.add_shopping_cart),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.text('Hinzufügen'));
+      await tester.pumpAndSettle();
+      expect(find.text('Lebensmittel im Vorrat'), findsNothing);
+      expect(shopping.itemForFood(jasmine.id), isNotNull);
+      expect(stock.isInStock(basmati.id), isTrue);
+
+      foods.setSearchQuery('Basmati');
+      await tester.pump();
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(ValueKey(basmati.id)),
+          matching: find.byIcon(Icons.add_shopping_cart),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.text('Hinzufügen'));
+      await tester.pumpAndSettle();
+      expect(find.text('Lebensmittel im Vorrat'), findsOneWidget);
+      expect(find.textContaining('Reis Vorratstest (Basmati)'), findsOneWidget);
+      expect(shopping.itemForFood(basmati.id), isNotNull);
+
+      await tester.tap(find.text('Nein'));
+      await tester.pumpAndSettle();
+      expect(stock.isInStock(basmati.id), isTrue);
+
+      await shopping.deleteItem(shopping.itemForFood(basmati.id)!.id);
+      await tester.pump();
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(ValueKey(basmati.id)),
+          matching: find.byIcon(Icons.add_shopping_cart),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.text('Hinzufügen'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Ja'));
+      await tester.pumpAndSettle();
+      expect(stock.isInStock(basmati.id), isFalse);
+      expect(shopping.itemForFood(basmati.id), isNotNull);
+    });
+
     test('rapid quick-adds are serialized without duplicates', () async {
       const householdId = 'rapid-add-household';
       final foods = FoodProvider()..bindToHousehold(householdId);

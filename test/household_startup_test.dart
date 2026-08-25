@@ -5,28 +5,35 @@ import 'package:dino_food/models/household.dart';
 import 'package:dino_food/models/household_member.dart';
 import 'package:dino_food/providers/household_provider.dart';
 import 'package:dino_food/services/household_service.dart';
-import 'package:dino_food/widgets/load_error_state.dart';
+import 'package:dino_food/widgets/household_load_error_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class FakeHouseholdService extends HouseholdService {
   FakeHouseholdService({
     this.availableHouseholds = const [],
     this.defaultId,
     this.loadError,
+    this.failuresBeforeSuccess = 0,
     this.neverCompletes = false,
   });
 
   final List<Household> availableHouseholds;
   String? defaultId;
   final Object? loadError;
+  final int failuresBeforeSuccess;
   final bool neverCompletes;
   String? savedDefaultId;
+  int fetchCount = 0;
 
   @override
   Future<List<Household>> fetchUserHouseholds() {
+    fetchCount++;
     if (neverCompletes) return Completer<List<Household>>().future;
-    if (loadError != null) return Future.error(loadError!);
+    if (loadError != null && fetchCount <= failuresBeforeSuccess) {
+      return Future.error(loadError!);
+    }
     return Future.value(availableHouseholds);
   }
 
@@ -58,12 +65,15 @@ Household household(String id, {String? createdBy}) => Household(
   createdAt: DateTime(2026),
 );
 
-HouseholdProvider providerFor(FakeHouseholdService service) =>
-    HouseholdProvider(
-      householdService: service,
-      isSupabaseConfigured: true,
-      startupTimeout: const Duration(milliseconds: 30),
-    );
+HouseholdProvider providerFor(
+  FakeHouseholdService service, {
+  Future<void> Function()? sessionRefresher,
+}) => HouseholdProvider(
+  householdService: service,
+  sessionRefresher: sessionRefresher,
+  isSupabaseConfigured: true,
+  startupTimeout: const Duration(milliseconds: 30),
+);
 
 void main() {
   group('authenticated household startup', () {
@@ -126,14 +136,18 @@ void main() {
 
     test('Supabase error ends loading and is exposed', () async {
       final provider = providerFor(
-        FakeHouseholdService(loadError: Exception('PostgREST 42501')),
+        FakeHouseholdService(
+          loadError: Exception('PostgREST 42501'),
+          failuresBeforeSuccess: 99,
+        ),
       );
 
       await provider.loadHouseholds();
 
       expect(provider.state, HouseholdState.error);
       expect(provider.isLoading, isFalse);
-      expect(provider.errorMessage, contains('PostgREST 42501'));
+      expect(provider.errorMessage, 'Versuch es bitte nochmal.');
+      expect(provider.errorMessage, isNot(contains('PostgREST 42501')));
     });
 
     test('timeout ends loading and offers a useful error', () async {
@@ -143,7 +157,57 @@ void main() {
 
       expect(provider.state, HouseholdState.error);
       expect(provider.isLoading, isFalse);
-      expect(provider.errorMessage, contains('nicht rechtzeitig'));
+      expect(provider.errorMessage, 'Versuch es bitte nochmal.');
+    });
+
+    test('PGRST303 refreshes the session once and then succeeds', () async {
+      var refreshCount = 0;
+      final service = FakeHouseholdService(
+        availableHouseholds: [household('after-refresh')],
+        defaultId: 'after-refresh',
+        loadError: const PostgrestException(
+          message: 'JWT issued at future',
+          code: 'PGRST303',
+        ),
+        failuresBeforeSuccess: 1,
+      );
+      final provider = providerFor(
+        service,
+        sessionRefresher: () async {
+          refreshCount++;
+        },
+      );
+
+      await provider.loadHouseholds();
+
+      expect(provider.state, HouseholdState.loaded);
+      expect(provider.currentHousehold?.id, 'after-refresh');
+      expect(service.fetchCount, 2);
+      expect(refreshCount, 1);
+    });
+
+    test('failed PGRST303 retry stops after one refresh', () async {
+      var refreshCount = 0;
+      final service = FakeHouseholdService(
+        loadError: const PostgrestException(
+          message: 'JWT issued at future',
+          code: 'PGRST303',
+        ),
+        failuresBeforeSuccess: 99,
+      );
+      final provider = providerFor(
+        service,
+        sessionRefresher: () async {
+          refreshCount++;
+        },
+      );
+
+      await provider.loadHouseholds();
+
+      expect(provider.state, HouseholdState.error);
+      expect(provider.errorMessage, 'Versuch es bitte nochmal.');
+      expect(service.fetchCount, 2);
+      expect(refreshCount, 1);
     });
 
     test('switching households still changes the active household', () async {
@@ -171,16 +235,17 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: LoadErrorState(
-            message: 'Haushalt konnte nicht geladen werden.',
-            onRetry: () => retried = true,
-          ),
+          body: HouseholdLoadErrorState(onRetry: () => retried = true),
         ),
       ),
     );
 
-    expect(find.text('Daten konnten nicht geladen werden'), findsOneWidget);
-    expect(find.text('Haushalt konnte nicht geladen werden.'), findsOneWidget);
+    expect(
+      find.text('Dino konnte deinen Haushalt gerade nicht laden'),
+      findsOneWidget,
+    );
+    expect(find.text('Versuch es bitte nochmal.'), findsOneWidget);
+    expect(find.textContaining('PostgrestException'), findsNothing);
     await tester.tap(find.text('Erneut versuchen'));
     expect(retried, isTrue);
   });
@@ -200,9 +265,9 @@ void main() {
       );
       expect(startupMethod, contains("from('household_members')"));
       expect(startupMethod, contains(".eq('user_id', userId)"));
-    expect(startupMethod, isNot(contains("select('role")));
-    expect(startupMethod, isNot(contains(".eq('role'")));
-    expect(startupMethod, isNot(contains(".eq('created_by'")));
+      expect(startupMethod, isNot(contains("select('role")));
+      expect(startupMethod, isNot(contains(".eq('role'")));
+      expect(startupMethod, isNot(contains(".eq('created_by'")));
       expect(migration, contains('security definer'));
       expect(migration, contains('user_id = auth.uid()'));
       expect(migration, isNot(contains("role = 'owner'")));
