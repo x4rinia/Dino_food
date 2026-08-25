@@ -1,11 +1,13 @@
+import 'package:dino_food/models/dish.dart';
 import 'package:dino_food/models/dish_item.dart';
 import 'package:dino_food/models/food.dart';
+import 'package:dino_food/widgets/dish_ingredient_text.dart';
 import 'package:dino_food/widgets/food_variant_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('dish ingredient renders only its food name and suffix', (
+  testWidgets('dish ingredient renders exactly the food name without note', (
     tester,
   ) async {
     final item = DishItem(
@@ -15,9 +17,16 @@ void main() {
       food: Food(
         id: 'food-1',
         name: 'Nudeln',
-        note: 'Spaghetti',
+        note: 'Fusilli',
         createdAt: DateTime(2026),
       ),
+    );
+    final dish = Dish(
+      id: 'dish-1',
+      householdId: 'household-1',
+      name: 'Nudelgericht',
+      createdAt: DateTime(2026),
+      items: [item],
     );
 
     await tester.pumpWidget(
@@ -25,10 +34,9 @@ void main() {
         home: Scaffold(
           body: SizedBox(
             width: 120,
-            child: FoodVariantText.forDishItem(
-              item,
+            child: DishIngredientText(
+              item: dish.items.single,
               key: const Key('ingredient'),
-              suffix: ' · vorhanden',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -43,12 +51,11 @@ void main() {
         matching: find.byType(Text),
       ),
     );
-    final root = text.textSpan! as TextSpan;
-    final spans = root.children!.cast<TextSpan>();
-
-    expect(root.toPlainText(), 'Nudeln · vorhanden');
-    expect(spans[0].style?.fontStyle, isNot(FontStyle.italic));
-    expect(root.toPlainText(), isNot(contains('Spaghetti')));
+    expect(text.data, 'Nudeln');
+    expect(find.text('Nudeln'), findsOneWidget);
+    expect(find.textContaining('Fusilli'), findsNothing);
+    expect(item.foodId, 'food-1');
+    expect(item.food?.note, 'Fusilli');
     expect(tester.takeException(), isNull);
   });
 

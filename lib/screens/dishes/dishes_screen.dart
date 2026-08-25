@@ -13,8 +13,8 @@ import '../../providers/stock_provider.dart';
 import '../../widgets/load_error_state.dart';
 import '../../utils/recipe_ingredient_matcher.dart';
 import '../../widgets/dino_card.dart';
+import '../../widgets/dish_ingredient_text.dart';
 import '../../widgets/empty_state.dart';
-import '../../widgets/food_variant_text.dart';
 import 'add_dish_dialog.dart';
 import 'dish_preview_dialog.dart';
 
@@ -864,8 +864,8 @@ class _DishesScreenState extends State<DishesScreen> {
           ),
           const SizedBox(width: 6),
           Expanded(
-            child: FoodVariantText.forDishItem(
-              item,
+            child: DishIngredientText(
+              item: item,
               suffix: suffix,
               style: TextStyle(
                 fontSize: 14,

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../models/dish_item.dart';
-
 /// Renders a food variant as `Name (note)` while italicizing only the note.
 class FoodVariantText extends StatelessWidget {
   final String name;
@@ -20,25 +18,6 @@ class FoodVariantText extends StatelessWidget {
     this.maxLines,
     this.overflow = TextOverflow.clip,
   });
-
-  /// Dish ingredients intentionally hide food variant notes in the UI.
-  factory FoodVariantText.forDishItem(
-    DishItem item, {
-    Key? key,
-    String suffix = '',
-    TextStyle? style,
-    int? maxLines,
-    TextOverflow overflow = TextOverflow.clip,
-  }) {
-    return FoodVariantText(
-      key: key,
-      name: item.displayName,
-      suffix: suffix,
-      style: style,
-      maxLines: maxLines,
-      overflow: overflow,
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
