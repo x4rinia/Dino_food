@@ -71,6 +71,7 @@ void main() {
 
     // Verify toggle button is present
     expect(find.text('Zuhause'), findsNWidgets(2));
+    expect(find.text('Lebensmittel im Vorrat'), findsNothing);
 
     // Tap toggle button for Zwiebeln
     await tester.tap(find.text('Zuhause').first);
@@ -78,6 +79,7 @@ void main() {
 
     // Now only 1 item in stock
     expect(stockProvider.isInStock('f1'), isFalse);
+    expect(find.text('Lebensmittel im Vorrat'), findsNothing);
   });
 
   testWidgets(

@@ -511,6 +511,8 @@ class _FoodsScreenState extends State<FoodsScreen> {
 
     if (!saved || !context.mounted) return;
 
+    // Intentionally scoped to this food-list quick-add flow. Stock removal and
+    // ordinary shopping-item edits/deletes must never trigger this prompt.
     final stockProvider = context.read<StockProvider>();
     if (!stockProvider.isInStock(food.id)) return;
 

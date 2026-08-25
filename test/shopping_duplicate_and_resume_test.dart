@@ -10,6 +10,7 @@ import 'package:dino_food/providers/shopping_provider.dart';
 import 'package:dino_food/providers/stock_provider.dart';
 import 'package:dino_food/screens/foods/foods_screen.dart';
 import 'package:dino_food/screens/home/main_navigation_screen.dart';
+import 'package:dino_food/screens/shopping_list/shopping_list_screen.dart';
 import 'package:dino_food/services/shopping_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -324,6 +325,53 @@ void main() {
       expect(shopping.itemForFood(fusilli.id)?.quantity, isNull);
     });
   });
+
+  testWidgets(
+    'editing or deleting a shopping item never opens the stock prompt',
+    (tester) async {
+      final household = HouseholdProvider();
+      await household.loadHouseholds();
+      final householdId = household.currentHousehold!.id;
+      final foods = FoodProvider()..bindToHousehold(householdId);
+      final food = await foods.addCustomFood(
+        name: 'Einkaufslisten-Abgrenzungstest',
+        note: 'Spaghetti',
+      );
+      final shopping = ShoppingProvider()..bindToHousehold(householdId);
+      final stock = StockProvider()..bindToHousehold(householdId);
+      expect(await stock.addToStock(food.id), isTrue);
+      expect((await shopping.addOrIncrementFood(food)).success, isTrue);
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider.value(value: household),
+            ChangeNotifierProvider.value(value: foods),
+            ChangeNotifierProvider.value(value: shopping),
+            ChangeNotifierProvider.value(value: stock),
+          ],
+          child: const MaterialApp(home: ShoppingListScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Einkaufslisten-Abgrenzungstest'));
+      await tester.pump();
+      expect(find.text('Artikel bearbeiten'), findsOneWidget);
+      await tester.tap(find.text('Speichern'));
+      await tester.pumpAndSettle();
+      expect(find.text('Lebensmittel im Vorrat'), findsNothing);
+      expect(stock.isInStock(food.id), isTrue);
+
+      expect(
+        await shopping.deleteItem(shopping.itemForFood(food.id)!.id),
+        isTrue,
+      );
+      await tester.pump();
+      expect(find.text('Lebensmittel im Vorrat'), findsNothing);
+      expect(stock.isInStock(food.id), isTrue);
+    },
+  );
 
   test('background refresh retries and preserves existing data', () async {
     const householdId = 'resume-retry-household';
