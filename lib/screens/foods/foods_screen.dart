@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/app_theme.dart';
+import '../../navigation/no_swipe_material_page_route.dart';
 import '../../models/food.dart';
 import '../../models/food_icon.dart';
 import '../../providers/food_provider.dart';
@@ -86,7 +87,7 @@ class _FoodsScreenState extends State<FoodsScreen> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const StockScreen()),
+                  NoSwipeMaterialPageRoute(builder: (_) => const StockScreen()),
                 );
               },
               icon: const Text('📦', style: TextStyle(fontSize: 16)),

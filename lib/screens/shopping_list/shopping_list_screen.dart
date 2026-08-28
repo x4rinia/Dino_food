@@ -221,7 +221,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Dismissible(
         key: Key(item.id),
-        direction: DismissDirection.endToStart,
+        direction: DismissDirection.none,
         background: Container(
           decoration: BoxDecoration(
             color: AppTheme.errorRed,
