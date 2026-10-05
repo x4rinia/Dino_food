@@ -42,7 +42,7 @@ jobs:
 
       - name: Build Web Release
         run: |
-          flutter build web --release --base-href "/Dino_food/" \
+          flutter build web --release --pwa-strategy=none --base-href "/Dino_food/" \
             --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
             --dart-define=SUPABASE_PUBLISHABLE_KEY="${{ secrets.SUPABASE_PUBLISHABLE_KEY }}"
 

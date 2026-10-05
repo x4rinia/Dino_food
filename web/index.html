@@ -22,6 +22,11 @@
   <!-- Theme Color for Browser Header -->
   <meta name="theme-color" content="#3E9B4F">
 
+  <!-- Cache Control for PWA release updates -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+
   <title>Dino_food 🦕</title>
   <link rel="manifest" href="manifest.json">
   <style>
@@ -47,6 +52,13 @@
       navigator.serviceWorker.getRegistrations().then(function(registrations) {
         for (let registration of registrations) {
           registration.unregister();
+        }
+      });
+    }
+    if ('caches' in window) {
+      caches.keys().then(function(names) {
+        for (let name of names) {
+          caches.delete(name);
         }
       });
     }
