@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/app_theme.dart';
-import '../../models/food.dart';
 import '../../models/food_icon.dart';
 import '../../providers/food_provider.dart';
-import '../../providers/shopping_provider.dart';
 import '../../providers/stock_provider.dart';
 import '../../widgets/dino_card.dart';
 import '../../widgets/empty_state.dart';
@@ -30,62 +28,10 @@ class _StockScreenState extends State<StockScreen> {
     super.dispose();
   }
 
-  Future<void> _confirmRemoveFromStockAndAddToShopping(
-    BuildContext context,
-    Food food,
-    StockProvider stockProvider,
-    ShoppingProvider shoppingProvider,
-  ) async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Lebensmittel im Vorrat'),
-        content: const Text(
-          'Dieses Lebensmittel ist bereits im Vorrat. Möchtest du es aus dem Vorrat entfernen und auf die Einkaufsliste legen?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text(
-              'Abbrechen',
-              style: TextStyle(color: AppTheme.textMuted),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Nein'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Ja'),
-          ),
-        ],
-      ),
-    );
-
-    if (result == true && context.mounted) {
-      await stockProvider.removeFromStock(food.id);
-      await shoppingProvider.addOrIncrementFood(food);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('„${food.name}“ auf die Einkaufsliste gelegt.'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final foodProvider = Provider.of<FoodProvider>(context);
     final stockProvider = Provider.of<StockProvider>(context);
-    final shoppingProvider = Provider.of<ShoppingProvider>(
-      context,
-      listen: false,
-    );
 
     // Get all foods that are currently in stock
     final inStockFoods = foodProvider.foods
@@ -277,12 +223,7 @@ class _StockScreenState extends State<StockScreen> {
                                   // Stock Toggle Button ("Zuhause")
                                   InkWell(
                                     onTap: () {
-                                      _confirmRemoveFromStockAndAddToShopping(
-                                        context,
-                                        food,
-                                        stockProvider,
-                                        shoppingProvider,
-                                      );
+                                      stockProvider.toggleStock(food.id);
                                     },
                                     borderRadius: BorderRadius.circular(10),
                                     child: Container(

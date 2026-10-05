@@ -14,7 +14,8 @@ import '../../widgets/load_error_state.dart';
 import '../shopping_list/add_edit_item_dialog.dart';
 import 'add_food_dialog.dart';
 import 'edit_food_dialog.dart';
-import 'stock_screen.dart';
+
+enum StockFilter { all, inStock, notInStock }
 
 class FoodsScreen extends StatefulWidget {
   const FoodsScreen({super.key});
@@ -25,6 +26,7 @@ class FoodsScreen extends StatefulWidget {
 
 class _FoodsScreenState extends State<FoodsScreen> {
   final _searchController = TextEditingController();
+  StockFilter _selectedFilter = StockFilter.all;
 
   @override
   void initState() {
@@ -65,369 +67,413 @@ class _FoodsScreenState extends State<FoodsScreen> {
       foodProvider.foods.map((food) => food.id),
     );
 
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Lebensmitteldatenbank 🍽️'),
-          bottom: const TabBar(
-            indicatorColor: AppTheme.primaryGreen,
-            indicatorWeight: 3,
-            labelColor: AppTheme.primaryGreen,
-            unselectedLabelColor: AppTheme.textMuted,
-            labelStyle: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-            unselectedLabelStyle: TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 15,
+    final displayedFoods = filteredFoods.where((food) {
+      final isInStock = stockProvider.isInStock(food.id);
+      if (_selectedFilter == StockFilter.inStock) return isInStock;
+      if (_selectedFilter == StockFilter.notInStock) return !isInStock;
+      return true;
+    }).toList();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Lebensmitteldatenbank 🍽️'),
+      ),
+      body: Column(
+        children: [
+          // Info banner
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 10,
             ),
-            tabs: [
-              Tab(text: 'Lebensmittel'),
-              Tab(text: 'Vorrat'),
-            ],
-          ),
-        ),
-        body: TabBarView(
-          children: [
-            // Tab 1: Lebensmittel
-            Column(
+            color: AppTheme.primarySoft.withValues(alpha: 0.5),
+            child: Row(
               children: [
-                // Info banner
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                  color: AppTheme.primarySoft.withValues(alpha: 0.5),
-                  child: Row(
-                    children: [
-                      const Text('📦', style: TextStyle(fontSize: 16)),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          visibleStockCount == 0
-                              ? 'Tippe bei Artikeln auf „Vorrat?“, um sie als Zuhause zu markieren.'
-                              : '$visibleStockCount Artikel im Vorrat',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.primaryDark,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Search Bar
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Lebensmittel suchen...',
-                      prefixIcon: const Icon(
-                        Icons.search,
-                        color: AppTheme.textMuted,
-                      ),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear, size: 18),
-                              onPressed: () {
-                                _searchController.clear();
-                                foodProvider.setSearchQuery('');
-                              },
-                            )
-                          : null,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                    ),
-                    onChanged: (val) => foodProvider.setSearchQuery(val),
-                  ),
-                ),
-
-                const SizedBox(height: 4),
-
-                // Food List
+                const Text('📦', style: TextStyle(fontSize: 16)),
+                const SizedBox(width: 8),
                 Expanded(
-                  child: foodProvider.isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : foodProvider.errorMessage != null
-                      ? LoadErrorState(
-                          message: foodProvider.errorMessage!,
-                          onRetry: () => foodProvider.loadFoods(force: true),
-                        )
-                      : filteredFoods.isEmpty
-                      ? EmptyState(
-                          emoji: '🔍',
-                          title: 'Keine Lebensmittel gefunden',
-                          message:
-                              'Füge "${foodProvider.searchQuery}" als neues eigenes Lebensmittel hinzu!',
-                          actionLabel: 'Lebensmittel hinzufügen',
-                          onAction: () => _openAddFoodDialog(context),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(16, 6, 16, 80),
-                          itemCount: filteredFoods.length,
-                          itemBuilder: (context, index) {
-                            final food = filteredFoods[index];
-                            final isInStock = stockProvider.isInStock(food.id);
+                  child: Text(
+                    visibleStockCount == 0
+                        ? 'Tippe bei Artikeln auf „Vorrat?“, um sie als Zuhause zu markieren.'
+                        : '$visibleStockCount Artikel im Vorrat',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.primaryDark,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
 
-                            return Padding(
-                              key: ValueKey(food.id),
-                              padding: const EdgeInsets.only(bottom: 8.0),
-                              child: DinoCard(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 10,
+          // Search Bar
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Lebensmittel suchen...',
+                prefixIcon: const Icon(
+                  Icons.search,
+                  color: AppTheme.textMuted,
+                ),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () {
+                          _searchController.clear();
+                          foodProvider.setSearchQuery('');
+                        },
+                      )
+                    : null,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+              ),
+              onChanged: (val) => foodProvider.setSearchQuery(val),
+            ),
+          ),
+
+          // Filter Chips (Alle / Im Vorrat / Nicht im Vorrat)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        FilterChip(
+                          selected: _selectedFilter == StockFilter.all,
+                          label: Text('Alle (${filteredFoods.length})'),
+                          selectedColor: AppTheme.primarySoft,
+                          checkmarkColor: AppTheme.primaryDark,
+                          showCheckmark: false,
+                          labelStyle: TextStyle(
+                            fontSize: 12,
+                            color: _selectedFilter == StockFilter.all
+                                ? AppTheme.primaryDark
+                                : AppTheme.textDark,
+                            fontWeight: _selectedFilter == StockFilter.all
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                          ),
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() {
+                                _selectedFilter = StockFilter.all;
+                              });
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 6),
+                        FilterChip(
+                          selected: _selectedFilter == StockFilter.inStock,
+                          label: Text('Im Vorrat ($visibleStockCount)'),
+                          selectedColor: AppTheme.primarySoft,
+                          checkmarkColor: AppTheme.primaryDark,
+                          showCheckmark: false,
+                          labelStyle: TextStyle(
+                            fontSize: 12,
+                            color: _selectedFilter == StockFilter.inStock
+                                ? AppTheme.primaryDark
+                                : AppTheme.textDark,
+                            fontWeight: _selectedFilter == StockFilter.inStock
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                          ),
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() {
+                                _selectedFilter = StockFilter.inStock;
+                              });
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 6),
+                        FilterChip(
+                          selected: _selectedFilter == StockFilter.notInStock,
+                          label: Text(
+                            'Nicht im Vorrat (${filteredFoods.length - visibleStockCount})',
+                          ),
+                          selectedColor: AppTheme.primarySoft,
+                          checkmarkColor: AppTheme.primaryDark,
+                          showCheckmark: false,
+                          labelStyle: TextStyle(
+                            fontSize: 12,
+                            color: _selectedFilter == StockFilter.notInStock
+                                ? AppTheme.primaryDark
+                                : AppTheme.textDark,
+                            fontWeight: _selectedFilter == StockFilter.notInStock
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                          ),
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() {
+                                _selectedFilter = StockFilter.notInStock;
+                              });
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 4),
+
+          // Food List
+          Expanded(
+            child: foodProvider.isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : foodProvider.errorMessage != null
+                ? LoadErrorState(
+                    message: foodProvider.errorMessage!,
+                    onRetry: () => foodProvider.loadFoods(force: true),
+                  )
+                : displayedFoods.isEmpty
+                ? EmptyState(
+                    emoji: _selectedFilter == StockFilter.inStock ? '📦' : '🔍',
+                    title: _selectedFilter == StockFilter.inStock
+                        ? 'Noch nichts im Vorrat'
+                        : 'Keine Lebensmittel gefunden',
+                    message: _selectedFilter == StockFilter.inStock
+                        ? 'Markiere Lebensmittel als „Zuhause“, damit sie hier erscheinen.'
+                        : 'Füge "${foodProvider.searchQuery}" als neues eigenes Lebensmittel hinzu!',
+                    actionLabel: 'Lebensmittel hinzufügen',
+                    onAction: () => _openAddFoodDialog(context),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 80),
+                    itemCount: displayedFoods.length,
+                    itemBuilder: (context, index) {
+                      final food = displayedFoods[index];
+                      final isInStock = stockProvider.isInStock(food.id);
+
+                      return Padding(
+                        key: ValueKey(food.id),
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: DinoCard(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: isInStock
+                                      ? AppTheme.primarySoft
+                                      : Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: Row(
+                                child: Text(
+                                  FoodIconCatalog.emojiFor(food.iconKey),
+                                  style: const TextStyle(fontSize: 18),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
                                   children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(10),
-                                      decoration: BoxDecoration(
+                                    Text(
+                                      food.name,
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppTheme.textDark,
+                                      ),
+                                    ),
+                                    if (food.note != null &&
+                                        food.note!.trim().isNotEmpty) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        food.note!,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppTheme.textMuted,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+
+                              // Stock Toggle Button (Zuhause <-> Vorrat?)
+                              InkWell(
+                                onTap: () {
+                                  stockProvider.toggleStock(food.id);
+                                },
+                                borderRadius: BorderRadius.circular(10),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isInStock
+                                        ? AppTheme.primaryGreen
+                                        : Colors.grey.shade100,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: isInStock
+                                          ? AppTheme.primaryGreen
+                                          : Colors.grey.shade300,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        isInStock
+                                            ? Icons.check_circle
+                                            : Icons.home_outlined,
+                                        size: 15,
                                         color: isInStock
-                                            ? AppTheme.primarySoft
-                                            : Colors.grey.shade100,
-                                        borderRadius: BorderRadius.circular(12),
+                                            ? Colors.white
+                                            : AppTheme.textMuted,
                                       ),
-                                      child: Text(
-                                        FoodIconCatalog.emojiFor(food.iconKey),
-                                        style: const TextStyle(fontSize: 18),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        isInStock ? 'Zuhause' : 'Vorrat?',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: isInStock
+                                              ? Colors.white
+                                              : AppTheme.textMuted,
+                                        ),
                                       ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(width: 6),
+
+                              // Quick Add to shopping list
+                              IconButton.filledTonal(
+                                style: IconButton.styleFrom(
+                                  backgroundColor: AppTheme.primarySoft,
+                                  foregroundColor: AppTheme.primaryDark,
+                                  padding: const EdgeInsets.all(8),
+                                  minimumSize: const Size(36, 36),
+                                ),
+                                icon: const Icon(
+                                  Icons.add_shopping_cart,
+                                  size: 18,
+                                ),
+                                tooltip: 'Auf Einkaufsliste setzen',
+                                onPressed: () {
+                                  _quickAddFoodToShopping(
+                                    context,
+                                    food,
+                                    shoppingProvider,
+                                  );
+                                },
+                              ),
+
+                              // More menu: Edit / Delete
+                              PopupMenuButton<String>(
+                                icon: const Icon(
+                                  Icons.more_vert,
+                                  size: 20,
+                                  color: AppTheme.textMuted,
+                                ),
+                                padding: EdgeInsets.zero,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                onSelected: (value) {
+                                  if (value == 'edit') {
+                                    _openEditFoodDialog(context, food);
+                                  } else if (value == 'delete') {
+                                    _confirmDeleteFood(
+                                      context,
+                                      food,
+                                      foodProvider,
+                                    );
+                                  }
+                                },
+                                itemBuilder: (ctx) => [
+                                  const PopupMenuItem(
+                                    value: 'edit',
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.edit_outlined,
+                                          size: 18,
+                                          color: AppTheme.primaryGreen,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Bearbeiten',
+                                          style: TextStyle(fontSize: 13),
+                                        ),
+                                      ],
                                     ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            food.name,
-                                            style: const TextStyle(
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.w600,
-                                              color: AppTheme.textDark,
-                                            ),
-                                          ),
-                                          if (food.note != null &&
-                                              food.note!.trim().isNotEmpty) ...[
-                                            const SizedBox(height: 2),
-                                            Text(
-                                              food.note!,
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                color: AppTheme.textMuted,
-                                              ),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ),
-
-                                    // Stock Indicator / Toggle
-                                    if (isInStock)
-                                      // Passive informational notice (no function, not clickable)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 6,
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'delete',
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.delete_outline,
+                                          size: 18,
+                                          color: AppTheme.errorRed,
                                         ),
-                                        decoration: BoxDecoration(
-                                          color: AppTheme.primarySoft,
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                          border: Border.all(
-                                            color: AppTheme.primaryLight
-                                                .withValues(alpha: 0.5),
-                                          ),
-                                        ),
-                                        child: const Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              Icons.inventory_2_outlined,
-                                              size: 15,
-                                              color: AppTheme.primaryDark,
-                                            ),
-                                            SizedBox(width: 4),
-                                            Text(
-                                              'Vorrat',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w600,
-                                                color: AppTheme.primaryDark,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      )
-                                    else
-                                      // Active button to add to stock
-                                      InkWell(
-                                        onTap: () {
-                                          stockProvider.toggleStock(food.id);
-                                        },
-                                        borderRadius: BorderRadius.circular(10),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 6,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.grey.shade100,
-                                            borderRadius: BorderRadius.circular(
-                                              10,
-                                            ),
-                                            border: Border.all(
-                                              color: Colors.grey.shade300,
-                                            ),
-                                          ),
-                                          child: const Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.home_outlined,
-                                                size: 15,
-                                                color: AppTheme.textMuted,
-                                              ),
-                                              SizedBox(width: 4),
-                                              Text(
-                                                'Vorrat?',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: AppTheme.textMuted,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-
-                                    const SizedBox(width: 6),
-
-                                    // Quick Add to shopping list
-                                    IconButton.filledTonal(
-                                      style: IconButton.styleFrom(
-                                        backgroundColor: AppTheme.primarySoft,
-                                        foregroundColor: AppTheme.primaryDark,
-                                        padding: const EdgeInsets.all(8),
-                                        minimumSize: const Size(36, 36),
-                                      ),
-                                      icon: const Icon(
-                                        Icons.add_shopping_cart,
-                                        size: 18,
-                                      ),
-                                      tooltip: 'Auf Einkaufsliste setzen',
-                                      onPressed: () {
-                                        _quickAddFoodToShopping(
-                                          context,
-                                          food,
-                                          shoppingProvider,
-                                        );
-                                      },
-                                    ),
-
-                                    // More menu: Edit / Delete
-                                    PopupMenuButton<String>(
-                                      icon: const Icon(
-                                        Icons.more_vert,
-                                        size: 20,
-                                        color: AppTheme.textMuted,
-                                      ),
-                                      padding: EdgeInsets.zero,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      onSelected: (value) {
-                                        if (value == 'edit') {
-                                          _openEditFoodDialog(context, food);
-                                        } else if (value == 'delete') {
-                                          _confirmDeleteFood(
-                                            context,
-                                            food,
-                                            foodProvider,
-                                          );
-                                        }
-                                      },
-                                      itemBuilder: (ctx) => [
-                                        const PopupMenuItem(
-                                          value: 'edit',
-                                          child: Row(
-                                            children: [
-                                              Icon(
-                                                Icons.edit_outlined,
-                                                size: 18,
-                                                color: AppTheme.primaryGreen,
-                                              ),
-                                              SizedBox(width: 8),
-                                              Text(
-                                                'Bearbeiten',
-                                                style: TextStyle(fontSize: 13),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        const PopupMenuItem(
-                                          value: 'delete',
-                                          child: Row(
-                                            children: [
-                                              Icon(
-                                                Icons.delete_outline,
-                                                size: 18,
-                                                color: AppTheme.errorRed,
-                                              ),
-                                              SizedBox(width: 8),
-                                              Text(
-                                                'Löschen',
-                                                style: TextStyle(
-                                                  fontSize: 13,
-                                                  color: AppTheme.errorRed,
-                                                ),
-                                              ),
-                                            ],
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Löschen',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: AppTheme.errorRed,
                                           ),
                                         ),
                                       ],
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                            );
-                          },
+                            ],
+                          ),
                         ),
-                ),
-              ],
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20.0),
+        child: SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryGreen,
+              foregroundColor: Colors.white,
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
-
-            // Tab 2: Vorrat
-            const StockScreen(isEmbedded: true),
-          ],
-        ),
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-        floatingActionButton: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0),
-          child: SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryGreen,
-                foregroundColor: Colors.white,
-                elevation: 4,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              onPressed: () => _openAddFoodDialog(context),
-              icon: const Icon(Icons.add, size: 22),
-              label: const Text(
-                'Lebensmittel hinzufügen',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-              ),
+            onPressed: () => _openAddFoodDialog(context),
+            icon: const Icon(Icons.add, size: 22),
+            label: const Text(
+              'Lebensmittel hinzufügen',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
             ),
           ),
         ),
