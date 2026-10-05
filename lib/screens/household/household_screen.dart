@@ -945,16 +945,30 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
 
                   const SizedBox(height: 24),
 
-                  // Discreet branding
+                  // Discreet branding & Version info
                   const Center(
-                    child: Text(
-                      '🦕 X4rinia 2026',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.textMuted,
-                        letterSpacing: 0.5,
-                      ),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Dino_food v2.0',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.primaryGreen,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          '🦕 X4rinia 2026',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: AppTheme.textMuted,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
 
