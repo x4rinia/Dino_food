@@ -9,43 +9,23 @@ import 'package:dino_food/screens/foods/foods_screen.dart';
 import 'package:dino_food/screens/foods/stock_screen.dart';
 
 void main() {
-  testWidgets('StockScreen displays only items in stock and allows removal', (
+  testWidgets('StockScreen displays only items in stock and prompts before removal', (
     WidgetTester tester,
   ) async {
     final stockProvider = StockProvider();
     final foodProvider = FoodProvider();
+    final shoppingProvider = ShoppingProvider()..bindToHousehold('test_household');
 
-    // Seed mock foods and stock
-    final food1 = Food(
-      id: 'f1',
-      name: 'Zwiebeln',
-      note: 'Gemüse',
-      defaultUnit: '',
-      createdAt: DateTime.now(),
-    );
-    final food2 = Food(
-      id: 'f2',
-      name: 'Kartoffeln',
-      note: 'Gemüse',
-      defaultUnit: '',
-      createdAt: DateTime.now(),
-    );
-    final food3 = Food(
-      id: 'f3',
-      name: 'Milch',
-      note: 'Milchprodukte',
-      defaultUnit: '',
-      createdAt: DateTime.now(),
-    );
+    await foodProvider.loadFoods();
+    final food1 = foodProvider.foods[0];
+    final food2 = foodProvider.foods[1];
+    final food3 = foodProvider.foods[2];
 
-    foodProvider.foods.addAll([food1, food2, food3]);
-    // Set f1 and f3 as in stock
+    // Set food1 and food3 as in stock
     stockProvider.bindToHousehold('test_household');
     stockProvider.inStockFoodIds.clear();
-    stockProvider.inStockFoodIds.addAll({'f1', 'f3', 'legacy-orphan'});
+    stockProvider.inStockFoodIds.addAll({food1.id, food3.id, 'legacy-orphan'});
 
-    // Raw stock may contain a stale/legacy ID, but both UI counters must only
-    // count IDs that belong to the currently loaded food catalogue.
     expect(
       stockProvider.countForFoodIds(foodProvider.foods.map((food) => food.id)),
       2,
@@ -56,34 +36,56 @@ void main() {
         providers: [
           ChangeNotifierProvider<FoodProvider>.value(value: foodProvider),
           ChangeNotifierProvider<StockProvider>.value(value: stockProvider),
+          ChangeNotifierProvider<ShoppingProvider>.value(value: shoppingProvider),
         ],
         child: const MaterialApp(home: StockScreen()),
       ),
     );
 
-    // Should show Zwiebeln and Milch, but NOT Kartoffeln
-    expect(find.text('Zwiebeln'), findsOneWidget);
-    expect(find.text('Milch'), findsOneWidget);
-    expect(find.text('Kartoffeln'), findsNothing);
+    // Should show food1 and food3, but NOT food2
+    expect(find.text(food1.name), findsOneWidget);
+    expect(find.text(food3.name), findsOneWidget);
+    expect(find.text(food2.name), findsNothing);
 
     // Should show '2 Lebensmittel zuhause im Vorrat'
     expect(find.text('2 Lebensmittel zuhause im Vorrat'), findsOneWidget);
 
-    // Verify toggle button is present
+    // Verify Zuhause button is present
     expect(find.text('Zuhause'), findsNWidgets(2));
-    expect(find.text('Lebensmittel im Vorrat'), findsNothing);
 
-    // Tap toggle button for Zwiebeln
+    // Tap Zuhause button for food1
     await tester.tap(find.text('Zuhause').first);
     await tester.pumpAndSettle();
 
-    // Now only 1 item in stock
-    expect(stockProvider.isInStock('f1'), isFalse);
-    expect(find.text('Lebensmittel im Vorrat'), findsNothing);
+    // Verification prompt should appear
+    expect(
+      find.text(
+        'Dieses Lebensmittel ist bereits im Vorrat. Möchtest du es aus dem Vorrat entfernen und auf die Einkaufsliste legen?',
+      ),
+      findsOneWidget,
+    );
+
+    // Tap "Nein" first -> item stays in stock
+    await tester.tap(find.text('Nein'));
+    await tester.pumpAndSettle();
+
+    expect(stockProvider.isInStock(food1.id), isTrue);
+    expect(shoppingProvider.allItems, isEmpty);
+
+    // Tap Zuhause again and choose "Ja"
+    await tester.tap(find.text('Zuhause').first);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Ja'));
+    await tester.pumpAndSettle();
+
+    // Now food1 is removed from stock and added to shopping list
+    expect(stockProvider.isInStock(food1.id), isFalse);
+    expect(shoppingProvider.itemForFood(food1.id), isNotNull);
   });
 
   testWidgets(
-    'Foods overview and stock screen use the same household food count',
+    'FoodsScreen tabs: Lebensmittel tab has passive Vorrat badge, Vorrat tab has active Zuhause button with prompt',
     (WidgetTester tester) async {
       final foodProvider = FoodProvider();
       await foodProvider.loadFoods();
@@ -94,31 +96,59 @@ void main() {
       final stockProvider = StockProvider();
       stockProvider.bindToHousehold('count_household');
       stockProvider.inStockFoodIds.addAll({...visibleIds, 'legacy-orphan'});
+      final shoppingProvider = ShoppingProvider()..bindToHousehold('count_household');
 
       await tester.pumpWidget(
         MultiProvider(
           providers: [
             ChangeNotifierProvider.value(value: foodProvider),
             ChangeNotifierProvider.value(value: stockProvider),
-            ChangeNotifierProvider(create: (_) => ShoppingProvider()),
+            ChangeNotifierProvider.value(value: shoppingProvider),
           ],
           child: const MaterialApp(home: FoodsScreen()),
         ),
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Vorrat (2)'), findsOneWidget);
-      await tester.tap(find.text('Vorrat (2)'));
-      await tester.pumpAndSettle();
-      expect(find.text('2 Lebensmittel zuhause im Vorrat'), findsOneWidget);
+      // Check two top tabs
+      expect(find.text('Lebensmittel'), findsWidgets);
+      expect(find.text('Vorrat'), findsWidgets);
 
+      // In Lebensmittel tab: in-stock items show passive 'Vorrat' label (not 'Zuhause' button)
+      expect(find.text('Vorrat'), findsWidgets);
+
+      // Tapping passive 'Vorrat' badge should not open dialog
+      await tester.tap(find.text('Vorrat').first);
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          'Dieses Lebensmittel ist bereits im Vorrat. Möchtest du es aus dem Vorrat entfernen und auf die Einkaufsliste legen?',
+        ),
+        findsNothing,
+      );
+
+      // Switch to Vorrat tab
+      await tester.tap(find.byType(Tab).at(1));
+      await tester.pumpAndSettle();
+
+      expect(find.text('2 Lebensmittel zuhause im Vorrat'), findsOneWidget);
+      expect(find.text('Zuhause'), findsNWidgets(2));
+
+      // Tap active Zuhause button on Vorrat tab
       await tester.tap(find.text('Zuhause').first);
       await tester.pumpAndSettle();
-      expect(find.text('1 Lebensmittel zuhause im Vorrat'), findsOneWidget);
 
-      await tester.pageBack();
+      expect(
+        find.text(
+          'Dieses Lebensmittel ist bereits im Vorrat. Möchtest du es aus dem Vorrat entfernen und auf die Einkaufsliste legen?',
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('Ja'));
       await tester.pumpAndSettle();
-      expect(find.text('Vorrat (1)'), findsOneWidget);
+
+      expect(find.text('1 Lebensmittel zuhause im Vorrat'), findsOneWidget);
     },
   );
 }

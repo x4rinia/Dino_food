@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../config/app_theme.dart';
 import '../../config/supabase_config.dart';
 import '../../navigation/no_swipe_material_page_route.dart';
@@ -236,4 +237,3 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
-

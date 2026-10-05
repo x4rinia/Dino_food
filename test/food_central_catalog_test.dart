@@ -334,7 +334,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('Lebensmittel & Vorrat 🍽️'), findsOneWidget);
+        expect(find.text('Lebensmitteldatenbank 🍽️'), findsOneWidget);
         final firstFoodName = foodProvider.foods.first.name;
         expect(find.text(firstFoodName), findsOneWidget);
 
