@@ -40,45 +40,6 @@ class _FoodsScreenState extends State<FoodsScreen> {
     });
   }
 
-  void _cycleSortMode(StockProvider stockProvider) {
-    setState(() {
-      _sessionStockSnapshot = Set<String>.from(stockProvider.inStockFoodIds);
-      switch (_sortMode) {
-        case FoodSortMode.inStockFirst:
-          _sortMode = FoodSortMode.notInStockFirst;
-          break;
-        case FoodSortMode.notInStockFirst:
-          _sortMode = FoodSortMode.alphabetical;
-          break;
-        case FoodSortMode.alphabetical:
-          _sortMode = FoodSortMode.inStockFirst;
-          break;
-      }
-    });
-
-    String message;
-    switch (_sortMode) {
-      case FoodSortMode.inStockFirst:
-        message = 'Sortierung: Im Vorrat zuerst 📦';
-        break;
-      case FoodSortMode.notInStockFirst:
-        message = 'Sortierung: Nicht im Vorrat zuerst 🛒';
-        break;
-      case FoodSortMode.alphabetical:
-        message = 'Sortierung: Alphabetisch (A-Z) 🔤';
-        break;
-    }
-
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          duration: const Duration(seconds: 1),
-        ),
-      );
-  }
-
   @override
   void initState() {
     super.initState();
@@ -149,53 +110,9 @@ class _FoodsScreenState extends State<FoodsScreen> {
       }
     });
 
-    IconData sortIcon;
-    String sortLabel;
-    switch (_sortMode) {
-      case FoodSortMode.inStockFirst:
-        sortIcon = Icons.check_circle_outline;
-        sortLabel = 'Im Vorrat';
-        break;
-      case FoodSortMode.notInStockFirst:
-        sortIcon = Icons.remove_circle_outline;
-        sortLabel = 'Nicht im Vorrat';
-        break;
-      case FoodSortMode.alphabetical:
-        sortIcon = Icons.sort_by_alpha;
-        sortLabel = 'A–Z';
-        break;
-    }
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Lebensmitteldatenbank 🍽️'),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12.0),
-            child: TextButton.icon(
-              style: TextButton.styleFrom(
-                foregroundColor: AppTheme.primaryGreen,
-                backgroundColor: AppTheme.primarySoft,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              icon: Icon(sortIcon, size: 16),
-              label: Text(
-                sortLabel,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              onPressed: () => _cycleSortMode(stockProvider),
-            ),
-          ),
-        ],
       ),
       body: Column(
         children: [
@@ -214,11 +131,11 @@ class _FoodsScreenState extends State<FoodsScreen> {
                   child: Text(
                     _sortMode == FoodSortMode.inStockFirst
                         ? (visibleStockCount == 0
-                            ? 'Tippe bei Artikeln auf „Vorrat?“, um sie als Zuhause zu markieren.'
+                            ? 'Markiere im Vorrat-Bereich Artikel als Zuhause.'
                             : '$visibleStockCount ${visibleStockCount == 1 ? 'Artikel' : 'Artikel'} im Vorrat (oben einsortiert)')
                         : _sortMode == FoodSortMode.notInStockFirst
                             ? 'Fehlende Artikel (nicht im Vorrat) oben einsortiert'
-                            : 'Rein alphabetisch (A-Z) sortiert',
+                            : 'Rein alphabetisch (A-Z) nach Name sortiert',
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppTheme.primaryDark,
@@ -232,7 +149,7 @@ class _FoodsScreenState extends State<FoodsScreen> {
 
           // Search Bar
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
@@ -256,6 +173,106 @@ class _FoodsScreenState extends State<FoodsScreen> {
                 ),
               ),
               onChanged: (val) => foodProvider.setSearchQuery(val),
+            ),
+          ),
+
+          // 3 Sort Tabs (Alle / Vorrat / Nicht im Vorrat)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        FilterChip(
+                          selected: _sortMode == FoodSortMode.alphabetical,
+                          label: Text('Alle (${filteredFoods.length})'),
+                          selectedColor: AppTheme.primarySoft,
+                          checkmarkColor: AppTheme.primaryDark,
+                          showCheckmark: false,
+                          labelStyle: TextStyle(
+                            fontSize: 12,
+                            color: _sortMode == FoodSortMode.alphabetical
+                                ? AppTheme.primaryDark
+                                : AppTheme.textDark,
+                            fontWeight: _sortMode == FoodSortMode.alphabetical
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                          ),
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() {
+                                _sortMode = FoodSortMode.alphabetical;
+                                _sessionStockSnapshot = Set<String>.from(
+                                  stockProvider.inStockFoodIds,
+                                );
+                              });
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        FilterChip(
+                          selected: _sortMode == FoodSortMode.inStockFirst,
+                          label: Text('Vorrat ($visibleStockCount)'),
+                          selectedColor: AppTheme.primarySoft,
+                          checkmarkColor: AppTheme.primaryDark,
+                          showCheckmark: false,
+                          labelStyle: TextStyle(
+                            fontSize: 12,
+                            color: _sortMode == FoodSortMode.inStockFirst
+                                ? AppTheme.primaryDark
+                                : AppTheme.textDark,
+                            fontWeight: _sortMode == FoodSortMode.inStockFirst
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                          ),
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() {
+                                _sortMode = FoodSortMode.inStockFirst;
+                                _sessionStockSnapshot = Set<String>.from(
+                                  stockProvider.inStockFoodIds,
+                                );
+                              });
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        FilterChip(
+                          selected: _sortMode == FoodSortMode.notInStockFirst,
+                          label: Text(
+                            'Nicht im Vorrat (${filteredFoods.length - visibleStockCount})',
+                          ),
+                          selectedColor: AppTheme.primarySoft,
+                          checkmarkColor: AppTheme.primaryDark,
+                          showCheckmark: false,
+                          labelStyle: TextStyle(
+                            fontSize: 12,
+                            color: _sortMode == FoodSortMode.notInStockFirst
+                                ? AppTheme.primaryDark
+                                : AppTheme.textDark,
+                            fontWeight: _sortMode == FoodSortMode.notInStockFirst
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                          ),
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() {
+                                _sortMode = FoodSortMode.notInStockFirst;
+                                _sessionStockSnapshot = Set<String>.from(
+                                  stockProvider.inStockFoodIds,
+                                );
+                              });
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
 
@@ -343,53 +360,47 @@ class _FoodsScreenState extends State<FoodsScreen> {
                                 ),
                               ),
 
-                              // Stock Toggle Button (Zuhause <-> Vorrat?)
-                              InkWell(
-                                onTap: () {
-                                  stockProvider.toggleStock(food.id);
-                                },
-                                borderRadius: BorderRadius.circular(10),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
+                              // Non-clickable Stock Info Badge
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isInStock
+                                      ? AppTheme.primaryGreen
+                                      : Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
                                     color: isInStock
                                         ? AppTheme.primaryGreen
-                                        : Colors.grey.shade100,
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                      color: isInStock
-                                          ? AppTheme.primaryGreen
-                                          : Colors.grey.shade300,
-                                    ),
+                                        : Colors.grey.shade300,
                                   ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        isInStock
-                                            ? Icons.check_circle
-                                            : Icons.home_outlined,
-                                        size: 15,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      isInStock
+                                          ? Icons.check_circle
+                                          : Icons.home_outlined,
+                                      size: 15,
+                                      color: isInStock
+                                          ? Colors.white
+                                          : AppTheme.textMuted,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      isInStock ? 'Vorrat' : 'Vorrat?',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
                                         color: isInStock
                                             ? Colors.white
                                             : AppTheme.textMuted,
                                       ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        isInStock ? 'Zuhause' : 'Vorrat?',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                          color: isInStock
-                                              ? Colors.white
-                                              : AppTheme.textMuted,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
                               ),
 

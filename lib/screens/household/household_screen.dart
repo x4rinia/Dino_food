@@ -768,7 +768,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                           ),
                         ),
                         child: const Text(
-                          'Version 2.1',
+                          'Version 3.0',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
@@ -976,7 +976,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                     child: Column(
                       children: [
                         Text(
-                          'Dino_food Version 2.1',
+                          'Dino_food Version 3.0',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
