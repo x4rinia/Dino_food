@@ -29,6 +29,8 @@ class FoodsScreen extends StatefulWidget {
 }
 
 class _FoodsScreenState extends State<FoodsScreen> {
+  static FoodSortMode _lastSelectedSortMode = FoodSortMode.inStockFirst;
+
   final _searchController = TextEditingController();
   Set<String>? _sessionStockSnapshot;
   String _lastSearchQuery = '';
@@ -45,6 +47,7 @@ class _FoodsScreenState extends State<FoodsScreen> {
     FoodProvider foodProvider,
     StockProvider stockProvider,
   ) async {
+    _lastSelectedSortMode = mode;
     if (_sortMode == mode) {
       // Re-tapping active tab triggers refresh
       await foodProvider.loadFoods(force: true);
@@ -131,6 +134,7 @@ class _FoodsScreenState extends State<FoodsScreen> {
   @override
   void initState() {
     super.initState();
+    _sortMode = _lastSelectedSortMode;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       String? hhId;
       try {
@@ -163,8 +167,10 @@ class _FoodsScreenState extends State<FoodsScreen> {
       listen: false,
     );
 
-    // Initialize or update stock snapshot on initial view load or search change
+    // Initialize or update stock snapshot on initial view load, delayed stock load, or search change
     if (_sessionStockSnapshot == null ||
+        (_sessionStockSnapshot!.isEmpty &&
+            stockProvider.inStockFoodIds.isNotEmpty) ||
         _lastSearchQuery != foodProvider.searchQuery) {
       _sessionStockSnapshot = Set<String>.from(stockProvider.inStockFoodIds);
       _lastSearchQuery = foodProvider.searchQuery;
