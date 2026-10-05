@@ -29,37 +29,21 @@ class FoodsScreen extends StatefulWidget {
 }
 
 class _FoodsScreenState extends State<FoodsScreen> {
-  static FoodSortMode _lastSelectedSortMode = FoodSortMode.inStockFirst;
-
   final _searchController = TextEditingController();
-  Set<String>? _sessionStockSnapshot;
   String _lastSearchQuery = '';
-  FoodSortMode _sortMode = FoodSortMode.inStockFirst;
-
-  void _refreshStockSnapshot(StockProvider stockProvider) {
-    setState(() {
-      _sessionStockSnapshot = Set<String>.from(stockProvider.inStockFoodIds);
-    });
-  }
+  FoodSortMode _sortMode = FoodSortMode.alphabetical;
 
   void _handleTabTap(
     FoodSortMode mode,
     FoodProvider foodProvider,
     StockProvider stockProvider,
   ) async {
-    _lastSelectedSortMode = mode;
     if (_sortMode == mode) {
       // Re-tapping active tab triggers refresh
       await foodProvider.loadFoods(force: true);
-      if (mounted) {
-        _refreshStockSnapshot(stockProvider);
-      }
     } else {
       setState(() {
         _sortMode = mode;
-        _sessionStockSnapshot = Set<String>.from(
-          stockProvider.inStockFoodIds,
-        );
       });
     }
   }
@@ -134,7 +118,7 @@ class _FoodsScreenState extends State<FoodsScreen> {
   @override
   void initState() {
     super.initState();
-    _sortMode = _lastSelectedSortMode;
+    _sortMode = FoodSortMode.alphabetical;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       String? hhId;
       try {
@@ -167,42 +151,36 @@ class _FoodsScreenState extends State<FoodsScreen> {
       listen: false,
     );
 
-    // Initialize or update stock snapshot on initial view load, delayed stock load, or search change
-    if (_sessionStockSnapshot == null ||
-        (_sessionStockSnapshot!.isEmpty &&
-            stockProvider.inStockFoodIds.isNotEmpty) ||
-        _lastSearchQuery != foodProvider.searchQuery) {
-      _sessionStockSnapshot = Set<String>.from(stockProvider.inStockFoodIds);
-      _lastSearchQuery = foodProvider.searchQuery;
-    }
-
     final filteredFoods = foodProvider.filteredFoods;
     final visibleStockCount = stockProvider.countForFoodIds(
       foodProvider.foods.map((food) => food.id),
     );
 
-    // Display all foods matching search query.
-    // Order is stabilized during current view session based on _sessionStockSnapshot and _sortMode.
-    final displayedFoods = List<Food>.from(filteredFoods);
-    displayedFoods.sort((a, b) {
-      final aInStock = _sessionStockSnapshot!.contains(a.id);
-      final bInStock = _sessionStockSnapshot!.contains(b.id);
+    // Filter and sort displayed foods according to selected tab mode:
+    final List<Food> displayedFoods;
+    switch (_sortMode) {
+      case FoodSortMode.inStockFirst:
+        // "Vorrat" tab -> display ONLY items in stock
+        displayedFoods = filteredFoods
+            .where((food) => stockProvider.isInStock(food.id))
+            .toList();
+        break;
 
-      switch (_sortMode) {
-        case FoodSortMode.inStockFirst:
-          if (aInStock && !bInStock) return -1;
-          if (!aInStock && bInStock) return 1;
-          return FoodProvider.compareFoodNames(a.name, b.name);
+      case FoodSortMode.notInStockFirst:
+        // "Nicht im Vorrat" tab -> display ONLY items not in stock
+        displayedFoods = filteredFoods
+            .where((food) => !stockProvider.isInStock(food.id))
+            .toList();
+        break;
 
-        case FoodSortMode.notInStockFirst:
-          if (!aInStock && bInStock) return -1;
-          if (aInStock && !bInStock) return 1;
-          return FoodProvider.compareFoodNames(a.name, b.name);
+      case FoodSortMode.alphabetical:
+        // "Alle" tab -> display all items
+        displayedFoods = List<Food>.from(filteredFoods);
+        break;
+    }
 
-        case FoodSortMode.alphabetical:
-          return FoodProvider.compareFoodNames(a.name, b.name);
-      }
-    });
+    // Always sort displayed items alphabetically A-Z
+    displayedFoods.sort((a, b) => FoodProvider.compareFoodNames(a.name, b.name));
 
     return Scaffold(
       appBar: AppBar(
@@ -224,12 +202,14 @@ class _FoodsScreenState extends State<FoodsScreen> {
                 Expanded(
                   child: Text(
                     _sortMode == FoodSortMode.inStockFirst
-                        ? (visibleStockCount == 0
-                            ? 'Markiere im Vorrat-Bereich Artikel als Zuhause.'
-                            : '$visibleStockCount ${visibleStockCount == 1 ? 'Artikel' : 'Artikel'} im Vorrat (oben einsortiert)')
+                        ? (displayedFoods.isEmpty
+                            ? 'Keine Lebensmittel im Vorrat.'
+                            : '${displayedFoods.length} ${displayedFoods.length == 1 ? 'Artikel' : 'Artikel'} im Vorrat')
                         : _sortMode == FoodSortMode.notInStockFirst
-                            ? 'Fehlende Artikel (nicht im Vorrat) oben einsortiert'
-                            : 'Rein alphabetisch (A-Z) nach Name sortiert',
+                            ? (displayedFoods.isEmpty
+                                ? 'Alle Lebensmittel sind aktuell im Vorrat!'
+                                : '${displayedFoods.length} ${displayedFoods.length == 1 ? 'Artikel' : 'Artikel'} nicht im Vorrat')
+                            : 'Alle ${filteredFoods.length} Lebensmittel (A–Z sortiert)',
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppTheme.primaryDark,
@@ -336,19 +316,31 @@ class _FoodsScreenState extends State<FoodsScreen> {
                   )
                 : displayedFoods.isEmpty
                 ? EmptyState(
-                    emoji: '🔍',
-                    title: 'Keine Lebensmittel gefunden',
-                    message:
-                        'Füge "${foodProvider.searchQuery}" als neues eigenes Lebensmittel hinzu!',
-                    actionLabel: 'Lebensmittel hinzufügen',
-                    onAction: () => _openAddFoodDialog(context),
+                    emoji: _sortMode == FoodSortMode.inStockFirst
+                        ? '📦'
+                        : _sortMode == FoodSortMode.notInStockFirst
+                            ? '🎉'
+                            : '🔍',
+                    title: _sortMode == FoodSortMode.inStockFirst
+                        ? 'Keine Lebensmittel im Vorrat'
+                        : _sortMode == FoodSortMode.notInStockFirst
+                            ? 'Alles im Vorrat!'
+                            : 'Keine Lebensmittel gefunden',
+                    message: _sortMode == FoodSortMode.inStockFirst
+                        ? 'Markiere Artikel im Vorrat-Tab als Zuhause, um sie hier anzuzeigen.'
+                        : _sortMode == FoodSortMode.notInStockFirst
+                            ? 'Alle Lebensmittel befinden sich aktuell im Vorrat.'
+                            : 'Füge "${foodProvider.searchQuery}" als neues eigenes Lebensmittel hinzu!',
+                    actionLabel: _sortMode == FoodSortMode.alphabetical
+                        ? 'Lebensmittel hinzufügen'
+                        : null,
+                    onAction: _sortMode == FoodSortMode.alphabetical
+                        ? () => _openAddFoodDialog(context)
+                        : null,
                   )
                 : RefreshIndicator(
                     onRefresh: () async {
                       await foodProvider.loadFoods(force: true);
-                      if (mounted) {
-                        _refreshStockSnapshot(stockProvider);
-                      }
                     },
                     child: ListView.builder(
                       padding: const EdgeInsets.fromLTRB(16, 6, 16, 80),

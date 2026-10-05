@@ -976,7 +976,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                     child: Column(
                       children: [
                         Text(
-                          'Dino_food Version 3.2.1',
+                          'Dino_food Version 3.2.3',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,

@@ -88,7 +88,7 @@ void main() {
       await tester.tap(find.text('Alle'));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Rein alphabetisch'), findsOneWidget);
+      expect(find.textContaining('A–Z sortiert'), findsOneWidget);
     },
   );
 }
