@@ -40,54 +40,89 @@ class _FoodsScreenState extends State<FoodsScreen> {
     });
   }
 
+  void _handleTabTap(
+    FoodSortMode mode,
+    FoodProvider foodProvider,
+    StockProvider stockProvider,
+  ) async {
+    if (_sortMode == mode) {
+      // Re-tapping active tab triggers refresh
+      await foodProvider.loadFoods(force: true);
+      if (mounted) {
+        _refreshStockSnapshot(stockProvider);
+      }
+    } else {
+      setState(() {
+        _sortMode = mode;
+        _sessionStockSnapshot = Set<String>.from(
+          stockProvider.inStockFoodIds,
+        );
+      });
+    }
+  }
+
   Widget _buildSortTab({
     required String label,
     required String subtitle,
     required bool isSelected,
     required VoidCallback onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
+    return Material(
+      color: Colors.transparent,
       borderRadius: BorderRadius.circular(10),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(vertical: 7),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : [],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                color: isSelected ? AppTheme.primaryDark : AppTheme.textDark,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        splashColor: AppTheme.primaryGreen.withValues(alpha: 0.15),
+        highlightColor: AppTheme.primaryGreen.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 2),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            border: isSelected
+                ? Border.all(color: AppTheme.primaryGreen.withValues(alpha: 0.25), width: 1)
+                : Border.all(color: Colors.transparent, width: 1),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : [],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                  color: isSelected ? AppTheme.primaryDark : AppTheme.textDark,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 1),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                color: isSelected ? AppTheme.primaryGreen : AppTheme.textMuted,
+              const SizedBox(height: 1),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                  color: isSelected ? AppTheme.primaryGreen : AppTheme.textMuted,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -246,14 +281,11 @@ class _FoodsScreenState extends State<FoodsScreen> {
                       label: 'Alle',
                       subtitle: 'A–Z',
                       isSelected: _sortMode == FoodSortMode.alphabetical,
-                      onTap: () {
-                        setState(() {
-                          _sortMode = FoodSortMode.alphabetical;
-                          _sessionStockSnapshot = Set<String>.from(
-                            stockProvider.inStockFoodIds,
-                          );
-                        });
-                      },
+                      onTap: () => _handleTabTap(
+                        FoodSortMode.alphabetical,
+                        foodProvider,
+                        stockProvider,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 4),
@@ -262,14 +294,11 @@ class _FoodsScreenState extends State<FoodsScreen> {
                       label: 'Vorrat',
                       subtitle: '($visibleStockCount)',
                       isSelected: _sortMode == FoodSortMode.inStockFirst,
-                      onTap: () {
-                        setState(() {
-                          _sortMode = FoodSortMode.inStockFirst;
-                          _sessionStockSnapshot = Set<String>.from(
-                            stockProvider.inStockFoodIds,
-                          );
-                        });
-                      },
+                      onTap: () => _handleTabTap(
+                        FoodSortMode.inStockFirst,
+                        foodProvider,
+                        stockProvider,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 4),
@@ -278,14 +307,11 @@ class _FoodsScreenState extends State<FoodsScreen> {
                       label: 'Nicht im Vorrat',
                       subtitle: '(${filteredFoods.length - visibleStockCount})',
                       isSelected: _sortMode == FoodSortMode.notInStockFirst,
-                      onTap: () {
-                        setState(() {
-                          _sortMode = FoodSortMode.notInStockFirst;
-                          _sessionStockSnapshot = Set<String>.from(
-                            stockProvider.inStockFoodIds,
-                          );
-                        });
-                      },
+                      onTap: () => _handleTabTap(
+                        FoodSortMode.notInStockFirst,
+                        foodProvider,
+                        stockProvider,
+                      ),
                     ),
                   ),
                 ],
