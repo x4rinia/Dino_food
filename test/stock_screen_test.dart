@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
-import 'package:dino_food/models/food.dart';
 import 'package:dino_food/providers/food_provider.dart';
 import 'package:dino_food/providers/shopping_provider.dart';
 import 'package:dino_food/providers/stock_provider.dart';
