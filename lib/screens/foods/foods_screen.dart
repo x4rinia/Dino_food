@@ -15,6 +15,12 @@ import '../shopping_list/add_edit_item_dialog.dart';
 import 'add_food_dialog.dart';
 import 'edit_food_dialog.dart';
 
+enum FoodSortMode {
+  inStockFirst,
+  notInStockFirst,
+  alphabetical,
+}
+
 class FoodsScreen extends StatefulWidget {
   const FoodsScreen({super.key});
 
@@ -26,11 +32,51 @@ class _FoodsScreenState extends State<FoodsScreen> {
   final _searchController = TextEditingController();
   Set<String>? _sessionStockSnapshot;
   String _lastSearchQuery = '';
+  FoodSortMode _sortMode = FoodSortMode.inStockFirst;
 
   void _refreshStockSnapshot(StockProvider stockProvider) {
     setState(() {
       _sessionStockSnapshot = Set<String>.from(stockProvider.inStockFoodIds);
     });
+  }
+
+  void _cycleSortMode(StockProvider stockProvider) {
+    setState(() {
+      _sessionStockSnapshot = Set<String>.from(stockProvider.inStockFoodIds);
+      switch (_sortMode) {
+        case FoodSortMode.inStockFirst:
+          _sortMode = FoodSortMode.notInStockFirst;
+          break;
+        case FoodSortMode.notInStockFirst:
+          _sortMode = FoodSortMode.alphabetical;
+          break;
+        case FoodSortMode.alphabetical:
+          _sortMode = FoodSortMode.inStockFirst;
+          break;
+      }
+    });
+
+    String message;
+    switch (_sortMode) {
+      case FoodSortMode.inStockFirst:
+        message = 'Sortierung: Im Vorrat zuerst 📦';
+        break;
+      case FoodSortMode.notInStockFirst:
+        message = 'Sortierung: Nicht im Vorrat zuerst 🛒';
+        break;
+      case FoodSortMode.alphabetical:
+        message = 'Sortierung: Alphabetisch (A-Z) 🔤';
+        break;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          duration: const Duration(seconds: 1),
+        ),
+      );
   }
 
   @override
@@ -81,16 +127,44 @@ class _FoodsScreenState extends State<FoodsScreen> {
     );
 
     // Display all foods matching search query.
-    // Order is stabilized during current view session based on _sessionStockSnapshot
-    // so toggling "Zuhause" doesn't jump the item around while the user is editing it.
+    // Order is stabilized during current view session based on _sessionStockSnapshot and _sortMode.
     final displayedFoods = List<Food>.from(filteredFoods);
     displayedFoods.sort((a, b) {
       final aInStock = _sessionStockSnapshot!.contains(a.id);
       final bInStock = _sessionStockSnapshot!.contains(b.id);
-      if (aInStock && !bInStock) return -1;
-      if (!aInStock && bInStock) return 1;
-      return FoodProvider.compareFoodNames(a.name, b.name);
+
+      switch (_sortMode) {
+        case FoodSortMode.inStockFirst:
+          if (aInStock && !bInStock) return -1;
+          if (!aInStock && bInStock) return 1;
+          return FoodProvider.compareFoodNames(a.name, b.name);
+
+        case FoodSortMode.notInStockFirst:
+          if (!aInStock && bInStock) return -1;
+          if (aInStock && !bInStock) return 1;
+          return FoodProvider.compareFoodNames(a.name, b.name);
+
+        case FoodSortMode.alphabetical:
+          return FoodProvider.compareFoodNames(a.name, b.name);
+      }
     });
+
+    IconData sortIcon;
+    String sortLabel;
+    switch (_sortMode) {
+      case FoodSortMode.inStockFirst:
+        sortIcon = Icons.check_circle_outline;
+        sortLabel = 'Im Vorrat';
+        break;
+      case FoodSortMode.notInStockFirst:
+        sortIcon = Icons.remove_circle_outline;
+        sortLabel = 'Nicht im Vorrat';
+        break;
+      case FoodSortMode.alphabetical:
+        sortIcon = Icons.sort_by_alpha;
+        sortLabel = 'A–Z';
+        break;
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -103,30 +177,22 @@ class _FoodsScreenState extends State<FoodsScreen> {
                 foregroundColor: AppTheme.primaryGreen,
                 backgroundColor: AppTheme.primarySoft,
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
+                  horizontal: 10,
                   vertical: 6,
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              icon: const Icon(Icons.sort, size: 16),
-              label: const Text(
-                'Vorrat',
-                style: TextStyle(
-                  fontSize: 13,
+              icon: Icon(sortIcon, size: 16),
+              label: Text(
+                sortLabel,
+                style: const TextStyle(
+                  fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              onPressed: () {
-                _refreshStockSnapshot(stockProvider);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Nach Vorrat sortiert.'),
-                    duration: Duration(seconds: 1),
-                  ),
-                );
-              },
+              onPressed: () => _cycleSortMode(stockProvider),
             ),
           ),
         ],
@@ -146,9 +212,13 @@ class _FoodsScreenState extends State<FoodsScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    visibleStockCount == 0
-                        ? 'Tippe bei Artikeln auf „Vorrat?“, um sie als Zuhause zu markieren.'
-                        : '$visibleStockCount ${visibleStockCount == 1 ? 'Artikel' : 'Artikel'} im Vorrat (oben einsortiert)',
+                    _sortMode == FoodSortMode.inStockFirst
+                        ? (visibleStockCount == 0
+                            ? 'Tippe bei Artikeln auf „Vorrat?“, um sie als Zuhause zu markieren.'
+                            : '$visibleStockCount ${visibleStockCount == 1 ? 'Artikel' : 'Artikel'} im Vorrat (oben einsortiert)')
+                        : _sortMode == FoodSortMode.notInStockFirst
+                            ? 'Fehlende Artikel (nicht im Vorrat) oben einsortiert'
+                            : 'Rein alphabetisch (A-Z) sortiert',
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppTheme.primaryDark,
