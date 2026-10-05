@@ -80,15 +80,12 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify 3 sort tabs exist
-      expect(find.textContaining('Alle ('), findsOneWidget);
-      expect(find.text('Vorrat (2)'), findsOneWidget);
-      expect(find.textContaining('Nicht im Vorrat ('), findsOneWidget);
-
-      // Verify Vorrat info badges are displayed on in-stock cards
+      expect(find.text('Alle'), findsOneWidget);
       expect(find.text('Vorrat'), findsWidgets);
+      expect(find.text('Nicht im Vorrat'), findsOneWidget);
 
       // Tap 'Alle' tab -> switches to A-Z sort mode
-      await tester.tap(find.textContaining('Alle ('));
+      await tester.tap(find.text('Alle'));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('Rein alphabetisch'), findsOneWidget);

@@ -40,6 +40,59 @@ class _FoodsScreenState extends State<FoodsScreen> {
     });
   }
 
+  Widget _buildSortTab({
+    required String label,
+    required String subtitle,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : [],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                color: isSelected ? AppTheme.primaryDark : AppTheme.textDark,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 1),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                color: isSelected ? AppTheme.primaryGreen : AppTheme.textMuted,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -176,103 +229,67 @@ class _FoodsScreenState extends State<FoodsScreen> {
             ),
           ),
 
-          // 3 Sort Tabs (Alle / Vorrat / Nicht im Vorrat)
+          // 3 Segmented Sort Tabs (Alle / Vorrat / Nicht im Vorrat)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        FilterChip(
-                          selected: _sortMode == FoodSortMode.alphabetical,
-                          label: Text('Alle (${filteredFoods.length})'),
-                          selectedColor: AppTheme.primarySoft,
-                          checkmarkColor: AppTheme.primaryDark,
-                          showCheckmark: false,
-                          labelStyle: TextStyle(
-                            fontSize: 12,
-                            color: _sortMode == FoodSortMode.alphabetical
-                                ? AppTheme.primaryDark
-                                : AppTheme.textDark,
-                            fontWeight: _sortMode == FoodSortMode.alphabetical
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                          ),
-                          onSelected: (selected) {
-                            if (selected) {
-                              setState(() {
-                                _sortMode = FoodSortMode.alphabetical;
-                                _sessionStockSnapshot = Set<String>.from(
-                                  stockProvider.inStockFoodIds,
-                                );
-                              });
-                            }
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        FilterChip(
-                          selected: _sortMode == FoodSortMode.inStockFirst,
-                          label: Text('Vorrat ($visibleStockCount)'),
-                          selectedColor: AppTheme.primarySoft,
-                          checkmarkColor: AppTheme.primaryDark,
-                          showCheckmark: false,
-                          labelStyle: TextStyle(
-                            fontSize: 12,
-                            color: _sortMode == FoodSortMode.inStockFirst
-                                ? AppTheme.primaryDark
-                                : AppTheme.textDark,
-                            fontWeight: _sortMode == FoodSortMode.inStockFirst
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                          ),
-                          onSelected: (selected) {
-                            if (selected) {
-                              setState(() {
-                                _sortMode = FoodSortMode.inStockFirst;
-                                _sessionStockSnapshot = Set<String>.from(
-                                  stockProvider.inStockFoodIds,
-                                );
-                              });
-                            }
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        FilterChip(
-                          selected: _sortMode == FoodSortMode.notInStockFirst,
-                          label: Text(
-                            'Nicht im Vorrat (${filteredFoods.length - visibleStockCount})',
-                          ),
-                          selectedColor: AppTheme.primarySoft,
-                          checkmarkColor: AppTheme.primaryDark,
-                          showCheckmark: false,
-                          labelStyle: TextStyle(
-                            fontSize: 12,
-                            color: _sortMode == FoodSortMode.notInStockFirst
-                                ? AppTheme.primaryDark
-                                : AppTheme.textDark,
-                            fontWeight: _sortMode == FoodSortMode.notInStockFirst
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                          ),
-                          onSelected: (selected) {
-                            if (selected) {
-                              setState(() {
-                                _sortMode = FoodSortMode.notInStockFirst;
-                                _sessionStockSnapshot = Set<String>.from(
-                                  stockProvider.inStockFoodIds,
-                                );
-                              });
-                            }
-                          },
-                        ),
-                      ],
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.grey.shade300, width: 0.8),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _buildSortTab(
+                      label: 'Alle',
+                      subtitle: 'A–Z',
+                      isSelected: _sortMode == FoodSortMode.alphabetical,
+                      onTap: () {
+                        setState(() {
+                          _sortMode = FoodSortMode.alphabetical;
+                          _sessionStockSnapshot = Set<String>.from(
+                            stockProvider.inStockFoodIds,
+                          );
+                        });
+                      },
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: _buildSortTab(
+                      label: 'Vorrat',
+                      subtitle: '($visibleStockCount)',
+                      isSelected: _sortMode == FoodSortMode.inStockFirst,
+                      onTap: () {
+                        setState(() {
+                          _sortMode = FoodSortMode.inStockFirst;
+                          _sessionStockSnapshot = Set<String>.from(
+                            stockProvider.inStockFoodIds,
+                          );
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: _buildSortTab(
+                      label: 'Nicht im Vorrat',
+                      subtitle: '(${filteredFoods.length - visibleStockCount})',
+                      isSelected: _sortMode == FoodSortMode.notInStockFirst,
+                      onTap: () {
+                        setState(() {
+                          _sortMode = FoodSortMode.notInStockFirst;
+                          _sessionStockSnapshot = Set<String>.from(
+                            stockProvider.inStockFoodIds,
+                          );
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
 
