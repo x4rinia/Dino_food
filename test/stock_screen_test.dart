@@ -54,7 +54,7 @@ void main() {
   });
 
   testWidgets(
-    'FoodsScreen filters by stock state (Alle, Im Vorrat, Nicht im Vorrat) and allows direct Zuhause toggle',
+    'FoodsScreen sorts in-stock items first and allows direct Zuhause toggle while keeping item visible as Vorrat?',
     (WidgetTester tester) async {
       final foodProvider = FoodProvider();
       await foodProvider.loadFoods();
@@ -79,25 +79,18 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Verify filter chips exist
-      expect(find.textContaining('Alle ('), findsOneWidget);
-      expect(find.text('Im Vorrat (2)'), findsOneWidget);
+      // Verify in-stock item count banner exists
+      expect(find.textContaining('2 Artikel im Vorrat'), findsOneWidget);
 
-      // Verify Zuhause button is active on food card
-      expect(find.text('Zuhause'), findsWidgets);
-
-      // Filter by 'Im Vorrat (2)'
-      await tester.tap(find.text('Im Vorrat (2)'));
-      await tester.pumpAndSettle();
-
+      // Verify Zuhause buttons are active on in-stock food cards
       expect(find.text('Zuhause'), findsNWidgets(2));
-      expect(find.text('Vorrat?'), findsNothing);
 
-      // Tap active Zuhause button on card -> toggles stock off directly
+      // Tap active Zuhause button on card -> toggles stock off directly to Vorrat? while item stays on screen
       await tester.tap(find.text('Zuhause').first);
       await tester.pumpAndSettle();
 
-      expect(find.text('Im Vorrat (1)'), findsOneWidget);
+      expect(find.text('Vorrat?'), findsWidgets);
+      expect(find.textContaining('1 Artikel im Vorrat'), findsOneWidget);
     },
   );
 }

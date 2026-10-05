@@ -15,8 +15,6 @@ import '../shopping_list/add_edit_item_dialog.dart';
 import 'add_food_dialog.dart';
 import 'edit_food_dialog.dart';
 
-enum StockFilter { all, inStock, notInStock }
-
 class FoodsScreen extends StatefulWidget {
   const FoodsScreen({super.key});
 
@@ -26,7 +24,6 @@ class FoodsScreen extends StatefulWidget {
 
 class _FoodsScreenState extends State<FoodsScreen> {
   final _searchController = TextEditingController();
-  StockFilter _selectedFilter = StockFilter.all;
 
   @override
   void initState() {
@@ -67,12 +64,15 @@ class _FoodsScreenState extends State<FoodsScreen> {
       foodProvider.foods.map((food) => food.id),
     );
 
-    final displayedFoods = filteredFoods.where((food) {
-      final isInStock = stockProvider.isInStock(food.id);
-      if (_selectedFilter == StockFilter.inStock) return isInStock;
-      if (_selectedFilter == StockFilter.notInStock) return !isInStock;
-      return true;
-    }).toList();
+    // Display all foods matching search query, sorted with items currently in stock first
+    final displayedFoods = List<Food>.from(filteredFoods);
+    displayedFoods.sort((a, b) {
+      final aInStock = stockProvider.isInStock(a.id);
+      final bInStock = stockProvider.isInStock(b.id);
+      if (aInStock && !bInStock) return -1;
+      if (!aInStock && bInStock) return 1;
+      return FoodProvider.compareFoodNames(a.name, b.name);
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -95,7 +95,7 @@ class _FoodsScreenState extends State<FoodsScreen> {
                   child: Text(
                     visibleStockCount == 0
                         ? 'Tippe bei Artikeln auf „Vorrat?“, um sie als Zuhause zu markieren.'
-                        : '$visibleStockCount Artikel im Vorrat',
+                        : '$visibleStockCount ${visibleStockCount == 1 ? 'Artikel' : 'Artikel'} im Vorrat (oben einsortiert)',
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppTheme.primaryDark,
@@ -109,7 +109,7 @@ class _FoodsScreenState extends State<FoodsScreen> {
 
           // Search Bar
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
@@ -136,99 +136,6 @@ class _FoodsScreenState extends State<FoodsScreen> {
             ),
           ),
 
-          // Filter Chips (Alle / Im Vorrat / Nicht im Vorrat)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        FilterChip(
-                          selected: _selectedFilter == StockFilter.all,
-                          label: Text('Alle (${filteredFoods.length})'),
-                          selectedColor: AppTheme.primarySoft,
-                          checkmarkColor: AppTheme.primaryDark,
-                          showCheckmark: false,
-                          labelStyle: TextStyle(
-                            fontSize: 12,
-                            color: _selectedFilter == StockFilter.all
-                                ? AppTheme.primaryDark
-                                : AppTheme.textDark,
-                            fontWeight: _selectedFilter == StockFilter.all
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                          ),
-                          onSelected: (selected) {
-                            if (selected) {
-                              setState(() {
-                                _selectedFilter = StockFilter.all;
-                              });
-                            }
-                          },
-                        ),
-                        const SizedBox(width: 6),
-                        FilterChip(
-                          selected: _selectedFilter == StockFilter.inStock,
-                          label: Text('Im Vorrat ($visibleStockCount)'),
-                          selectedColor: AppTheme.primarySoft,
-                          checkmarkColor: AppTheme.primaryDark,
-                          showCheckmark: false,
-                          labelStyle: TextStyle(
-                            fontSize: 12,
-                            color: _selectedFilter == StockFilter.inStock
-                                ? AppTheme.primaryDark
-                                : AppTheme.textDark,
-                            fontWeight: _selectedFilter == StockFilter.inStock
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                          ),
-                          onSelected: (selected) {
-                            if (selected) {
-                              setState(() {
-                                _selectedFilter = StockFilter.inStock;
-                              });
-                            }
-                          },
-                        ),
-                        const SizedBox(width: 6),
-                        FilterChip(
-                          selected: _selectedFilter == StockFilter.notInStock,
-                          label: Text(
-                            'Nicht im Vorrat (${filteredFoods.length - visibleStockCount})',
-                          ),
-                          selectedColor: AppTheme.primarySoft,
-                          checkmarkColor: AppTheme.primaryDark,
-                          showCheckmark: false,
-                          labelStyle: TextStyle(
-                            fontSize: 12,
-                            color: _selectedFilter == StockFilter.notInStock
-                                ? AppTheme.primaryDark
-                                : AppTheme.textDark,
-                            fontWeight: _selectedFilter == StockFilter.notInStock
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                          ),
-                          onSelected: (selected) {
-                            if (selected) {
-                              setState(() {
-                                _selectedFilter = StockFilter.notInStock;
-                              });
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 4),
-
           // Food List
           Expanded(
             child: foodProvider.isLoading
@@ -240,13 +147,10 @@ class _FoodsScreenState extends State<FoodsScreen> {
                   )
                 : displayedFoods.isEmpty
                 ? EmptyState(
-                    emoji: _selectedFilter == StockFilter.inStock ? '📦' : '🔍',
-                    title: _selectedFilter == StockFilter.inStock
-                        ? 'Noch nichts im Vorrat'
-                        : 'Keine Lebensmittel gefunden',
-                    message: _selectedFilter == StockFilter.inStock
-                        ? 'Markiere Lebensmittel als „Zuhause“, damit sie hier erscheinen.'
-                        : 'Füge "${foodProvider.searchQuery}" als neues eigenes Lebensmittel hinzu!',
+                    emoji: '🔍',
+                    title: 'Keine Lebensmittel gefunden',
+                    message:
+                        'Füge "${foodProvider.searchQuery}" als neues eigenes Lebensmittel hinzu!',
                     actionLabel: 'Lebensmittel hinzufügen',
                     onAction: () => _openAddFoodDialog(context),
                   )

@@ -744,13 +744,39 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                   const SizedBox(height: 28),
 
                   // Profile & Account Card
-                  const Text(
-                    'Dein Profil',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.textDark,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Dein Profil',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textDark,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primarySoft,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppTheme.primaryLight.withValues(alpha: 0.4),
+                          ),
+                        ),
+                        child: const Text(
+                          'Version 2.1',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.primaryGreen,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 10),
 
@@ -950,7 +976,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                     child: Column(
                       children: [
                         Text(
-                          'Dino_food v2.0',
+                          'Dino_food Version 2.1',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
