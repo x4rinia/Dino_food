@@ -377,47 +377,51 @@ class _FoodsScreenState extends State<FoodsScreen> {
                                 ),
                               ),
 
-                              // Non-clickable Stock Info Badge
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isInStock
-                                      ? AppTheme.primaryGreen
-                                      : Colors.grey.shade100,
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
+                              // Stock Toggle Button
+                              InkWell(
+                                onTap: () => stockProvider.toggleStock(food.id),
+                                borderRadius: BorderRadius.circular(10),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
                                     color: isInStock
                                         ? AppTheme.primaryGreen
-                                        : Colors.grey.shade300,
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      isInStock
-                                          ? Icons.check_circle
-                                          : Icons.home_outlined,
-                                      size: 15,
+                                        : Colors.grey.shade100,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
                                       color: isInStock
-                                          ? Colors.white
-                                          : AppTheme.textMuted,
+                                          ? AppTheme.primaryGreen
+                                          : Colors.grey.shade300,
                                     ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      isInStock ? 'Vorrat' : 'Vorrat?',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        isInStock
+                                            ? Icons.check_circle
+                                            : Icons.home_outlined,
+                                        size: 15,
                                         color: isInStock
                                             ? Colors.white
                                             : AppTheme.textMuted,
                                       ),
-                                    ),
-                                  ],
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        isInStock ? 'Vorrat' : 'Vorrat?',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: isInStock
+                                              ? Colors.white
+                                              : AppTheme.textMuted,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
 
