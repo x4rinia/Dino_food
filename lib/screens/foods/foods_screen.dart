@@ -96,18 +96,38 @@ class _FoodsScreenState extends State<FoodsScreen> {
       appBar: AppBar(
         title: const Text('Lebensmitteldatenbank 🍽️'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, size: 20),
-            tooltip: 'Sortierung aktualisieren',
-            onPressed: () {
-              _refreshStockSnapshot(stockProvider);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Sortierung nach Vorratsstatus aktualisiert.'),
-                  duration: Duration(seconds: 1),
+          Padding(
+            padding: const EdgeInsets.only(right: 12.0),
+            child: TextButton.icon(
+              style: TextButton.styleFrom(
+                foregroundColor: AppTheme.primaryGreen,
+                backgroundColor: AppTheme.primarySoft,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
                 ),
-              );
-            },
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: const Icon(Icons.sort, size: 16),
+              label: const Text(
+                'Vorrat',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              onPressed: () {
+                _refreshStockSnapshot(stockProvider);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Nach Vorrat sortiert.'),
+                    duration: Duration(seconds: 1),
+                  ),
+                );
+              },
+            ),
           ),
         ],
       ),
