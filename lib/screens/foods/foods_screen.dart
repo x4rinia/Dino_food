@@ -24,6 +24,14 @@ class FoodsScreen extends StatefulWidget {
 
 class _FoodsScreenState extends State<FoodsScreen> {
   final _searchController = TextEditingController();
+  Set<String>? _sessionStockSnapshot;
+  String _lastSearchQuery = '';
+
+  void _refreshStockSnapshot(StockProvider stockProvider) {
+    setState(() {
+      _sessionStockSnapshot = Set<String>.from(stockProvider.inStockFoodIds);
+    });
+  }
 
   @override
   void initState() {
@@ -59,16 +67,26 @@ class _FoodsScreenState extends State<FoodsScreen> {
       context,
       listen: false,
     );
+
+    // Initialize or update stock snapshot on initial view load or search change
+    if (_sessionStockSnapshot == null ||
+        _lastSearchQuery != foodProvider.searchQuery) {
+      _sessionStockSnapshot = Set<String>.from(stockProvider.inStockFoodIds);
+      _lastSearchQuery = foodProvider.searchQuery;
+    }
+
     final filteredFoods = foodProvider.filteredFoods;
     final visibleStockCount = stockProvider.countForFoodIds(
       foodProvider.foods.map((food) => food.id),
     );
 
-    // Display all foods matching search query, sorted with items currently in stock first
+    // Display all foods matching search query.
+    // Order is stabilized during current view session based on _sessionStockSnapshot
+    // so toggling "Zuhause" doesn't jump the item around while the user is editing it.
     final displayedFoods = List<Food>.from(filteredFoods);
     displayedFoods.sort((a, b) {
-      final aInStock = stockProvider.isInStock(a.id);
-      final bInStock = stockProvider.isInStock(b.id);
+      final aInStock = _sessionStockSnapshot!.contains(a.id);
+      final bInStock = _sessionStockSnapshot!.contains(b.id);
       if (aInStock && !bInStock) return -1;
       if (!aInStock && bInStock) return 1;
       return FoodProvider.compareFoodNames(a.name, b.name);
@@ -77,6 +95,21 @@ class _FoodsScreenState extends State<FoodsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Lebensmitteldatenbank 🍽️'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, size: 20),
+            tooltip: 'Sortierung aktualisieren',
+            onPressed: () {
+              _refreshStockSnapshot(stockProvider);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Sortierung nach Vorratsstatus aktualisiert.'),
+                  duration: Duration(seconds: 1),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -136,7 +169,7 @@ class _FoodsScreenState extends State<FoodsScreen> {
             ),
           ),
 
-          // Food List
+          // Food List with RefreshIndicator
           Expanded(
             child: foodProvider.isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -154,10 +187,17 @@ class _FoodsScreenState extends State<FoodsScreen> {
                     actionLabel: 'Lebensmittel hinzufügen',
                     onAction: () => _openAddFoodDialog(context),
                   )
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 80),
-                    itemCount: displayedFoods.length,
-                    itemBuilder: (context, index) {
+                : RefreshIndicator(
+                    onRefresh: () async {
+                      await foodProvider.loadFoods(force: true);
+                      if (mounted) {
+                        _refreshStockSnapshot(stockProvider);
+                      }
+                    },
+                    child: ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 80),
+                      itemCount: displayedFoods.length,
+                      itemBuilder: (context, index) {
                       final food = displayedFoods[index];
                       final isInStock = stockProvider.isInStock(food.id);
 
@@ -355,6 +395,7 @@ class _FoodsScreenState extends State<FoodsScreen> {
                       );
                     },
                   ),
+                ),
           ),
         ],
       ),
